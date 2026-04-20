@@ -1,0 +1,263 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Weekday {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum AvailabilitySource {
+  WEEKLY
+  SPECIFIC_DATE
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  ATTENDED
+  ABSENT
+  CANCELLED
+}
+
+enum WaStatus {
+  DISCONNECTED
+  CONNECTING
+  CONNECTED
+}
+
+enum MessageDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum MessageType {
+  APPOINTMENT_CREATED
+  APPOINTMENT_REMINDER
+  APPOINTMENT_RESCHEDULED
+  APPOINTMENT_CANCELLED
+  PATIENT_REPLY
+  SYSTEM
+}
+
+model Professional {
+  id                  String   @id @default(cuid())
+  slug                String   @unique
+  fullName            String
+  email               String   @unique
+  passwordHash        String
+  phone               String?
+  timezone            String   @default("America/Argentina/Buenos_Aires")
+  consultationMinutes Int      @default(30)
+  bufferMinutes       Int      @default(10)
+  minRescheduleHours  Int      @default(4)
+  standardFee         Decimal  @db.Decimal(10, 2)
+  reminderHours       Int      @default(24)
+  waInstanceName      String?
+  waStatus            WaStatus @default(DISCONNECTED)
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  weeklyAvailability WeeklyAvailability[]
+  specificDateSlots  SpecificDateAvailability[]
+  patients           Patient[]
+  appointments       Appointment[]
+  revenues           Revenue[]
+  expenses           Expense[]
+  messageLogs        MessageLog[]
+  webhookEventLogs   WebhookEventLog[]
+}
+
+model WeeklyAvailability {
+  id             String   @id @default(cuid())
+  professionalId String
+  weekday        Weekday
+  isEnabled      Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  professional Professional       @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  ranges       AvailabilityRange[]
+
+  @@unique([professionalId, weekday])
+  @@index([professionalId])
+}
+
+model SpecificDateAvailability {
+  id             String   @id @default(cuid())
+  professionalId String
+  date           DateTime @db.Date
+  isEnabled      Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  professional Professional       @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  ranges       AvailabilityRange[]
+  slotCapacities AvailabilitySlotCapacity[]
+
+  @@unique([professionalId, date])
+  @@index([professionalId, date])
+}
+
+model AvailabilityRange {
+  id                         String   @id @default(cuid())
+  startTime                  String
+  endTime                    String
+  capacity                   Int?
+  weeklyAvailabilityId       String?
+  specificDateAvailabilityId String?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  weeklyAvailability       WeeklyAvailability?       @relation(fields: [weeklyAvailabilityId], references: [id], onDelete: Cascade)
+  specificDateAvailability SpecificDateAvailability? @relation(fields: [specificDateAvailabilityId], references: [id], onDelete: Cascade)
+
+  @@index([weeklyAvailabilityId])
+  @@index([specificDateAvailabilityId])
+}
+
+model AvailabilitySlotCapacity {
+  id                         String   @id @default(cuid())
+  specificDateAvailabilityId String
+  startTime                  String
+  capacity                   Int
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  specificDateAvailability SpecificDateAvailability @relation(fields: [specificDateAvailabilityId], references: [id], onDelete: Cascade)
+
+  @@unique([specificDateAvailabilityId, startTime])
+  @@index([specificDateAvailabilityId])
+}
+
+model Patient {
+  id             String    @id @default(cuid())
+  professionalId String
+  firstName      String
+  lastName       String
+  phone          String
+  email          String?
+  dni            String?
+  birthDate      DateTime? @db.Date
+  notes          String?
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  professional Professional  @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+  messageLogs  MessageLog[]
+
+  @@unique([professionalId, phone])
+  @@unique([professionalId, dni])
+  @@index([professionalId, lastName, firstName])
+  @@index([professionalId, createdAt])
+}
+
+model Appointment {
+  id                   String            @id @default(cuid())
+  professionalId       String
+  patientId            String
+  startAt              DateTime
+  endAt                DateTime
+  durationMinutes      Int
+  bufferMinutes        Int
+  status               AppointmentStatus @default(PENDING)
+  fee                  Decimal           @db.Decimal(10, 2)
+  reason               String?
+  cancelledAt          DateTime?
+  attendedAt           DateTime?
+  reminderScheduledFor DateTime?
+  reminderSentAt       DateTime?
+  reminderJobId        String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  patient      Patient      @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  revenue      Revenue?
+  messageLogs  MessageLog[]
+
+  @@index([professionalId, startAt])
+  @@index([professionalId, status, startAt])
+  @@index([patientId, startAt])
+}
+
+model Revenue {
+  id             String   @id @default(cuid())
+  professionalId String
+  appointmentId  String?  @unique
+  amount         Decimal  @db.Decimal(10, 2)
+  occurredAt     DateTime
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  appointment  Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([professionalId, occurredAt])
+}
+
+model Expense {
+  id             String   @id @default(cuid())
+  professionalId String
+  concept        String
+  amount         Decimal  @db.Decimal(10, 2)
+  occurredAt     DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId, occurredAt])
+}
+
+model MessageLog {
+  id             String           @id @default(cuid())
+  professionalId String
+  patientId      String?
+  appointmentId  String?
+  direction      MessageDirection
+  messageType    MessageType
+  toPhone        String?
+  fromPhone      String?
+  content        String
+  sentAt         DateTime?
+  receivedAt     DateTime?
+  createdAt      DateTime         @default(now())
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  patient        Patient?       @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  appointment    Appointment?   @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([professionalId, createdAt])
+  @@index([professionalId, messageType])
+  @@index([professionalId, patientId, createdAt])
+}
+
+model WebhookEventLog {
+  id             String   @id @default(cuid())
+  professionalId String?
+  source         String
+  eventType      String
+  payload        Json
+  processedAt    DateTime?
+  createdAt      DateTime @default(now())
+
+  professional Professional? @relation(fields: [professionalId], references: [id], onDelete: SetNull)
+
+  @@index([professionalId, createdAt])
+  @@index([source, eventType])
+}
