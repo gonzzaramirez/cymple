@@ -126,7 +126,18 @@ export function AppointmentsList({ items }: { items: Appointment[] }) {
     {
       accessorKey: "reason",
       header: "Motivo",
-      cell: ({ row }) => row.original.reason || "—",
+      cell: ({ row }) => {
+        const reason = row.original.reason;
+        if (!reason) return <span className="text-muted-foreground">—</span>;
+        return (
+          <span
+            className="block max-w-[240px] truncate"
+            title={reason}
+          >
+            {reason}
+          </span>
+        );
+      },
     },
     {
       id: "actions",

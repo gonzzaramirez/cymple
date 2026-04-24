@@ -4,8 +4,13 @@ import "@schedule-x/theme-default/dist/index.css";
 import { Toaster } from "sileo";
 
 export const metadata: Metadata = {
-  title: "MedAgenda",
-  description: "Gestión de agenda y pacientes para profesionales de la salud",
+  title: "Cymple",
+  description: "Cymple, gestiona tu agenda profesional de forma simple.",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({

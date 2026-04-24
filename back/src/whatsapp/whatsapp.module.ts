@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../common/prisma/prisma.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { EvolutionApiService } from './evolution-api.service';
 import { WhatsappConnectionService } from './whatsapp-connection.service';
 import { WhatsappMessagingService } from './whatsapp-messaging.service';
 import { WhatsappController } from './whatsapp.controller';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, NotificationsModule],
   controllers: [WhatsappController],
   providers: [
     EvolutionApiService,

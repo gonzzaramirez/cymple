@@ -3,6 +3,6 @@ import { Injectable } from '@nestjs/common';
 @Injectable()
 export class AppService {
   getHello(): string {
-    return 'MedAgenda API v1';
+    return 'Cymple API v1';
   }
 }

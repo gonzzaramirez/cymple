@@ -10,13 +10,16 @@ export type Patient = {
   id: string;
   firstName: string;
   lastName: string;
-  phone: string;
+  phone?: string | null;
   email?: string | null;
   dni?: string | null;
   birthDate?: string | null;
   notes?: string | null;
   createdAt: string;
 };
+
+export type AppointmentModality = "PRESENCIAL" | "VIRTUAL";
+export type PaymentMethod = "CASH" | "TRANSFER";
 
 export type Appointment = {
   id: string;
@@ -27,12 +30,14 @@ export type Appointment = {
   durationMinutes: number;
   bufferMinutes: number;
   status: "PENDING" | "CONFIRMED" | "ATTENDED" | "ABSENT" | "CANCELLED";
+  modality: AppointmentModality;
   fee: string;
   reason?: string | null;
   patient?: {
     id: string;
     firstName: string;
     lastName: string;
+    absentCount?: number;
   };
 };
 
@@ -57,6 +62,10 @@ export type ProfessionalSettings = {
   standardFee: string;
   reminderHours: number;
   timezone: string;
+  dailyDigestEnabled: boolean;
+  dailyDigestTime: string;
+  autoConfirmHours: number | null;
+  paymentAlias: string | null;
 };
 
 export type MessageLogEntry = {

@@ -302,7 +302,7 @@ export function PatientSearchPreview({
                 {patients.map((p) => (
                   <CommandItem
                     key={p.id}
-                    value={`${p.lastName} ${p.firstName} ${p.phone}`}
+                    value={`${p.lastName} ${p.firstName} ${p.phone ?? ""}`}
                     onSelect={() => selectPatient(p)}
                     className="cursor-pointer rounded-lg px-3 py-2.5"
                   >
@@ -314,7 +314,7 @@ export function PatientSearchPreview({
                       <p className="truncate text-sm font-medium">
                         {p.lastName}, {p.firstName}
                       </p>
-                      <p className="text-xs text-muted-foreground">{p.phone}</p>
+                      <p className="text-xs text-muted-foreground">{p.phone ?? "Sin teléfono"}</p>
                     </div>
                     <ChevronRight className="size-3.5 text-muted-foreground shrink-0" />
                   </CommandItem>

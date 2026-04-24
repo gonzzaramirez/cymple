@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
+import { NotificationBell } from "@/components/notification-bell";
 import { serverApiFetch } from "@/lib/server-api";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
@@ -26,6 +27,9 @@ export default async function DashboardLayout({
         <header className="sticky top-0 z-30 flex h-12 items-center gap-3 border-b border-border bg-card/80 px-5 backdrop-blur-xl">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="h-5!" />
+          <div className="ml-auto">
+            <NotificationBell />
+          </div>
         </header>
         <main id="main-content" className="flex-1 overflow-y-auto p-5 md:p-6">
           {children}

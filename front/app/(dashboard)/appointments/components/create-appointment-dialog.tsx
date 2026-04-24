@@ -2,6 +2,7 @@
 
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { useRouter } from "next/navigation";
+import { z } from "zod";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -14,8 +15,24 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { sileo } from "sileo";
+
+const newPatientSchema = z.object({
+  firstName: z.string().min(1, "El nombre es requerido"),
+  lastName: z.string().min(1, "El apellido es requerido"),
+  phone: z
+    .string()
+    .regex(/^\+?\d{8,20}$/, "Formato inválido (ej: +5491123456789)")
+    .or(z.literal(""))
+    .optional(),
+  email: z.string().email("Email inválido").or(z.literal("")).optional(),
+  dni: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+type NewPatientErrors = Partial<Record<keyof z.infer<typeof newPatientSchema>, string>>;
 import {
   Plus,
   Clock3,
@@ -26,8 +43,10 @@ import {
   X,
   User,
   ChevronDown,
+  MapPin,
+  Video,
 } from "lucide-react";
-import { Patient } from "@/lib/types";
+import { AppointmentModality, Patient } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type SlotItem = {
@@ -63,6 +82,7 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
   const [selectedPatientName, setSelectedPatientName] = useState("");
   const [showNewPatient, setShowNewPatient] = useState(false);
   const [newPatientLoading, setNewPatientLoading] = useState(false);
+  const [newPatientErrors, setNewPatientErrors] = useState<NewPatientErrors>({});
   const [newFirstName, setNewFirstName] = useState("");
   const [newLastName, setNewLastName] = useState("");
   const [newPhone, setNewPhone] = useState("");
@@ -76,6 +96,7 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
   const [durationMinutes, setDurationMinutes] = useState("");
   const [fee, setFee] = useState("");
   const [reason, setReason] = useState("");
+  const [modality, setModality] = useState<AppointmentModality>("PRESENCIAL");
 
   useImperativeHandle(ref, () => ({
     openWithPatient(patientId: string, patientName: string) {
@@ -141,6 +162,7 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
     setSelectedPatientId("");
     setSelectedPatientName("");
     setShowNewPatient(false);
+    setNewPatientErrors({});
     setNewFirstName("");
     setNewLastName("");
     setNewPhone("");
@@ -151,6 +173,12 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
     setDurationMinutes("");
     setFee("");
     setReason("");
+    setModality("PRESENCIAL");
+  }
+
+  function autoResizeNotes(el: HTMLTextAreaElement) {
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
   }
 
   function selectPatient(p: Patient) {
@@ -165,21 +193,36 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
   }
 
   async function onCreatePatient() {
-    if (!newFirstName.trim() || !newLastName.trim() || !newPhone.trim()) {
-      sileo.error({ title: "Completá nombre, apellido y teléfono" });
+    const parsed = newPatientSchema.safeParse({
+      firstName: newFirstName,
+      lastName: newLastName,
+      phone: newPhone,
+      email: newEmail,
+      dni: newDni,
+      notes: newNotes,
+    });
+    if (!parsed.success) {
+      const errors: NewPatientErrors = {};
+      for (const issue of parsed.error.issues) {
+        const key = issue.path[0] as keyof NewPatientErrors;
+        if (!errors[key]) errors[key] = issue.message;
+      }
+      setNewPatientErrors(errors);
       return;
     }
+    setNewPatientErrors({});
     setNewPatientLoading(true);
+    const data = parsed.data;
     const res = await fetch("/api/backend/patients", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        firstName: newFirstName.trim(),
-        lastName: newLastName.trim(),
-        phone: newPhone.trim(),
-        email: newEmail.trim() || undefined,
-        dni: newDni.trim() || undefined,
-        notes: newNotes.trim() || undefined,
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
+        phone: data.phone?.trim() || undefined,
+        email: data.email?.trim() || undefined,
+        dni: data.dni?.trim() || undefined,
+        notes: data.notes?.trim() || undefined,
       }),
     });
     setNewPatientLoading(false);
@@ -214,6 +257,7 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
       patientId: selectedPatientId,
       startAt: selectedSlotStartAt,
       reason: reason.trim() || undefined,
+      modality,
     };
     if (duration) payload.durationMinutes = Number(duration);
     if (feeVal) payload.fee = Number(feeVal);
@@ -268,7 +312,7 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
           }
         />
       )}
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="flex max-h-[90vh] flex-col overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             Crear turno
@@ -349,7 +393,7 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
                             {p.lastName}, {p.firstName}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {p.phone}
+                            {p.phone ?? "Sin teléfono"}
                           </p>
                         </div>
                       </button>
@@ -386,6 +430,9 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
                       value={newFirstName}
                       onChange={(e) => setNewFirstName(e.target.value)}
                     />
+                    {newPatientErrors.firstName && (
+                      <p className="text-xs text-destructive">{newPatientErrors.firstName}</p>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="np-lastName" className="text-xs">
@@ -396,22 +443,32 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
                       value={newLastName}
                       onChange={(e) => setNewLastName(e.target.value)}
                     />
+                    {newPatientErrors.lastName && (
+                      <p className="text-xs text-destructive">{newPatientErrors.lastName}</p>
+                    )}
                   </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="np-phone" className="text-xs">
-                    Teléfono *
-                  </Label>
-                  <Input
-                    id="np-phone"
-                    value={newPhone}
-                    onChange={(e) => setNewPhone(e.target.value)}
-                  />
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
+                    <Label htmlFor="np-phone" className="text-xs">
+                      Teléfono{" "}
+                      <span className="font-normal text-muted-foreground">(opcional)</span>
+                    </Label>
+                    <Input
+                      id="np-phone"
+                      type="tel"
+                      placeholder="+5491123456789"
+                      value={newPhone}
+                      onChange={(e) => setNewPhone(e.target.value)}
+                    />
+                    {newPatientErrors.phone && (
+                      <p className="text-xs text-destructive">{newPatientErrors.phone}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
                     <Label htmlFor="np-email" className="text-xs">
-                      Email
+                      Email{" "}
+                      <span className="font-normal text-muted-foreground">(opcional)</span>
                     </Label>
                     <Input
                       id="np-email"
@@ -419,36 +476,40 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
                       value={newEmail}
                       onChange={(e) => setNewEmail(e.target.value)}
                     />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="np-dni" className="text-xs">
-                      DNI
-                    </Label>
-                    <Input
-                      id="np-dni"
-                      value={newDni}
-                      onChange={(e) => setNewDni(e.target.value)}
-                    />
+                    {newPatientErrors.email && (
+                      <p className="text-xs text-destructive">{newPatientErrors.email}</p>
+                    )}
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="np-notes" className="text-xs">
-                    Notas
+                  <Label htmlFor="np-dni" className="text-xs">
+                    DNI{" "}
+                    <span className="font-normal text-muted-foreground">(opcional)</span>
                   </Label>
                   <Input
+                    id="np-dni"
+                    value={newDni}
+                    onChange={(e) => setNewDni(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="np-notes" className="text-xs">
+                    Notas{" "}
+                    <span className="font-normal text-muted-foreground">(opcional)</span>
+                  </Label>
+                  <Textarea
                     id="np-notes"
+                    rows={2}
+                    placeholder="Alergias, antecedentes, indicaciones especiales..."
+                    className="resize-none overflow-hidden"
                     value={newNotes}
+                    onInput={(e) => autoResizeNotes(e.currentTarget)}
                     onChange={(e) => setNewNotes(e.target.value)}
                   />
                 </div>
                 <Button
                   onClick={onCreatePatient}
-                  disabled={
-                    newPatientLoading ||
-                    !newFirstName.trim() ||
-                    !newLastName.trim() ||
-                    !newPhone.trim()
-                  }
+                  disabled={newPatientLoading}
                   size="sm"
                   className="w-full"
                 >
@@ -475,7 +536,7 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
               <span className="font-medium">{selectedPatientName}</span>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-[1fr_1.1fr]">
+            <div className="grid gap-3 sm:grid-cols-[1fr_1.1fr]">
               <div className="rounded-xl border border-border p-2">
                 <Calendar
                   mode="single"
@@ -545,6 +606,38 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
                 </div>
               </div>
             </div>
+            <div className="space-y-2">
+              <Label>Modalidad</Label>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setModality("PRESENCIAL")}
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors",
+                    modality === "PRESENCIAL"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                  )}
+                >
+                  <MapPin className="size-4" />
+                  Presencial
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModality("VIRTUAL")}
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors",
+                    modality === "VIRTUAL"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                  )}
+                >
+                  <Video className="size-4" />
+                  Virtual
+                </button>
+              </div>
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="appt-duration">Duración (min)</Label>
@@ -567,9 +660,17 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
             </div>
             <div className="space-y-2">
               <Label htmlFor="appt-reason">Motivo</Label>
-              <Input
+              <Textarea
                 id="appt-reason"
+                rows={2}
+                placeholder="Descripción del motivo de la consulta..."
+                className="resize-none overflow-hidden"
                 value={reason}
+                onInput={(e) => {
+                  const el = e.currentTarget;
+                  el.style.height = "auto";
+                  el.style.height = `${el.scrollHeight}px`;
+                }}
                 onChange={(e) => setReason(e.target.value)}
               />
             </div>

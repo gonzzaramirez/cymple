@@ -20,7 +20,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
             <DataCard
               title={`${patient.lastName}, ${patient.firstName}`}
               items={[
-                { label: "Teléfono", value: patient.phone },
+                { label: "Teléfono", value: patient.phone || "—" },
                 { label: "Email", value: patient.email || "—" },
                 { label: "DNI", value: patient.dni || "—" },
               ]}

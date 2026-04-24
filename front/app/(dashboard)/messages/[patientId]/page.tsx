@@ -65,8 +65,8 @@ export default async function PatientMessagesPage({
             {patient.lastName}, {patient.firstName}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {data.total} mensaje{data.total === 1 ? "" : "s"} &middot;{" "}
-            {patient.phone}
+            {data.total} mensaje{data.total === 1 ? "" : "s"}
+            {patient.phone && <> &middot; {patient.phone}</>}
           </p>
         </div>
       </div>

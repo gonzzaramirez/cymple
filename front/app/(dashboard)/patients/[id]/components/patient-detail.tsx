@@ -157,10 +157,12 @@ export function PatientDetail({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex items-center gap-2.5">
-              <Phone className="size-4 text-muted-foreground" />
-              <span className="font-mono text-sm">{patient.phone}</span>
-            </div>
+            {patient.phone && (
+              <div className="flex items-center gap-2.5">
+                <Phone className="size-4 text-muted-foreground" />
+                <span className="font-mono text-sm">{patient.phone}</span>
+              </div>
+            )}
             {patient.email && (
               <div className="flex items-center gap-2.5">
                 <Mail className="size-4 text-muted-foreground" />

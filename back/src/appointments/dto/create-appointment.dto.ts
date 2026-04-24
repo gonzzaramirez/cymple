@@ -1,12 +1,14 @@
 import { Transform } from 'class-transformer';
 import {
   IsDateString,
+  IsEnum,
   IsNumber,
   IsOptional,
   IsString,
   Max,
   Min,
 } from 'class-validator';
+import { AppointmentModality } from '@prisma/client';
 
 export class CreateAppointmentDto {
   @IsString()
@@ -31,4 +33,8 @@ export class CreateAppointmentDto {
   @IsOptional()
   @IsString()
   reason?: string;
+
+  @IsOptional()
+  @IsEnum(AppointmentModality)
+  modality?: AppointmentModality;
 }

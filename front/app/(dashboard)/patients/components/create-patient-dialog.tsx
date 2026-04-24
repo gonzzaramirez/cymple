@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { z } from "zod";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -14,9 +15,25 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { sileo } from "sileo";
 import { Clock3, Plus } from "lucide-react";
+
+const patientSchema = z.object({
+  firstName: z.string().min(1, "El nombre es requerido"),
+  lastName: z.string().min(1, "El apellido es requerido"),
+  phone: z
+    .string()
+    .regex(/^\+?\d{8,20}$/, "Formato inválido (ej: +5491123456789)")
+    .or(z.literal(""))
+    .optional(),
+  email: z.string().email("Email inválido").or(z.literal("")).optional(),
+  dni: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+type PatientFormErrors = Partial<Record<keyof z.infer<typeof patientSchema>, string>>;
 
 type FlowStep = 1 | 2;
 type SlotItem = {
@@ -37,6 +54,7 @@ export function CreatePatientDialog({ onSuccess }: CreatePatientDialogProps) {
   const [loading, setLoading] = useState(false);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [step, setStep] = useState<FlowStep>(1);
+  const [fieldErrors, setFieldErrors] = useState<PatientFormErrors>({});
   const [createdPatient, setCreatedPatient] = useState<{
     id: string;
     fullName: string;
@@ -57,20 +75,20 @@ export function CreatePatientDialog({ onSuccess }: CreatePatientDialogProps) {
     fee: "",
     reason: "",
   });
+  const notesRef = useRef<HTMLTextAreaElement>(null);
+
+  function autoResize(el: HTMLTextAreaElement) {
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }
 
   function resetFlow() {
     setOpen(false);
     setStep(1);
     setLoading(false);
+    setFieldErrors({});
     setCreatedPatient(null);
-    setPatientForm({
-      firstName: "",
-      lastName: "",
-      phone: "",
-      email: "",
-      dni: "",
-      notes: "",
-    });
+    setPatientForm({ firstName: "", lastName: "", phone: "", email: "", dni: "", notes: "" });
     setAppointmentForm({
       selectedDate: new Date(),
       selectedSlotStartAt: "",
@@ -83,22 +101,27 @@ export function CreatePatientDialog({ onSuccess }: CreatePatientDialogProps) {
 
   async function onCreatePatient(e: React.FormEvent) {
     e.preventDefault();
-    if (
-      !patientForm.firstName.trim() ||
-      !patientForm.lastName.trim() ||
-      !patientForm.phone.trim()
-    ) {
-      sileo.error({ title: "Completá nombre, apellido y teléfono" });
+    const result = patientSchema.safeParse(patientForm);
+    if (!result.success) {
+      const errors: PatientFormErrors = {};
+      for (const issue of result.error.issues) {
+        const key = issue.path[0] as keyof PatientFormErrors;
+        if (!errors[key]) errors[key] = issue.message;
+      }
+      setFieldErrors(errors);
       return;
     }
+    setFieldErrors({});
     setLoading(true);
+
+    const data = result.data;
     const payload = {
-      firstName: patientForm.firstName.trim(),
-      lastName: patientForm.lastName.trim(),
-      phone: patientForm.phone.trim(),
-      email: patientForm.email.trim() || undefined,
-      dni: patientForm.dni.trim() || undefined,
-      notes: patientForm.notes.trim() || undefined,
+      firstName: data.firstName.trim(),
+      lastName: data.lastName.trim(),
+      phone: data.phone?.trim() || undefined,
+      email: data.email?.trim() || undefined,
+      dni: data.dni?.trim() || undefined,
+      notes: data.notes?.trim() || undefined,
     };
 
     const response = await fetch("/api/backend/patients", {
@@ -141,11 +164,7 @@ export function CreatePatientDialog({ onSuccess }: CreatePatientDialogProps) {
     const res = await fetch(`/api/backend/availability/slots?date=${formattedDate}`);
 
     if (!res.ok) {
-      setAppointmentForm((prev) => ({
-        ...prev,
-        slots: [],
-        selectedSlotStartAt: "",
-      }));
+      setAppointmentForm((prev) => ({ ...prev, slots: [], selectedSlotStartAt: "" }));
       setSlotsLoading(false);
       return;
     }
@@ -211,10 +230,7 @@ export function CreatePatientDialog({ onSuccess }: CreatePatientDialogProps) {
     <Dialog
       open={open}
       onOpenChange={(nextOpen) => {
-        if (!nextOpen) {
-          resetFlow();
-          return;
-        }
+        if (!nextOpen) { resetFlow(); return; }
         setOpen(true);
       }}
     >
@@ -226,7 +242,7 @@ export function CreatePatientDialog({ onSuccess }: CreatePatientDialogProps) {
           </Button>
         }
       />
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="flex max-h-[90vh] flex-col overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
             {step === 1 ? "Paso 1 de 2: Crear paciente" : "Paso 2 de 2: Asignar turno"}
@@ -235,45 +251,57 @@ export function CreatePatientDialog({ onSuccess }: CreatePatientDialogProps) {
         {step === 1 ? (
           <form onSubmit={onCreatePatient} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="create-firstName">Nombre</Label>
                 <Input
                   id="create-firstName"
-                  required
                   value={patientForm.firstName}
                   onChange={(e) =>
                     setPatientForm((prev) => ({ ...prev, firstName: e.target.value }))
                   }
                 />
+                {fieldErrors.firstName && (
+                  <p className="text-xs text-destructive">{fieldErrors.firstName}</p>
+                )}
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="create-lastName">Apellido</Label>
                 <Input
                   id="create-lastName"
-                  required
                   value={patientForm.lastName}
                   onChange={(e) =>
                     setPatientForm((prev) => ({ ...prev, lastName: e.target.value }))
                   }
                 />
+                {fieldErrors.lastName && (
+                  <p className="text-xs text-destructive">{fieldErrors.lastName}</p>
+                )}
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="create-phone">Teléfono</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="create-phone">
+                  Teléfono{" "}
+                  <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+                </Label>
                 <Input
                   id="create-phone"
                   type="tel"
-                  placeholder="+549..."
-                  required
+                  placeholder="+5491123456789"
                   value={patientForm.phone}
                   onChange={(e) =>
                     setPatientForm((prev) => ({ ...prev, phone: e.target.value }))
                   }
                 />
+                {fieldErrors.phone && (
+                  <p className="text-xs text-destructive">{fieldErrors.phone}</p>
+                )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="create-email">Email</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="create-email">
+                  Email{" "}
+                  <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+                </Label>
                 <Input
                   id="create-email"
                   type="email"
@@ -282,29 +310,41 @@ export function CreatePatientDialog({ onSuccess }: CreatePatientDialogProps) {
                     setPatientForm((prev) => ({ ...prev, email: e.target.value }))
                   }
                 />
+                {fieldErrors.email && (
+                  <p className="text-xs text-destructive">{fieldErrors.email}</p>
+                )}
               </div>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="create-dni">DNI</Label>
-                <Input
-                  id="create-dni"
-                  value={patientForm.dni}
-                  onChange={(e) =>
-                    setPatientForm((prev) => ({ ...prev, dni: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="create-notes">Notas</Label>
-                <Input
-                  id="create-notes"
-                  value={patientForm.notes}
-                  onChange={(e) =>
-                    setPatientForm((prev) => ({ ...prev, notes: e.target.value }))
-                  }
-                />
-              </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="create-dni">
+                DNI{" "}
+                <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+              </Label>
+              <Input
+                id="create-dni"
+                value={patientForm.dni}
+                onChange={(e) =>
+                  setPatientForm((prev) => ({ ...prev, dni: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="create-notes">
+                Notas{" "}
+                <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+              </Label>
+              <Textarea
+                ref={notesRef}
+                id="create-notes"
+                rows={2}
+                placeholder="Alergias, antecedentes, indicaciones especiales..."
+                className="resize-none overflow-hidden"
+                value={patientForm.notes}
+                onInput={(e) => autoResize(e.currentTarget)}
+                onChange={(e) =>
+                  setPatientForm((prev) => ({ ...prev, notes: e.target.value }))
+                }
+              />
             </div>
             <div className="flex justify-end pt-2">
               <Button disabled={loading} type="submit" size="lg" className="w-full sm:w-auto">
@@ -339,9 +379,7 @@ export function CreatePatientDialog({ onSuccess }: CreatePatientDialogProps) {
                     Horarios disponibles
                   </p>
                   <p className="mb-3 text-sm font-medium">
-                    {format(appointmentForm.selectedDate, "EEEE d 'de' MMMM", {
-                      locale: es,
-                    })}
+                    {format(appointmentForm.selectedDate, "EEEE d 'de' MMMM", { locale: es })}
                   </p>
                   <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
                     {slotsLoading ? (
@@ -352,8 +390,7 @@ export function CreatePatientDialog({ onSuccess }: CreatePatientDialogProps) {
                       </p>
                     ) : (
                       appointmentForm.slots.map((slot) => {
-                        const isSelected =
-                          appointmentForm.selectedSlotStartAt === slot.startAt;
+                        const isSelected = appointmentForm.selectedSlotStartAt === slot.startAt;
                         const isDisabled =
                           slot.hasCapacityLimit && (slot.remainingCapacity ?? 0) <= 0;
                         return (
@@ -400,10 +437,7 @@ export function CreatePatientDialog({ onSuccess }: CreatePatientDialogProps) {
                   type="number"
                   value={appointmentForm.durationMinutes}
                   onChange={(e) =>
-                    setAppointmentForm((prev) => ({
-                      ...prev,
-                      durationMinutes: e.target.value,
-                    }))
+                    setAppointmentForm((prev) => ({ ...prev, durationMinutes: e.target.value }))
                   }
                 />
               </div>

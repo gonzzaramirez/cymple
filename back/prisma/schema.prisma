@@ -47,7 +47,18 @@ enum MessageType {
   APPOINTMENT_RESCHEDULED
   APPOINTMENT_CANCELLED
   PATIENT_REPLY
+  PAYMENT_REMINDER
   SYSTEM
+}
+
+enum AppointmentModality {
+  PRESENCIAL
+  VIRTUAL
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
 }
 
 model Professional {
@@ -63,6 +74,10 @@ model Professional {
   minRescheduleHours  Int      @default(4)
   standardFee         Decimal  @db.Decimal(10, 2)
   reminderHours       Int      @default(24)
+  dailyDigestEnabled  Boolean  @default(false)
+  dailyDigestTime     String   @default("08:00")
+  autoConfirmHours    Int?
+  paymentAlias        String?
   waInstanceName      String?
   waStatus            WaStatus @default(DISCONNECTED)
   isActive            Boolean  @default(true)
@@ -77,6 +92,7 @@ model Professional {
   expenses           Expense[]
   messageLogs        MessageLog[]
   webhookEventLogs   WebhookEventLog[]
+  notifications      Notification[]
 }
 
 model WeeklyAvailability {
@@ -146,7 +162,7 @@ model Patient {
   professionalId String
   firstName      String
   lastName       String
-  phone          String
+  phone          String?
   email          String?
   dni            String?
   birthDate      DateTime? @db.Date
@@ -173,14 +189,16 @@ model Appointment {
   endAt                DateTime
   durationMinutes      Int
   bufferMinutes        Int
-  status               AppointmentStatus @default(PENDING)
-  fee                  Decimal           @db.Decimal(10, 2)
+  status               AppointmentStatus   @default(PENDING)
+  modality             AppointmentModality @default(PRESENCIAL)
+  fee                  Decimal             @db.Decimal(10, 2)
   reason               String?
   cancelledAt          DateTime?
   attendedAt           DateTime?
   reminderScheduledFor DateTime?
   reminderSentAt       DateTime?
   reminderJobId        String?
+  paymentReminderSentAt DateTime?
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
 
@@ -198,11 +216,12 @@ model Revenue {
   id             String   @id @default(cuid())
   professionalId String
   appointmentId  String?  @unique
-  amount         Decimal  @db.Decimal(10, 2)
+  amount         Decimal        @db.Decimal(10, 2)
   occurredAt     DateTime
   notes          String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  paymentMethod  PaymentMethod?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
   appointment  Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
@@ -260,4 +279,19 @@ model WebhookEventLog {
 
   @@index([professionalId, createdAt])
   @@index([source, eventType])
+}
+
+model Notification {
+  id             String    @id @default(cuid())
+  professionalId String
+  type           String
+  title          String
+  body           String?
+  link           String?
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId, readAt, createdAt])
 }

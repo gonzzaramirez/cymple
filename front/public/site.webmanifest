@@ -1,6 +1,7 @@
 {
-  "name": "MyWebSite",
-  "short_name": "MySite",
+  "name": "Cymple",
+  "short_name": "Cymple",
+  "description": "Cymple, gestiona tu agenda profesional de forma simple.",
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",

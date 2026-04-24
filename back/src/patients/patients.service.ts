@@ -21,7 +21,7 @@ export class PatientsService {
           professionalId,
           firstName: dto.firstName.trim(),
           lastName: dto.lastName.trim(),
-          phone: dto.phone.trim(),
+          phone: dto.phone?.trim() || null,
           email: dto.email?.trim().toLowerCase(),
           dni: dto.dni?.trim(),
           birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,

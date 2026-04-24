@@ -18,6 +18,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { MessagesModule } from './messages/messages.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { MessagesModule } from './messages/messages.module';
     WhatsappModule,
     MessagesModule,
     DashboardModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [

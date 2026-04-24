@@ -19,6 +19,7 @@ export class DashboardService {
     const tz = professional.timezone;
 
     const now = new Date();
+    const next24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
     const { start: weekStart, end: weekEnd } = resolveCalendarRangeInTimeZone(
       'week',
@@ -46,6 +47,8 @@ export class DashboardService {
       expenses,
       attendedThisMonth,
       totalThisMonth,
+      pendingNext24h,
+      nextAppointmentRaw,
     ] = await Promise.all([
       this.prisma.patient.count({
         where: { professionalId, deletedAt: null },
@@ -119,6 +122,36 @@ export class DashboardService {
           status: { not: AppointmentStatus.CANCELLED },
         },
       }),
+      // Feature 2: citas PENDING en las próximas 24h
+      this.prisma.appointment.count({
+        where: {
+          professionalId,
+          status: AppointmentStatus.PENDING,
+          startAt: { gte: now, lte: next24h },
+        },
+      }),
+      // Feature 3: próxima cita inmediata
+      this.prisma.appointment.findFirst({
+        where: {
+          professionalId,
+          startAt: { gte: now },
+          status: {
+            in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
+          },
+        },
+        orderBy: { startAt: 'asc' },
+        select: {
+          id: true,
+          startAt: true,
+          endAt: true,
+          status: true,
+          reason: true,
+          durationMinutes: true,
+          patient: {
+            select: { id: true, firstName: true, lastName: true },
+          },
+        },
+      }),
     ]);
 
     const income = Number(revenues._sum.amount ?? 0);
@@ -145,12 +178,27 @@ export class DashboardService {
       };
     });
 
+    const nextAppointment = nextAppointmentRaw
+      ? {
+          ...nextAppointmentRaw,
+          minutesUntilStart: Math.max(
+            0,
+            Math.round(
+              (new Date(nextAppointmentRaw.startAt).getTime() - now.getTime()) /
+                60000,
+            ),
+          ),
+        }
+      : null;
+
     return {
       patientsTotal,
       patientsThisWeek,
       appointmentsThisWeek: appointmentsThisWeekAll.length,
       appointmentsToday,
       upcomingToday,
+      pendingNext24h,
+      nextAppointment,
       financeThisMonth: {
         income,
         expense,

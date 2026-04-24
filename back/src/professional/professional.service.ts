@@ -18,6 +18,10 @@ export class ProfessionalService {
         standardFee: true,
         reminderHours: true,
         timezone: true,
+        dailyDigestEnabled: true,
+        dailyDigestTime: true,
+        autoConfirmHours: true,
+        paymentAlias: true,
       },
     });
   }
@@ -34,6 +38,10 @@ export class ProfessionalService {
         standardFee: true,
         reminderHours: true,
         timezone: true,
+        dailyDigestEnabled: true,
+        dailyDigestTime: true,
+        autoConfirmHours: true,
+        paymentAlias: true,
       },
     });
   }

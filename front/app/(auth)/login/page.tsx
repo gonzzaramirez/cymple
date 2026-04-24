@@ -13,10 +13,10 @@ export default async function LoginPage() {
       <div className="w-full max-w-[420px]">
         <div className="mb-8 text-center">
           <h1 className="font-display text-4xl font-semibold tracking-[-0.02em] text-foreground">
-            MedAgenda
+            Cymple
           </h1>
           <p className="mt-2 text-base text-muted-foreground">
-            Gestión de agenda y pacientes para profesionales
+            Gestiona tus citas de una manera simple
           </p>
         </div>
         <LoginForm />

@@ -16,9 +16,10 @@ export class CreatePatientDto {
   @MaxLength(100)
   lastName!: string;
 
+  @IsOptional()
   @IsString()
   @Matches(/^\+?\d{8,20}$/)
-  phone!: string;
+  phone?: string;
 
   @IsOptional()
   @IsEmail()

@@ -3,8 +3,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { AppointmentStatus, Prisma, Weekday } from '@prisma/client';
+import { AppointmentModality, AppointmentStatus, Prisma, Weekday } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { CalendarQueryDto } from './dto/calendar-query.dto';
 import { ListAppointmentsDto } from './dto/list-appointments.dto';
@@ -20,6 +21,7 @@ export class AppointmentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly whatsappMessaging: WhatsappMessagingService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async create(professionalId: string, dto: CreateAppointmentDto) {
@@ -59,6 +61,7 @@ export class AppointmentsService {
         bufferMinutes: professional.bufferMinutes,
         fee: new Prisma.Decimal(dto.fee ?? professional.standardFee),
         reason: dto.reason?.trim(),
+        modality: dto.modality ?? AppointmentModality.PRESENCIAL,
         reminderScheduledFor: addMinutes(
           startAt,
           -professional.reminderHours * 60,
@@ -185,11 +188,35 @@ export class AppointmentsService {
       orderBy: { startAt: 'asc' },
     });
 
+    // Enrich with absentCount per patient
+    const patientIds = [...new Set(appointments.map((a) => a.patientId))];
+    const absentCounts =
+      patientIds.length > 0
+        ? await this.prisma.appointment.groupBy({
+            by: ['patientId'],
+            where: {
+              professionalId,
+              patientId: { in: patientIds },
+              status: AppointmentStatus.ABSENT,
+            },
+            _count: { id: true },
+          })
+        : [];
+    const absentMap = new Map(
+      absentCounts.map((r) => [r.patientId, r._count.id]),
+    );
+
     return {
       view: query.view ?? 'week',
       from: range.start,
       to: range.end,
-      items: appointments,
+      items: appointments.map((a) => ({
+        ...a,
+        patient: {
+          ...a.patient,
+          absentCount: absentMap.get(a.patientId) ?? 0,
+        },
+      })),
     };
   }
 
@@ -209,7 +236,19 @@ export class AppointmentsService {
       },
     });
     if (!appointment) throw new NotFoundException('Turno no encontrado');
-    return appointment;
+
+    const absentCount = await this.prisma.appointment.count({
+      where: {
+        professionalId,
+        patientId: appointment.patientId,
+        status: AppointmentStatus.ABSENT,
+      },
+    });
+
+    return {
+      ...appointment,
+      patient: { ...appointment.patient, absentCount },
+    };
   }
 
   async changeStatus(
@@ -245,12 +284,27 @@ export class AppointmentsService {
           appointmentId: appointment.id,
           amount: appointment.fee,
           occurredAt: appointment.startAt,
+          paymentMethod: dto.paymentMethod ?? null,
         },
         update: {
           amount: appointment.fee,
           occurredAt: appointment.startAt,
+          paymentMethod: dto.paymentMethod ?? null,
         },
       });
+    }
+
+    // Feature C: WA + in-app notification cuando el profesional cancela
+    if (dto.status === AppointmentStatus.CANCELLED) {
+      void this.prisma.appointment
+        .update({
+          where: { id: appointment.id },
+          data: { cancelledAt: new Date() },
+        })
+        .catch(() => undefined);
+      void this.whatsappMessaging
+        .sendAppointmentCancelledByProfessional(appointment.id)
+        .catch(() => undefined);
     }
 
     return updated;
@@ -285,7 +339,7 @@ export class AppointmentsService {
       appointment.id,
     );
 
-    return this.prisma.appointment.update({
+    const updated = await this.prisma.appointment.update({
       where: { id: appointment.id },
       data: {
         startAt,
@@ -299,6 +353,13 @@ export class AppointmentsService {
         reminderSentAt: null,
       },
     });
+
+    // Feature B: WA al paciente + in-app notification
+    void this.whatsappMessaging
+      .sendAppointmentRescheduled(updated.id)
+      .catch(() => undefined);
+
+    return updated;
   }
 
   async cancel(
