@@ -1,259 +1,257 @@
-# Design System Inspired by Cal.com
+# Design System Inspired by MiniMax
 
 ## 1. Visual Theme & Atmosphere
 
-Cal.com's website is a masterclass in monochromatic restraint — a grayscale world where boldness comes not from color but from the sheer confidence of black text on white space. Inspired by Uber's minimal aesthetic, the palette is deliberately stripped of hue: near-black headings (`#242424`), mid-gray secondary text (`#898989`), and pure white surfaces. Color is treated as a foreign substance — when it appears (a rare blue link, a green trust badge), it feels like a controlled accent in an otherwise black-and-white photograph.
+MiniMax's website is a clean, product-showcase platform for a Chinese AI technology company that bridges consumer-friendly appeal with technical credibility. The design language is predominantly white-space-driven with a light, airy feel — pure white backgrounds (`#ffffff`) dominate, letting colorful product cards and AI model illustrations serve as the visual anchors. The overall aesthetic sits at the intersection of Apple's product marketing clarity and a playful, rounded design language that makes AI technology feel approachable.
 
-Cal Sans, the brand's custom geometric display typeface designed by Mark Davis, is the visual centerpiece. Letters are intentionally spaced extremely close at large sizes, creating dense, architectural headlines that feel like they're carved into the page. At 64px and 48px, Cal Sans headings sit at weight 600 with a tight 1.10 line-height — confident, compressed, and immediately recognizable. For body text, the system switches to Inter, providing "rock-solid" readability that complements Cal Sans's display personality. The typography pairing creates a clear division: Cal Sans speaks, Inter explains.
+The typography system is notably multi-font: DM Sans serves as the primary UI workhorse, Outfit handles display headings with geometric elegance, Poppins appears for mid-tier headings, and Roboto handles data-heavy contexts. This variety reflects a brand in rapid growth — each font serves a distinct communicative purpose rather than competing for attention. The hero heading at 80px weight 500 in both DM Sans and Outfit with a tight 1.10 line-height creates a bold but not aggressive opening statement.
 
-The elevation system is notably sophisticated for a minimal site — 11 shadow definitions create a nuanced depth hierarchy using multi-layered shadows that combine ring borders (`0px 0px 0px 1px`), soft diffused shadows, and inset highlights. This shadow-first approach to depth (rather than border-first) gives surfaces a subtle three-dimensionality that feels modern and polished. Built on Framer with a border-radius scale from 2px to 9999px (pill), Cal.com balances geometric precision with soft, rounded interactive elements.
+What makes MiniMax distinctive is its pill-button geometry (9999px radius) for navigation and primary actions, combined with softer 8px–24px radiused cards for product showcases. The product cards themselves are richly colorful — vibrant gradients in pink, purple, orange, and blue — creating a "gallery of AI capabilities" feel. Against the white canvas, these colorful cards pop like app icons on a phone home screen, making each AI model/product feel like a self-contained creative tool.
 
 **Key Characteristics:**
-- Purely grayscale brand palette — no brand colors, boldness through monochrome
-- Cal Sans custom geometric display font with extremely tight default letter-spacing
-- Multi-layered shadow system (11 definitions) with ring borders + diffused shadows + inset highlights
-- Cal Sans for headings, Inter for body — clean typographic division
-- Wide border-radius scale from 2px to 9999px (pill) — versatile rounding
-- White canvas with near-black (#242424) text — maximum contrast, zero decoration
-- Product screenshots as primary visual content — the scheduling UI sells itself
-- Built on Framer platform
+- White-dominant layout with colorful product card accents
+- Multi-font system: DM Sans (UI), Outfit (display), Poppins (mid-tier), Roboto (data)
+- Pill buttons (9999px radius) for primary navigation and CTAs
+- Generous rounded cards (20px–24px radius) for product showcases
+- Brand blue spectrum: from `#1456f0` (brand-6) through `#3b82f6` (primary-500) to `#60a5fa` (light)
+- Brand pink (`#ea5ec1`) as secondary accent
+- Near-black text (`#222222`, `#18181b`) on white backgrounds
+- Purple-tinted shadows (`rgba(44, 30, 116, 0.16)`) creating subtle brand-colored depth
+- Dark footer section (`#181e25`) with product/company links
 
 ## 2. Color Palette & Roles
 
-### Primary
-- **Charcoal** (`#242424`): Primary heading and button text — Cal.com's signature near-black, warmer than pure black
-- **Midnight** (`#111111`): Deepest text/overlay color — used at 50% opacity for subtle overlays
-- **White** (`#ffffff`): Primary background and surface — the dominant canvas
+### Brand Primary
+- **Brand Blue** (`#1456f0`): `--brand-6`, primary brand identity color
+- **Sky Blue** (`#3daeff`): `--col-brand00`, lighter brand variant for accents
+- **Brand Pink** (`#ea5ec1`): `--col-brand02`, secondary brand accent
 
-### Secondary & Accent
-- **Link Blue** (`#0099ff`): In-text links with underline decoration — the only blue in the system, reserved strictly for hyperlinks
-- **Focus Ring** (`#3b82f6` at 50% opacity): Keyboard focus indicator — accessibility-only, invisible in normal interaction
-- **Default Link** (`#0000ee`): Browser-default link color on some elements — unmodified, signaling openness
+### Blue Scale (Primary)
+- **Primary 200** (`#bfdbfe`): `--color-primary-200`, light blue backgrounds
+- **Primary Light** (`#60a5fa`): `--color-primary-light`, active states, highlights
+- **Primary 500** (`#3b82f6`): `--color-primary-500`, standard blue actions
+- **Primary 600** (`#2563eb`): `--color-primary-600`, hover states
+- **Primary 700** (`#1d4ed8`): `--color-primary-700`, pressed/active states
+- **Brand Deep** (`#17437d`): `--brand-3`, deep blue for emphasis
+
+### Text Colors
+- **Near Black** (`#222222`): `--col-text00`, primary text
+- **Dark** (`#18181b`): Button text, headings
+- **Charcoal** (`#181e25`): Dark surface text, footer background
+- **Dark Gray** (`#45515e`): `--col-text04`, secondary text
+- **Mid Gray** (`#8e8e93`): Tertiary text, muted labels
+- **Light Gray** (`#5f5f5f`): `--brand-2`, helper text
 
 ### Surface & Background
-- **Pure White** (`#ffffff`): Primary page background and card surfaces
-- **Light Gray** (approx `#f5f5f5`): Subtle section differentiation — barely visible tint
-- **Mid Gray** (`#898989`): Secondary text, descriptions, and muted labels
+- **Pure White** (`#ffffff`): `--col-bg13`, primary background
+- **Light Gray** (`#f0f0f0`): Secondary button backgrounds
+- **Glass White** (`hsla(0, 0%, 100%, 0.4)`): `--fill-bg-white`, frosted glass overlay
+- **Border Light** (`#f2f3f5`): Subtle section dividers
+- **Border Gray** (`#e5e7eb`): Component borders
 
-### Neutrals & Text
-- **Charcoal** (`#242424`): Headlines, buttons, primary UI text
-- **Midnight** (`#111111`): Deep black for high-contrast links and nav text
-- **Mid Gray** (`#898989`): Descriptions, secondary labels, muted content
-- **Pure Black** (`#000000`): Certain link text elements
-- **Border Gray** (approx `rgba(34, 42, 53, 0.08–0.10)`): Shadow-based borders using ring shadows instead of CSS borders
+### Semantic
+- **Success Background** (`#e8ffea`): `--success-bg`, positive state backgrounds
 
-### Semantic & Accent
-- Cal.com is deliberately colorless for brand elements — "a grayscale brand to emphasise on boldness and professionalism"
-- Product UI screenshots show color (blues, greens in the scheduling interface), but the marketing site itself stays monochrome
-- The philosophy mirrors Uber's approach: let the content carry color, the frame stays neutral
-
-### Gradient System
-- No gradients on the marketing site — the design is fully flat and monochrome
-- Depth is achieved entirely through shadows, not color transitions
+### Shadows
+- **Standard** (`rgba(0, 0, 0, 0.08) 0px 4px 6px`): Default card shadow
+- **Soft Glow** (`rgba(0, 0, 0, 0.08) 0px 0px 22.576px`): Ambient soft shadow
+- **Brand Purple** (`rgba(44, 30, 116, 0.16) 0px 0px 15px`): Brand-tinted glow
+- **Brand Purple Offset** (`rgba(44, 30, 116, 0.11) 6.5px 2px 17.5px`): Directional brand glow
+- **Card Elevation** (`rgba(36, 36, 36, 0.08) 0px 12px 16px -4px`): Lifted card shadow
 
 ## 3. Typography Rules
 
-### Font Family
-- **Display**: `Cal Sans` — custom geometric sans-serif by Mark Davis. Open-source, available on Google Fonts and GitHub. Extremely tight default letter-spacing designed for large headlines. Has 6 character variants (Cc, j, t, u, 0, 1)
-- **Body**: `Inter` — "rock-solid" standard body font. Fallback: `Inter Placeholder`
-- **UI Light**: `Cal Sans UI Variable Light` — light-weight variant (300) for softer UI text with -0.2px letter-spacing
-- **UI Medium**: `Cal Sans UI Medium` — medium-weight variant (500) for emphasized captions
-- **Mono**: `Roboto Mono` — for code blocks and technical content
-- **Tertiary**: `Matter Regular` / `Matter SemiBold` / `Matter Medium` — additional body fonts for specific contexts
+### Font Families
+- **Primary UI**: `DM Sans`, with fallbacks: `Helvetica Neue, Helvetica, Arial`
+- **Display**: `Outfit`, with fallbacks: `Helvetica Neue, Helvetica, Arial`
+- **Mid-tier**: `Poppins`
+- **Data/Technical**: `Roboto`, with fallbacks: `Helvetica Neue, Helvetica, Arial`
 
 ### Hierarchy
 
-| Role | Font | Size | Weight | Line Height | Letter Spacing | Notes |
-|------|------|------|--------|-------------|----------------|-------|
-| Display Hero | Cal Sans | 64px | 600 | 1.10 | 0px | Maximum impact, tight default spacing |
-| Section Heading | Cal Sans | 48px | 600 | 1.10 | 0px | Large section titles |
-| Feature Heading | Cal Sans | 24px | 600 | 1.30 | 0px | Feature block headlines |
-| Sub-heading | Cal Sans | 20px | 600 | 1.20 | +0.2px | Positive spacing for readability at smaller size |
-| Sub-heading Alt | Cal Sans | 20px | 600 | 1.50 | 0px | Relaxed line-height variant |
-| Card Title | Cal Sans | 16px | 600 | 1.10 | 0px | Smallest Cal Sans usage |
-| Caption Label | Cal Sans | 12px | 600 | 1.50 | 0px | Small labels in Cal Sans |
-| Body Light | Cal Sans UI Light | 18px | 300 | 1.30 | -0.2px | Light-weight body intro text |
-| Body Light Standard | Cal Sans UI Light | 16px | 300 | 1.50 | -0.2px | Light-weight body text |
-| Caption Light | Cal Sans UI Light | 14px | 300 | 1.40–1.50 | -0.2 to -0.28px | Light captions and descriptions |
-| UI Label | Inter | 16px | 600 | 1.00 | 0px | UI buttons and nav labels |
-| Caption Inter | Inter | 14px | 500 | 1.14 | 0px | Small UI text |
-| Micro | Inter | 12px | 500 | 1.00 | 0px | Smallest Inter text |
-| Code | Roboto Mono | 14px | 600 | 1.00 | 0px | Code snippets, technical text |
-| Body Matter | Matter Regular | 14px | 400 | 1.14 | 0px | Alternate body text (product UI) |
+| Role | Font | Size | Weight | Line Height | Notes |
+|------|------|------|--------|-------------|-------|
+| Display Hero | DM Sans / Outfit | 80px (5.00rem) | 500 | 1.10 (tight) | Hero headlines |
+| Section Heading | Outfit | 31px (1.94rem) | 600 | 1.50 | Feature section titles |
+| Section Heading Alt | Roboto / DM Sans | 32px (2.00rem) | 600 | 0.88 (tight) | Compact headers |
+| Card Title | Outfit | 28px (1.75rem) | 500–600 | 1.71 (relaxed) | Product card headings |
+| Sub-heading | Poppins | 24px (1.50rem) | 500 | 1.50 | Mid-tier headings |
+| Feature Label | Poppins | 18px (1.13rem) | 500 | 1.50 | Feature names |
+| Body Large | DM Sans | 20px (1.25rem) | 500 | 1.50 | Emphasized body |
+| Body | DM Sans | 16px (1.00rem) | 400–500 | 1.50 | Standard body text |
+| Body Bold | DM Sans | 16px (1.00rem) | 700 | 1.50 | Strong emphasis |
+| Nav/Link | DM Sans | 14px (0.88rem) | 400–500 | 1.50 | Navigation, links |
+| Button Small | DM Sans | 13px (0.81rem) | 600 | 1.50 | Compact buttons |
+| Caption | DM Sans / Poppins | 13px (0.81rem) | 400 | 1.70 (relaxed) | Metadata |
+| Small Label | DM Sans | 12px (0.75rem) | 500–600 | 1.25–1.50 | Tags, badges |
+| Micro | DM Sans / Outfit | 10px (0.63rem) | 400–500 | 1.50–1.80 | Tiny annotations |
 
 ### Principles
-- **Cal Sans at large, Inter at small**: Cal Sans is exclusively for headings and display — never for body text. The system enforces this division strictly
-- **Tight by default, space when small**: Cal Sans letters are "intentionally spaced to be extremely close" at large sizes. At 20px and below, positive letter-spacing (+0.2px) must be applied to prevent cramming
-- **Weight 300 body variant**: Cal Sans UI Variable Light at 300 weight creates an elegant, airy body text that contrasts with the dense 600-weight headlines
-- **Weight 600 dominance**: Nearly all Cal Sans usage is at weight 600 (semi-bold) — the font was designed to perform at this weight
-- **Negative tracking on light text**: Cal Sans UI Light uses -0.2px to -0.28px letter-spacing, subtly tightening the already-compact letterforms
+- **Multi-font purpose**: DM Sans = UI workhorse (body, nav, buttons); Outfit = geometric display (headings, product names); Poppins = friendly mid-tier (sub-headings, features); Roboto = technical/data contexts.
+- **Universal 1.50 line-height**: The overwhelming majority of text uses 1.50 line-height, creating a consistent reading rhythm regardless of font or size. Exceptions: display (1.10 tight) and some captions (1.70 relaxed).
+- **Weight 500 as default emphasis**: Most headings use 500 (medium) rather than bold, creating a modern, approachable tone. 600 for section titles, 700 reserved for strong emphasis.
+- **Compact hierarchy**: The size scale jumps from 80px display straight to 28–32px section, then 16–20px body — a deliberate compression that keeps the visual hierarchy feeling efficient.
 
 ## 4. Component Stylings
 
 ### Buttons
-- **Dark Primary**: `#242424` (or `#1e1f23`) background, white text, 6–8px radius. Hover: opacity reduction to 0.7. The signature CTA — maximally dark on white
-- **White/Ghost**: White background with shadow-ring border, dark text. Uses the multi-layered shadow system for subtle elevation
-- **Pill**: 9999px radius for rounded pill-shaped actions and badges
-- **Compact**: 4px padding, small text — utility actions within product UI
-- **Inset highlight**: Some buttons feature `rgba(255, 255, 255, 0.15) 0px 2px 0px inset` — a subtle inner-top highlight creating a 3D pressed effect
 
-### Cards & Containers
-- **Shadow Card**: White background, multi-layered shadow — `rgba(19, 19, 22, 0.7) 0px 1px 5px -4px, rgba(34, 42, 53, 0.08) 0px 0px 0px 1px, rgba(34, 42, 53, 0.05) 0px 4px 8px 0px`. The ring shadow (0px 0px 0px 1px) acts as a shadow-border
-- **Product UI Cards**: Screenshots of the scheduling interface displayed in card containers with shadow elevation
-- **Radius**: 8px for standard cards, 12px for larger containers, 16px for prominent sections
-- **Hover**: Likely subtle shadow deepening or scale transform
+**Pill Primary Dark**
+- Background: `#181e25`
+- Text: `#ffffff`
+- Padding: 11px 20px
+- Radius: 8px
+- Use: Primary CTA ("Get Started", "Learn More")
 
-### Inputs & Forms
-- **Select dropdown**: White background, `#000000` text, 1px solid `rgb(118, 118, 118)` border
-- **Focus**: Uses Framer's focus outline system (`--framer-focus-outline`)
-- **Text input**: 8px radius, standard border treatment
-- **Minimal form presence**: The marketing site prioritizes CTA buttons over complex forms
+**Pill Nav**
+- Background: `rgba(0, 0, 0, 0.05)` (subtle tint)
+- Text: `#18181b`
+- Radius: 9999px (full pill)
+- Use: Navigation tabs, filter toggles
+
+**Pill White**
+- Background: `#ffffff`
+- Text: `rgba(24, 30, 37, 0.8)`
+- Radius: 9999px
+- Opacity: 0.5 (default state)
+- Use: Secondary nav, inactive tabs
+
+**Secondary Light**
+- Background: `#f0f0f0`
+- Text: `#333333`
+- Padding: 11px 20px
+- Radius: 8px
+- Use: Secondary actions
+
+### Product Cards
+- Background: Vibrant gradients (pink/purple/orange/blue)
+- Radius: 20px–24px (generous rounding)
+- Shadow: `rgba(44, 30, 116, 0.16) 0px 0px 15px` (brand purple glow)
+- Content: Product name, model version, descriptive text
+- Each card has its own color palette matching the product identity
+
+### AI Product Cards (Matrix)
+- Background: white with subtle shadow
+- Radius: 13px–16px
+- Shadow: `rgba(0, 0, 0, 0.08) 0px 4px 6px`
+- Icon/illustration centered above product name
+- Product name in DM Sans 14–16px weight 500
+
+### Links
+- **Primary**: `#18181b` or `#181e25`, underline on dark text
+- **Secondary**: `#8e8e93`, muted for less emphasis
+- **On Dark**: `rgba(255, 255, 255, 0.8)` for footer and dark sections
 
 ### Navigation
-- **Top nav**: White/transparent background, Cal Sans links at near-black
-- **Nav text**: `#111111` (Midnight) for primary links, `#000000` for emphasis
-- **CTA button**: Dark Primary in the nav — high contrast call-to-action
-- **Mobile**: Collapses to hamburger with simplified navigation
-- **Sticky**: Fixed on scroll
-
-### Image Treatment
-- **Product screenshots**: Large scheduling UI screenshots — the product is the primary visual
-- **Trust logos**: Grayscale company logos in a horizontal trust bar
-- **Aspect ratios**: Wide landscape for product UI screenshots
-- **No decorative imagery**: No illustrations, photos, or abstract graphics — pure product + typography
+- Clean horizontal nav on white background
+- MiniMax logo left-aligned (red accent in logo)
+- DM Sans 14px weight 500 for nav items
+- Pill-shaped active indicators (9999px radius)
+- "Login" text link, minimal right-side actions
+- Sticky header behavior
 
 ## 5. Layout Principles
 
 ### Spacing System
-- **Base unit**: 8px
-- **Scale**: 1px, 2px, 3px, 4px, 6px, 8px, 12px, 16px, 20px, 24px, 28px, 80px, 96px
-- **Section padding**: 80px–96px vertical between major sections (generous)
-- **Card padding**: 12px–24px internal
-- **Component gaps**: 4px–8px between related elements
-- **Notable jump**: From 28px to 80px — a deliberate gap emphasizing the section-level spacing tier
+- Base unit: 8px
+- Scale: 1px, 2px, 4px, 6px, 8px, 10px, 11px, 14px, 16px, 24px, 32px, 40px, 50px, 64px, 80px
 
 ### Grid & Container
-- **Max width**: ~1200px content container, centered
-- **Column patterns**: Full-width hero, centered text blocks, 2-3 column feature grids
-- **Feature showcase**: Product screenshots flanked by description text
-- **Breakpoints**: 98px, 640px, 768px, 810px, 1024px, 1199px — Framer-generated
+- Max content width centered on page
+- Product card grids: horizontal scroll or 3–4 column layout
+- Full-width white sections with contained content
+- Dark footer at full-width
+
+### Breakpoints
+| Name | Width | Key Changes |
+|------|-------|-------------|
+| Mobile | <768px | Single column, stacked cards |
+| Tablet | 768–1024px | 2-column grids |
+| Desktop | >1024px | Full layout, horizontal card scrolls |
 
 ### Whitespace Philosophy
-- **Lavish section spacing**: 80px–96px between sections creates a breathable, premium feel
-- **Product-first content**: Screenshots dominate the visual space — minimal surrounding decoration
-- **Centered headlines**: Cal Sans headings centered with generous margins above and below
+- **Gallery spacing**: Products are presented like gallery items with generous white space between cards, letting each AI model breathe as its own showcase.
+- **Section rhythm**: Large vertical gaps (64px–80px) between major sections create distinct "chapters" of content.
+- **Card breathing**: Product cards use internal padding of 16px–24px with ample whitespace around text.
 
 ### Border Radius Scale
-- **2px**: Subtle rounding on inline elements
-- **4px**: Small UI components
-- **6px–7px**: Buttons, small cards, images
-- **8px**: Standard interactive elements — buttons, inputs, images
-- **12px**: Medium containers — links, larger cards, images
-- **16px**: Large section containers
-- **29px**: Special rounded elements
-- **100px**: Large rounding — nearly circular on small elements
-- **1000px**: Very large rounding
-- **9999px**: Full pill shape — badges, links
+- Minimal (4px): Small tags, micro badges
+- Standard (8px): Buttons, small cards
+- Comfortable (11px–13px): Medium cards, panels
+- Generous (16px–20px): Large product cards
+- Large (22px–24px): Hero product cards, major containers
+- Pill (30px–32px): Badge pills, rounded panels
+- Full (9999px): Buttons, nav tabs
 
 ## 6. Depth & Elevation
 
 | Level | Treatment | Use |
 |-------|-----------|-----|
-| Level 0 (Flat) | No shadow | Page canvas, basic text containers |
-| Level 1 (Inset) | `rgba(0,0,0,0.16) 0px 1px 1.9px 0px inset` | Pressed/recessed elements, input wells |
-| Level 2 (Ring + Soft) | `rgba(19,19,22,0.7) 0px 1px 5px -4px, rgba(34,42,53,0.08) 0px 0px 0px 1px, rgba(34,42,53,0.05) 0px 4px 8px` | Cards, containers — the workhorse shadow |
-| Level 3 (Ring + Soft Alt) | `rgba(36,36,36,0.7) 0px 1px 5px -4px, rgba(36,36,36,0.05) 0px 4px 8px` | Alt card elevation without ring border |
-| Level 4 (Inset Highlight) | `rgba(255,255,255,0.15) 0px 2px 0px inset` or `rgb(255,255,255) 0px 2px 0px inset` | Button inner highlight — 3D pressed effect |
-| Level 5 (Soft Only) | `rgba(34,42,53,0.05) 0px 4px 8px` | Subtle ambient shadow |
+| Flat (Level 0) | No shadow | White background, text blocks |
+| Subtle (Level 1) | `rgba(0, 0, 0, 0.08) 0px 4px 6px` | Standard cards, containers |
+| Ambient (Level 2) | `rgba(0, 0, 0, 0.08) 0px 0px 22.576px` | Soft glow around elements |
+| Brand Glow (Level 3) | `rgba(44, 30, 116, 0.16) 0px 0px 15px` | Featured product cards |
+| Elevated (Level 4) | `rgba(36, 36, 36, 0.08) 0px 12px 16px -4px` | Lifted cards, hover states |
 
-### Shadow Philosophy
-Cal.com's shadow system is the most sophisticated element of the design — 11 shadow definitions using a multi-layered compositing technique:
-- **Ring borders**: `0px 0px 0px 1px` shadows act as borders, avoiding CSS `border` entirely. This creates hairline containment without affecting layout
-- **Diffused soft shadows**: `0px 4px 8px` at 5% opacity add gentle ambient depth
-- **Sharp contact shadows**: `0px 1px 5px -4px` at 70% opacity create tight bottom-edge shadows for grounding
-- **Inset highlights**: White inset shadows at the top of buttons create a subtle 3D bevel
-- Shadows are composed in comma-separated stacks — each surface gets 2-3 layered shadow definitions working together
-
-### Decorative Depth
-- No gradients or glow effects
-- All depth comes from the sophisticated shadow compositing system
-- The overall effect is subtle but precise — surfaces feel like physical cards sitting on a table
+**Shadow Philosophy**: MiniMax uses a distinctive purple-tinted shadow (`rgba(44, 30, 116, ...)`) for featured elements, creating a subtle brand-color glow that connects the shadow system to the blue brand identity. Standard shadows use neutral black but at low opacity (0.08), keeping everything feeling light and airy. The directional shadow variant (6.5px offset) adds dimensional interest to hero product cards.
 
 ## 7. Do's and Don'ts
 
 ### Do
-- Use Cal Sans exclusively for headings (24px+) and never for body text — it's a display font with tight default spacing
-- Apply positive letter-spacing (+0.2px) when using Cal Sans below 24px — the font cramps at small sizes without it
-- Maintain the grayscale palette — boldness comes from contrast, not color
-- Use the multi-layered shadow system for card elevation — ring shadow + diffused shadow + contact shadow
-- Keep backgrounds pure white — the monochrome philosophy requires a clean canvas
-- Use Inter for all body text at weight 300–600 — it's the reliable counterpart to Cal Sans's display personality
-- Let product screenshots be the visual content — no illustrations, no decorative graphics
-- Apply generous section spacing (80px–96px) — the breathing room is essential to the premium feel
+- Use white as the dominant background — let product cards provide the color
+- Apply pill radius (9999px) for navigation tabs and toggle buttons
+- Use generous border radius (20px–24px) for product showcase cards
+- Employ the purple-tinted shadow for featured/hero product cards
+- Keep body text at DM Sans weight 400–500 — heavier weights for buttons only
+- Use Outfit for display headings, DM Sans for everything functional
+- Maintain the universal 1.50 line-height across body text
+- Let colorful product illustrations/gradients serve as the primary visual interest
 
 ### Don't
-- Use Cal Sans for body text or text below 16px — it wasn't designed for extended reading
-- Add brand colors — Cal.com is intentionally grayscale, color is reserved for links and UI states only
-- Use CSS borders when shadows can achieve the same containment — the ring-shadow technique is the system's approach
-- Apply negative letter-spacing to Cal Sans at small sizes — it needs positive spacing (+0.2px) below 24px
-- Create heavy, dark shadows — Cal.com's shadows are subtle (5% opacity diffused) with sharp contact edges
-- Use illustrations, abstract graphics, or decorative elements — the visual language is typography + product UI only
-- Mix Cal Sans weights — the font is designed for weight 600, other weights break the intended character
-- Reduce section spacing below 48px — the generous whitespace is core to the premium monochrome aesthetic
+- Don't add colored backgrounds to main content sections — white is structural
+- Don't use sharp corners (0–4px radius) on product cards — the rounded aesthetic is core
+- Don't apply the brand pink (`#ea5ec1`) to text or buttons — it's for logo and decorative accents only
+- Don't mix more than one display font per section (Outfit OR Poppins, not both)
+- Don't use weight 700 for headings — 500–600 is the range, 700 is reserved for strong emphasis in body text
+- Don't darken shadows beyond 0.16 opacity — the light, airy feel requires restraint
+- Don't use Roboto for headings — it's the data/technical context font only
 
 ## 8. Responsive Behavior
 
 ### Breakpoints
 | Name | Width | Key Changes |
 |------|-------|-------------|
-| Mobile | <640px | Single column, hero text ~36px, stacked features, hamburger nav |
-| Tablet Small | 640px–768px | 2-column begins for some elements |
-| Tablet | 768px–810px | Layout adjustments, fuller grid |
-| Tablet Large | 810px–1024px | Multi-column feature grids |
-| Desktop | 1024px–1199px | Full layout, expanded navigation |
-| Large Desktop | >1199px | Max-width container, centered content |
-
-### Touch Targets
-- Buttons: 8px radius with comfortable padding (10px+ vertical)
-- Nav links: Dark text with adequate spacing
-- Mobile CTAs: Full-width dark buttons for easy thumb access
-- Pill badges: 9999px radius creates large, tappable targets
+| Mobile | <768px | Single column, stacked product cards, hamburger nav |
+| Tablet | 768–1024px | 2-column product grids, condensed spacing |
+| Desktop | >1024px | Full horizontal card layouts, expanded spacing |
 
 ### Collapsing Strategy
-- **Navigation**: Full horizontal nav → hamburger on mobile
-- **Hero**: 64px Cal Sans display → ~36px on mobile
-- **Feature grids**: Multi-column → 2-column → single stacked column
-- **Product screenshots**: Scale within containers, maintaining aspect ratios
-- **Section spacing**: Reduces from 80px–96px to ~48px on mobile
-
-### Image Behavior
-- Product screenshots scale responsively
-- Trust logos reflow to multi-row grid on mobile
-- No art direction changes — same compositions at all sizes
-- Images use 7px–12px border-radius for consistent rounded corners
+- Hero: 80px → responsive scaling to ~40px on mobile
+- Product card grid: horizontal scroll → 2-column → single column stacked
+- Navigation: horizontal → hamburger menu
+- Footer: multi-column → stacked sections
+- Spacing: 64–80px gaps → 32–40px on mobile
 
 ## 9. Agent Prompt Guide
 
 ### Quick Color Reference
-- Primary Text: Charcoal (`#242424`)
-- Deep Text: Midnight (`#111111`)
-- Secondary Text: Mid Gray (`#898989`)
-- Background: Pure White (`#ffffff`)
-- Link: Link Blue (`#0099ff`)
-- CTA Button: Charcoal (`#242424`) bg, white text
-- Shadow Border: `rgba(34, 42, 53, 0.08)` ring
+- Background: `#ffffff` (primary), `#181e25` (dark/footer)
+- Text: `#222222` (primary), `#45515e` (secondary), `#8e8e93` (muted)
+- Brand Blue: `#1456f0` (brand), `#3b82f6` (primary-500), `#2563eb` (hover)
+- Brand Pink: `#ea5ec1` (accent only)
+- Borders: `#e5e7eb`, `#f2f3f5`
 
 ### Example Component Prompts
-- "Create a hero section with white background, 64px Cal Sans heading at weight 600, line-height 1.10, #242424 text, centered layout with a dark CTA button (#242424, 8px radius, white text)"
-- "Design a scheduling card with white background, multi-layered shadow (0px 1px 5px -4px rgba(19,19,22,0.7), 0px 0px 0px 1px rgba(34,42,53,0.08), 0px 4px 8px rgba(34,42,53,0.05)), 12px radius"
-- "Build a navigation bar with white background, Inter links at 14px weight 500 in #111111, a dark CTA button (#242424), sticky positioning"
-- "Create a trust bar with grayscale company logos, horizontally centered, 16px gap between logos, on white background"
-- "Design a feature section with 48px Cal Sans heading (weight 600, #242424), 16px Inter body text (weight 300, #898989, line-height 1.50), and a product screenshot with 12px radius and the card shadow"
+- "Create a hero section on white background. Headline at 80px Outfit weight 500, line-height 1.10, near-black (#222222) text. Sub-text at 16px DM Sans weight 400, line-height 1.50, #45515e. Dark CTA button (#181e25, 8px radius, 11px 20px padding, white text)."
+- "Design a product card grid: white cards with 20px border-radius, shadow rgba(44,30,116,0.16) 0px 0px 15px. Product name at 28px Outfit weight 600. Internal gradient background for the product illustration area."
+- "Build navigation bar: white background, DM Sans 14px weight 500 for links, #18181b text. Pill-shaped active tab (9999px radius, rgba(0,0,0,0.05) background). MiniMax logo left-aligned."
+- "Create an AI product matrix: 4-column grid of cards with 13px radius, subtle shadow rgba(0,0,0,0.08) 0px 4px 6px. Centered icon above product name in DM Sans 16px weight 500."
+- "Design footer on dark (#181e25) background. Product links in DM Sans 14px, rgba(255,255,255,0.8). Multi-column layout."
 
 ### Iteration Guide
-When refining existing screens generated with this design system:
-1. Verify headings use Cal Sans at weight 600, body uses Inter — never mix them
-2. Check that the palette is purely grayscale — if you see brand colors, remove them
-3. Ensure card elevation uses the multi-layered shadow stack, not CSS borders
-4. Confirm section spacing is generous (80px+) — if sections feel cramped, add more space
-5. The overall tone should feel like a clean, professional scheduling tool — monochrome confidence without any decorative flourishes
+1. Start with white — color comes from product cards and illustrations only
+2. Pill buttons (9999px) for nav/tabs, standard radius (8px) for CTA buttons
+3. Purple-tinted shadows for featured cards, neutral shadows for everything else
+4. DM Sans handles 70% of text — Outfit is display-only, Poppins is mid-tier only
+5. Keep weights moderate (500–600 for headings) — the brand tone is confident but approachable
+6. Large radius cards (20–24px) for products, smaller radius (8–13px) for UI elements

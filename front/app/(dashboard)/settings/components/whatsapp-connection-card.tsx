@@ -129,7 +129,8 @@ export function WhatsappConnectionCard() {
   }, [fetchStatus]);
 
   useEffect(() => {
-    void refresh();
+    const id = requestAnimationFrame(() => void refresh());
+    return () => cancelAnimationFrame(id);
   }, [refresh]);
 
   useEffect(() => {

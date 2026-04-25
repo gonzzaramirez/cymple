@@ -1,92 +1,45 @@
-import { Suspense } from "react";
 import { CreatePatientDialog } from "./components/create-patient-dialog";
-import { PatientsList } from "./components/patients-list";
+import { PatientsDirectory } from "./components/patients-directory";
 import { serverApiFetch } from "@/lib/server-api";
 import { ApiList, Patient } from "@/lib/types";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent } from "@/components/ui/card";
 
-export default async function PatientsPage() {
-  const data = await serverApiFetch<ApiList<Patient>>("patients?page=1&limit=20");
-  const withUpcoming = data.items.filter(
-    (patient) => patient.summary?.nextAppointment,
-  ).length;
-  const attendedSessions = data.items.reduce(
-    (total, patient) => total + (patient.summary?.totalSessions ?? 0),
-    0,
+const DEFAULT_LIMIT = 20;
+
+export default async function PatientsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ query?: string; page?: string; limit?: string }>;
+}) {
+  const sp = await searchParams;
+  const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
+  const limit = Math.min(
+    100,
+    Math.max(1, parseInt(sp.limit ?? String(DEFAULT_LIMIT), 10) || DEFAULT_LIMIT),
   );
-  const absences = data.items.reduce(
-    (total, patient) => total + (patient.summary?.absentCount ?? 0),
-    0,
-  );
+  const query = (sp.query ?? "").trim();
+
+  const qs = new URLSearchParams();
+  qs.set("page", String(page));
+  qs.set("limit", String(limit));
+  if (query) qs.set("query", query);
+
+  const data = await serverApiFetch<ApiList<Patient>>(`patients?${qs.toString()}`);
 
   return (
     <section className="space-y-6">
-      <div className="rounded-3xl bg-card p-5 shadow-card md:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">
-              CRM clínico
-            </p>
-            <h1 className="mt-2 font-display text-3xl font-semibold tracking-[-0.02em] md:text-4xl">
-              Pacientes
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Vista rápida para entender contacto, actividad y próximos pasos sin
-              entrar a cada ficha.
-            </p>
-          </div>
-          <CreatePatientDialog />
-        </div>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <PatientStat label="Registrados" value={data.total.toString()} />
-          <PatientStat label="Con turno activo" value={withUpcoming.toString()} />
-          <PatientStat label="Sesiones atendidas" value={attendedSessions.toString()} />
-          <PatientStat label="Ausencias" value={absences.toString()} muted />
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="font-display text-3xl font-semibold tracking-[-0.02em]">
-            Directorio
+          <h1 className="font-display text-3xl font-semibold tracking-[-0.02em] md:text-4xl">
+            Pacientes
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Mostrando {data.items.length} de {data.total} paciente
-            {data.total !== 1 ? "s" : ""}
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+            Buscá por nombre, DNI, teléfono o email. 
           </p>
         </div>
+        <CreatePatientDialog />
       </div>
-      <Suspense fallback={<Skeleton className="h-64 rounded-2xl" />}>
-        <PatientsList patients={data.items} />
-      </Suspense>
-    </section>
-  );
-}
 
-function PatientStat({
-  label,
-  value,
-  muted = false,
-}: {
-  label: string;
-  value: string;
-  muted?: boolean;
-}) {
-  return (
-    <Card size="sm" className="shadow-none ring-1 ring-border/70">
-      <CardContent>
-        <p className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-          {label}
-        </p>
-        <p
-          className={`mt-2 font-display text-2xl font-semibold tracking-[-0.02em] ${
-            muted ? "text-muted-foreground" : "text-foreground"
-          }`}
-        >
-          {value}
-        </p>
-      </CardContent>
-    </Card>
+      <PatientsDirectory data={data} query={query} limit={limit} />
+    </section>
   );
 }

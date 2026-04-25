@@ -12,7 +12,7 @@ export default async function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-[420px]">
         <div className="mb-8 text-center">
-          <h1 className="font-display text-4xl font-semibold tracking-[-0.02em] text-foreground">
+          <h1 className="font-display text-4xl font-semibold tracking-tight text-foreground">
             Cymple
           </h1>
           <p className="mt-2 text-base text-muted-foreground">

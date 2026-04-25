@@ -18,7 +18,6 @@ export type Patient = {
   createdAt: string;
   summary?: {
     totalSessions: number;
-    absentCount: number;
     nextAppointment?: {
       id: string;
       startAt: string;

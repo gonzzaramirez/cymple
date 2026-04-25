@@ -60,12 +60,12 @@ export function FinanceChart({
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.06)" />
               <XAxis
                 dataKey="name"
-                tick={{ fontSize: 12, fill: "#86868b" }}
+                tick={{ fontSize: 12, fill: "#8e8e93" }}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fontSize: 12, fill: "#86868b" }}
+                tick={{ fontSize: 12, fill: "#8e8e93" }}
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={(v: number) => `$${v}`}
@@ -82,7 +82,7 @@ export function FinanceChart({
               <Legend
                 wrapperStyle={{ fontSize: "13px" }}
               />
-              <Bar dataKey="Ingresos" fill="#34c759" radius={[6, 6, 0, 0]} maxBarSize={32} />
+              <Bar dataKey="Ingresos" fill="#3b82f6" radius={[6, 6, 0, 0]} maxBarSize={32} />
               <Bar dataKey="Egresos" fill="#ff3b30" radius={[6, 6, 0, 0]} maxBarSize={32} />
             </BarChart>
           </ResponsiveContainer>

@@ -34,14 +34,14 @@ const STATUS_CALENDARS = {
   confirmed: {
     colorName: "confirmed",
     lightColors: {
-      main: "#0071e3",
-      container: "#e3f0ff",
-      onContainer: "#0055b3",
+      main: "#3b82f6",
+      container: "#bfdbfe",
+      onContainer: "#1d4ed8",
     },
     darkColors: {
-      main: "#0a84ff",
-      container: "#002d5a",
-      onContainer: "#80c0ff",
+      main: "#60a5fa",
+      container: "#1e3a5f",
+      onContainer: "#bfdbfe",
     },
   },
   attended: {
@@ -73,14 +73,14 @@ const STATUS_CALENDARS = {
   cancelled: {
     colorName: "cancelled",
     lightColors: {
-      main: "#86868b",
-      container: "#f0f0f2",
-      onContainer: "#636366",
+      main: "#8e8e93",
+      container: "#f2f3f5",
+      onContainer: "#45515e",
     },
     darkColors: {
-      main: "#98989d",
-      container: "#2c2c2e",
-      onContainer: "#c0c0c4",
+      main: "#a1a1aa",
+      container: "#27272a",
+      onContainer: "#d4d4d8",
     },
   },
 };
@@ -213,7 +213,7 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
           const dateParam = new Date(epochMs).toISOString();
           const params = new URLSearchParams(searchParamsRef.current.toString());
           params.set("date", dateParam);
-          // Eliminar el param `date` antiguo (ya fue reemplazado) y preservar el resto
+          params.set("ui", "calendar");
           routerRef.current.push(`/appointments?${params.toString()}`);
         },
       },

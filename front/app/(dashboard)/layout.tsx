@@ -24,7 +24,7 @@ export default async function DashboardLayout({
     <SidebarProvider>
       <AppSidebar professionalName={me.fullName} />
       <SidebarInset>
-        <header className="sticky top-0 z-30 flex h-12 items-center gap-3 border-b border-border bg-card/80 px-5 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 flex h-12 items-center gap-3 border-b border-[var(--border-light)] bg-[var(--col-bg13)]/95 px-5 backdrop-blur-md supports-[backdrop-filter]:bg-[var(--col-bg13)]/80">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="h-5!" />
           <div className="ml-auto">

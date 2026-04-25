@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CalendarClock, Mail, Phone, UserRound } from "lucide-react";
+import { CalendarClock, Mail, Phone } from "lucide-react";
 import { Patient } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { EditPatientDialog } from "./edit-patient-dialog";
@@ -20,21 +20,16 @@ export const patientColumns: ColumnDef<Patient>[] = [
     accessorKey: "lastName",
     header: "Paciente",
     cell: ({ row }) => (
-      <div className="flex min-w-[220px] items-center gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <UserRound className="size-4" />
-        </div>
-        <div className="min-w-0">
-          <Link
-            href={`/patients/${row.original.id}`}
-            className="font-display text-[15px] font-semibold text-foreground transition-colors hover:text-primary"
-          >
-            {row.original.lastName}, {row.original.firstName}
-          </Link>
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            <span>DNI {row.original.dni || "sin cargar"}</span>
-            <span>Alta {format(new Date(row.original.createdAt), "dd/MM/yy")}</span>
-          </div>
+      <div className="min-w-[220px]">
+        <Link
+          href={`/patients/${row.original.id}`}
+          className="font-display text-[15px] font-semibold text-foreground transition-colors hover:text-primary"
+        >
+          {row.original.lastName}, {row.original.firstName}
+        </Link>
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <span>DNI {row.original.dni || "sin cargar"}</span>
+          <span>Alta {format(new Date(row.original.createdAt), "dd/MM/yy")}</span>
         </div>
       </div>
     ),
@@ -68,11 +63,6 @@ export const patientColumns: ColumnDef<Patient>[] = [
             <Badge variant="info">
               {summary?.totalSessions ?? 0} sesiones
             </Badge>
-            {(summary?.absentCount ?? 0) > 0 ? (
-              <Badge variant="warning">
-                {summary?.absentCount} ausencias
-              </Badge>
-            ) : null}
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <CalendarClock className="size-3.5" />

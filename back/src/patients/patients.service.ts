@@ -45,6 +45,8 @@ export class PatientsService {
               { firstName: { contains: term, mode: 'insensitive' } },
               { lastName: { contains: term, mode: 'insensitive' } },
               { phone: { contains: term } },
+              { dni: { contains: term, mode: 'insensitive' } },
+              { email: { contains: term, mode: 'insensitive' } },
             ],
           }
         : {}),
@@ -70,7 +72,6 @@ export class PatientsService {
         ...item,
         summary: patientSummaries.get(item.id) ?? {
           totalSessions: 0,
-          absentCount: 0,
           nextAppointment: null,
           lastAppointment: null,
         },
@@ -202,7 +203,6 @@ export class PatientsService {
     const now = new Date();
     const emptySummary = {
       totalSessions: 0,
-      absentCount: 0,
       nextAppointment: null as {
         id: string;
         startAt: Date;
@@ -222,7 +222,7 @@ export class PatientsService {
       return summaries;
     }
 
-    const [attendedCounts, absentCounts, upcomingAppointments, pastAppointments] =
+    const [attendedCounts, upcomingAppointments, pastAppointments] =
       await this.prisma.$transaction([
         this.prisma.appointment.groupBy({
           by: ['patientId'],
@@ -230,16 +230,6 @@ export class PatientsService {
             professionalId,
             patientId: { in: patientIds },
             status: AppointmentStatus.ATTENDED,
-          },
-          orderBy: { patientId: 'asc' },
-          _count: { _all: true },
-        }),
-        this.prisma.appointment.groupBy({
-          by: ['patientId'],
-          where: {
-            professionalId,
-            patientId: { in: patientIds },
-            status: AppointmentStatus.ABSENT,
           },
           orderBy: { patientId: 'asc' },
           _count: { _all: true },
@@ -282,15 +272,6 @@ export class PatientsService {
           ? (item._count._all ?? 0)
           : 0;
       if (summary) summary.totalSessions = totalSessions;
-    }
-
-    for (const item of absentCounts) {
-      const summary = summaries.get(item.patientId);
-      const absentCount =
-        typeof item._count === 'object' && item._count
-          ? (item._count._all ?? 0)
-          : 0;
-      if (summary) summary.absentCount = absentCount;
     }
 
     for (const appointment of upcomingAppointments) {

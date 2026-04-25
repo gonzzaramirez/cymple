@@ -41,7 +41,7 @@ export function UpcomingAppointments({
         </CardTitle>
         <Link
           href="/appointments"
-          className="flex items-center gap-1 text-xs text-[#0071e3] hover:underline"
+          className="flex items-center gap-1 text-xs text-primary hover:underline"
         >
           Ver agenda
           <ArrowRight className="size-3" />

@@ -295,7 +295,9 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
       onSuccess(selectedSlotStartAt);
     } else {
       // Sin callback externo: navegar a la semana del turno recién creado
-      router.push(`/appointments?date=${encodeURIComponent(selectedSlotStartAt)}`);
+      router.push(
+        `/appointments?date=${encodeURIComponent(selectedSlotStartAt)}&ui=calendar`,
+      );
     }
   }
 

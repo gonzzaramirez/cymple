@@ -40,13 +40,13 @@ export function WeeklyChart({ data }: { data: WeekDay[] }) {
                 />
                 <XAxis
                   dataKey="day"
-                  tick={{ fontSize: 12, fill: "#86868b" }}
+                  tick={{ fontSize: 12, fill: "#8e8e93" }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
                   allowDecimals={false}
-                  tick={{ fontSize: 12, fill: "#86868b" }}
+                  tick={{ fontSize: 12, fill: "#8e8e93" }}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -63,7 +63,7 @@ export function WeeklyChart({ data }: { data: WeekDay[] }) {
                 <Bar
                   dataKey="total"
                   name="Programadas"
-                  fill="#0071e3"
+                  fill="#3b82f6"
                   radius={[6, 6, 0, 0]}
                   maxBarSize={28}
                 />

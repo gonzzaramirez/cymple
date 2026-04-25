@@ -124,7 +124,7 @@ export function NextAppointmentCard({
   const isStarting = apt.minutesUntilStart <= 10;
 
   return (
-    <Card className={cn("shadow-card overflow-hidden", isStarting && "ring-2 ring-[#0071e3]/40")}>
+    <Card className={cn("shadow-card overflow-hidden", isStarting && "ring-2 ring-primary/40")}>
       {/* Accent bar */}
       <div className={cn("h-1 w-full", cfg.bar)} />
       <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
@@ -133,7 +133,7 @@ export function NextAppointmentCard({
         </CardTitle>
         <Link
           href={`/appointments`}
-          className="flex items-center gap-1 text-xs text-[#0071e3] hover:underline"
+          className="flex items-center gap-1 text-xs text-primary hover:underline"
         >
           Ver agenda
           <ArrowRight className="size-3" />
@@ -156,7 +156,7 @@ export function NextAppointmentCard({
             <p className="font-display text-2xl font-semibold tabular-nums tracking-[-0.02em]">
               {time}
             </p>
-            <p className={cn("text-xs font-medium", isStarting ? "text-[#0071e3]" : "text-muted-foreground")}>
+            <p className={cn("text-xs font-medium", isStarting ? "text-primary" : "text-muted-foreground")}>
               {formatCountdown(apt.minutesUntilStart)}
             </p>
           </div>

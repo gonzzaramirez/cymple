@@ -80,9 +80,12 @@ export function NotificationBell() {
 
   // Initial fetch + polling every 30s
   useEffect(() => {
-    fetchNotifications();
+    const startId = requestAnimationFrame(() => void fetchNotifications());
     const interval = setInterval(fetchNotifications, 30_000);
-    return () => clearInterval(interval);
+    return () => {
+      cancelAnimationFrame(startId);
+      clearInterval(interval);
+    };
   }, []);
 
   function handleNotificationClick(notif: AppNotification) {
@@ -161,7 +164,7 @@ export function NotificationBell() {
                       </p>
                     </div>
                     {!notif.readAt && (
-                      <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[#0071e3]" />
+                      <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" />
                     )}
                   </button>
                 </li>

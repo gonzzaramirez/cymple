@@ -23,10 +23,12 @@ type StatCardProps = {
 };
 
 const accentMap: Record<NonNullable<StatCardProps["accent"]>, string> = {
-  blue: "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400",
-  green: "bg-green-50 text-green-600 dark:bg-green-950 dark:text-green-400",
-  purple: "bg-purple-50 text-purple-600 dark:bg-purple-950 dark:text-purple-400",
-  orange: "bg-orange-50 text-orange-600 dark:bg-orange-950 dark:text-orange-400",
+  blue: "bg-[#bfdbfe]/70 text-[#1456f0] dark:bg-[#1e3a5f]/80 dark:text-[#93c5fd]",
+  green: "bg-[var(--success-bg)] text-[#15803d] dark:bg-green-950/50 dark:text-[#4ade80]",
+  purple:
+    "bg-gradient-to-br from-[#fce7f3]/90 to-[#bfdbfe]/80 text-[#1456f0] dark:from-purple-950/60 dark:to-[#1e3a5f]/60 dark:text-[#c4b5fd]",
+  orange:
+    "bg-gradient-to-br from-[#ffedd5] to-[#bfdbfe]/50 text-[#c2410c] dark:from-orange-950/50 dark:to-[#1e3a5f]/40 dark:text-[#fdba74]",
 };
 
 function StatCard({ icon, label, value, sub, accent = "blue" }: StatCardProps) {
@@ -35,10 +37,10 @@ function StatCard({ icon, label, value, sub, accent = "blue" }: StatCardProps) {
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            <p className="font-mid text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
               {label}
             </p>
-            <p className="mt-2 font-display text-3xl font-semibold tracking-[-0.03em] text-foreground">
+            <p className="mt-2 font-display text-3xl font-semibold tracking-tight text-foreground">
               {value}
             </p>
             {sub && (

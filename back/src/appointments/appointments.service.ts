@@ -137,6 +137,9 @@ export class AppointmentsService {
                     mode: 'insensitive',
                   },
                 },
+                { phone: { contains: query.search.trim() } },
+                { dni: { contains: query.search.trim(), mode: 'insensitive' } },
+                { email: { contains: query.search.trim(), mode: 'insensitive' } },
               ],
             },
           }
