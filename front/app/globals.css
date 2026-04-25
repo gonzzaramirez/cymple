@@ -217,19 +217,42 @@
   }
 
   .sx-calendar-wrapper .sx__calendar-wrapper {
-    min-width: 720px;
+    min-width: min(720px, 100%);
   }
 
-  @media (max-width: 768px) {
+  .sx-calendar-wrapper[data-mobile="true"] {
+    overflow-x: hidden;
+  }
+
+  .sx-calendar-wrapper[data-mobile="true"] .sx__calendar-wrapper {
+    min-width: 0;
+    width: 100%;
+  }
+
+  @media (max-width: 767px) {
     .sx-calendar-wrapper .sx__calendar {
       border-radius: 12px;
     }
 
     .sx-calendar-wrapper .sx__calendar-header {
-      padding: 10px 12px;
+      gap: 8px;
+      padding: 8px;
+    }
+
+    .sx-calendar-wrapper .sx__calendar-header-content {
+      gap: 8px;
+    }
+
+    .sx-calendar-wrapper .sx__forward-backward-navigation {
+      gap: 4px;
     }
 
     .sx-calendar-wrapper .sx__view-selection-item {
+      font-size: 12px;
+    }
+
+    .sx-calendar-wrapper .sx__date-picker__input {
+      max-width: 116px;
       font-size: 12px;
     }
 

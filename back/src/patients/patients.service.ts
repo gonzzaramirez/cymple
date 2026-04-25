@@ -60,8 +60,21 @@ export class PatientsService {
       this.prisma.patient.count({ where }),
     ]);
 
+    const patientSummaries = await this.buildPatientSummaries(
+      professionalId,
+      items.map((item) => item.id),
+    );
+
     return {
-      items,
+      items: items.map((item) => ({
+        ...item,
+        summary: patientSummaries.get(item.id) ?? {
+          totalSessions: 0,
+          absentCount: 0,
+          nextAppointment: null,
+          lastAppointment: null,
+        },
+      })),
       page: query.page,
       limit: query.limit,
       total,
@@ -180,6 +193,129 @@ export class PatientsService {
       summary: totals,
       messages,
     };
+  }
+
+  private async buildPatientSummaries(
+    professionalId: string,
+    patientIds: string[],
+  ) {
+    const now = new Date();
+    const emptySummary = {
+      totalSessions: 0,
+      absentCount: 0,
+      nextAppointment: null as {
+        id: string;
+        startAt: Date;
+        status: AppointmentStatus;
+      } | null,
+      lastAppointment: null as {
+        id: string;
+        startAt: Date;
+        status: AppointmentStatus;
+      } | null,
+    };
+    const summaries = new Map(
+      patientIds.map((id) => [id, { ...emptySummary }]),
+    );
+
+    if (patientIds.length === 0) {
+      return summaries;
+    }
+
+    const [attendedCounts, absentCounts, upcomingAppointments, pastAppointments] =
+      await this.prisma.$transaction([
+        this.prisma.appointment.groupBy({
+          by: ['patientId'],
+          where: {
+            professionalId,
+            patientId: { in: patientIds },
+            status: AppointmentStatus.ATTENDED,
+          },
+          orderBy: { patientId: 'asc' },
+          _count: { _all: true },
+        }),
+        this.prisma.appointment.groupBy({
+          by: ['patientId'],
+          where: {
+            professionalId,
+            patientId: { in: patientIds },
+            status: AppointmentStatus.ABSENT,
+          },
+          orderBy: { patientId: 'asc' },
+          _count: { _all: true },
+        }),
+        this.prisma.appointment.findMany({
+          where: {
+            professionalId,
+            patientId: { in: patientIds },
+            startAt: { gte: now },
+            status: { in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED] },
+          },
+          orderBy: { startAt: 'asc' },
+          select: {
+            id: true,
+            patientId: true,
+            startAt: true,
+            status: true,
+          },
+        }),
+        this.prisma.appointment.findMany({
+          where: {
+            professionalId,
+            patientId: { in: patientIds },
+            startAt: { lt: now },
+          },
+          orderBy: { startAt: 'desc' },
+          select: {
+            id: true,
+            patientId: true,
+            startAt: true,
+            status: true,
+          },
+        }),
+      ]);
+
+    for (const item of attendedCounts) {
+      const summary = summaries.get(item.patientId);
+      const totalSessions =
+        typeof item._count === 'object' && item._count
+          ? (item._count._all ?? 0)
+          : 0;
+      if (summary) summary.totalSessions = totalSessions;
+    }
+
+    for (const item of absentCounts) {
+      const summary = summaries.get(item.patientId);
+      const absentCount =
+        typeof item._count === 'object' && item._count
+          ? (item._count._all ?? 0)
+          : 0;
+      if (summary) summary.absentCount = absentCount;
+    }
+
+    for (const appointment of upcomingAppointments) {
+      const summary = summaries.get(appointment.patientId);
+      if (summary && !summary.nextAppointment) {
+        summary.nextAppointment = {
+          id: appointment.id,
+          startAt: appointment.startAt,
+          status: appointment.status,
+        };
+      }
+    }
+
+    for (const appointment of pastAppointments) {
+      const summary = summaries.get(appointment.patientId);
+      if (summary && !summary.lastAppointment) {
+        summary.lastAppointment = {
+          id: appointment.id,
+          startAt: appointment.startAt,
+          status: appointment.status,
+        };
+      }
+    }
+
+    return summaries;
   }
 
   private handlePatientConstraintError(error: unknown): never {

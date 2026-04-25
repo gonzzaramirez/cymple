@@ -3,7 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { AppointmentModality, AppointmentStatus, Prisma, Weekday } from '@prisma/client';
+import {
+  AppointmentModality,
+  AppointmentStatus,
+  Prisma,
+  Weekday,
+} from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
@@ -78,6 +83,22 @@ export class AppointmentsService {
         },
       },
     });
+
+    if (dto.paymentMethod) {
+      await this.prisma.revenue.upsert({
+        where: { appointmentId: created.id },
+        create: {
+          professionalId,
+          appointmentId: created.id,
+          amount: created.fee,
+          occurredAt: created.startAt,
+          paymentMethod: dto.paymentMethod,
+        },
+        update: {
+          paymentMethod: dto.paymentMethod,
+        },
+      });
+    }
 
     void this.whatsappMessaging
       .sendAppointmentCreated(created.id)
@@ -289,7 +310,7 @@ export class AppointmentsService {
         update: {
           amount: appointment.fee,
           occurredAt: appointment.startAt,
-          paymentMethod: dto.paymentMethod ?? null,
+          paymentMethod: dto.paymentMethod ?? undefined,
         },
       });
     }

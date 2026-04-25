@@ -18,7 +18,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { sileo } from "sileo";
-import { Clock3, Plus } from "lucide-react";
+import {
+  ArrowLeftRight,
+  Banknote,
+  Clock3,
+  MapPin,
+  Plus,
+  Video,
+} from "lucide-react";
+import { AppointmentModality, PaymentMethod } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 const patientSchema = z.object({
   firstName: z.string().min(1, "El nombre es requerido"),
@@ -71,6 +80,8 @@ export function CreatePatientDialog({ onSuccess }: CreatePatientDialogProps) {
     selectedDate: new Date(),
     selectedSlotStartAt: "",
     slots: [] as SlotItem[],
+    modality: "PRESENCIAL" as AppointmentModality,
+    paymentMethod: "" as PaymentMethod | "",
     durationMinutes: "",
     fee: "",
     reason: "",
@@ -93,6 +104,8 @@ export function CreatePatientDialog({ onSuccess }: CreatePatientDialogProps) {
       selectedDate: new Date(),
       selectedSlotStartAt: "",
       slots: [],
+      modality: "PRESENCIAL",
+      paymentMethod: "",
       durationMinutes: "",
       fee: "",
       reason: "",
@@ -203,9 +216,13 @@ export function CreatePatientDialog({ onSuccess }: CreatePatientDialogProps) {
       patientId: createdPatient.id,
       startAt: appointmentForm.selectedSlotStartAt,
       reason: reasonVal || undefined,
+      modality: appointmentForm.modality,
     };
     if (duration) payload.durationMinutes = Number(duration);
     if (feeVal) payload.fee = Number(feeVal);
+    if (appointmentForm.paymentMethod) {
+      payload.paymentMethod = appointmentForm.paymentMethod;
+    }
 
     const response = await fetch("/api/backend/appointments", {
       method: "POST",
@@ -357,6 +374,88 @@ export function CreatePatientDialog({ onSuccess }: CreatePatientDialogProps) {
             <div className="rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm">
               Paciente asignado:{" "}
               <span className="font-medium">{createdPatient?.fullName ?? "Paciente nuevo"}</span>
+            </div>
+            <div className="space-y-2">
+              <Label>Modalidad</Label>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAppointmentForm((prev) => ({
+                      ...prev,
+                      modality: "PRESENCIAL",
+                    }))
+                  }
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors",
+                    appointmentForm.modality === "PRESENCIAL"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                  )}
+                >
+                  <MapPin className="size-4" />
+                  Presencial
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAppointmentForm((prev) => ({
+                      ...prev,
+                      modality: "VIRTUAL",
+                    }))
+                  }
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors",
+                    appointmentForm.modality === "VIRTUAL"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                  )}
+                >
+                  <Video className="size-4" />
+                  Virtual
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Método de pago</Label>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAppointmentForm((prev) => ({
+                      ...prev,
+                      paymentMethod: "CASH",
+                    }))
+                  }
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors",
+                    appointmentForm.paymentMethod === "CASH"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                  )}
+                >
+                  <Banknote className="size-4" />
+                  Efectivo
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAppointmentForm((prev) => ({
+                      ...prev,
+                      paymentMethod: "TRANSFER",
+                    }))
+                  }
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors",
+                    appointmentForm.paymentMethod === "TRANSFER"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                  )}
+                >
+                  <ArrowLeftRight className="size-4" />
+                  Transferencia
+                </button>
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Fecha y hora</Label>

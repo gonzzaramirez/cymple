@@ -14,6 +14,10 @@ import {
 } from '../common/utils/phone.utils';
 import { EvolutionApiService } from './evolution-api.service';
 import { defaultWaInstanceName } from './whatsapp-connection.service';
+import {
+  MessageTemplatesService,
+  TemplatableType,
+} from '../message-templates/message-templates.service';
 
 function capitalizeEs(s: string): string {
   if (!s) return s;
@@ -87,7 +91,24 @@ export class WhatsappMessagingService {
     private readonly prisma: PrismaService,
     private readonly evolution: EvolutionApiService,
     private readonly notifications: NotificationsService,
+    private readonly messageTemplates: MessageTemplatesService,
   ) {}
+
+  private async getTemplate(
+    professionalId: string,
+    type: TemplatableType,
+  ): Promise<{ body: string; isEnabled: boolean }> {
+    return this.messageTemplates.getOne(professionalId, type);
+  }
+
+  private interpolate(
+    template: string,
+    vars: Record<string, string>,
+  ): string {
+    return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => {
+      return vars[key] !== undefined ? vars[key] : `{{${key}}}`;
+    });
+  }
 
   private async resolveInstance(
     professionalId: string,
@@ -127,11 +148,16 @@ export class WhatsappMessagingService {
       professional.timezone,
     );
 
-    const text =
-      `Hola ${patient.firstName}! \u{1F5D3}\uFE0F\n` +
-      `Te confirmamos tu turno con ${professional.fullName}:\n` +
-      `\u{1F4C5} ${weekday}, ${dayMonth} a las ${time}hs\n\n` +
-      `¡Te esperamos!`;
+    const tpl = await this.getTemplate(professional.id, MessageType.APPOINTMENT_CREATED);
+    if (!tpl.isEnabled) return;
+
+    const text = this.interpolate(tpl.body, {
+      nombrePaciente: patient.firstName,
+      nombreProfesional: professional.fullName,
+      diaSemana: weekday,
+      fechaMes: dayMonth,
+      hora: time,
+    });
 
     const to = normalizeArWhatsappNumber(patient.phone);
     try {
@@ -190,12 +216,17 @@ export class WhatsappMessagingService {
     );
     const dayPhrase = rel || `${weekday} ${dayMonth}`;
 
-    const text =
-      `\u{1F4CB} Recordatorio de turno\n` +
-      `Hola ${patient.firstName}! ${rel ? `${rel} tenés` : 'Tenés'} turno con ${professional.fullName} a las ${time}hs${rel ? '' : ` (${dayPhrase})`}.\n\n` +
-      `Confirmá tu asistencia:\n` +
-      `1\uFE0F\u20E3 Confirmo que voy\n` +
-      `2\uFE0F\u20E3 No puedo asistir`;
+    const tpl = await this.getTemplate(professional.id, MessageType.APPOINTMENT_REMINDER);
+    if (!tpl.isEnabled) return false;
+
+    const text = this.interpolate(tpl.body, {
+      nombrePaciente: patient.firstName,
+      nombreProfesional: professional.fullName,
+      diaSemana: weekday,
+      fechaMes: dayMonth,
+      hora: time,
+      diaRelativo: dayPhrase,
+    });
 
     const to = normalizeArWhatsappNumber(patient.phone);
     try {
@@ -280,10 +311,16 @@ export class WhatsappMessagingService {
       professional.timezone,
     );
 
-    const text =
-      `\u{1F504} Tu turno fue reprogramado.\n` +
-      `Nueva fecha: *${weekday}, ${dayMonth} a las ${time}hs* con ${professional.fullName}.\n\n` +
-      `\u{1F4CD} ¡Te esperamos!`;
+    const tpl = await this.getTemplate(professional.id, MessageType.APPOINTMENT_RESCHEDULED);
+    if (!tpl.isEnabled) return;
+
+    const text = this.interpolate(tpl.body, {
+      nombrePaciente: patient.firstName,
+      nombreProfesional: professional.fullName,
+      diaSemana: weekday,
+      fechaMes: dayMonth,
+      hora: time,
+    });
 
     const to = normalizeArWhatsappNumber(patient.phone);
     try {
@@ -335,9 +372,16 @@ export class WhatsappMessagingService {
       professional.timezone,
     );
 
-    const text =
-      `Hola ${patient.firstName}, tu turno del *${weekday} ${dayMonth} a las ${time}hs* con ${professional.fullName} fue cancelado.\n\n` +
-      `Contactate con nosotros para reprogramar. ¡Hasta pronto! \u{1F44B}`;
+    const tpl = await this.getTemplate(professional.id, MessageType.APPOINTMENT_CANCELLED);
+    if (!tpl.isEnabled) return;
+
+    const text = this.interpolate(tpl.body, {
+      nombrePaciente: patient.firstName,
+      nombreProfesional: professional.fullName,
+      diaSemana: weekday,
+      fechaMes: dayMonth,
+      hora: time,
+    });
 
     const to = normalizeArWhatsappNumber(patient.phone);
     try {
@@ -367,7 +411,9 @@ export class WhatsappMessagingService {
     }
   }
 
-  async sendDailyDigestToProfessional(professionalId: string): Promise<boolean> {
+  async sendDailyDigestToProfessional(
+    professionalId: string,
+  ): Promise<boolean> {
     const professional = await this.prisma.professional.findUnique({
       where: { id: professionalId },
       select: {
@@ -509,17 +555,19 @@ export class WhatsappMessagingService {
     );
     const fee = row.revenue?.amount ?? row.fee;
     const feeFormatted = Number(fee).toLocaleString('es-AR');
-    const aliasLine = professional.paymentAlias
-      ? `\n\u{1F4B3} Alias: *${professional.paymentAlias}*`
-      : '';
 
-    const text =
-      `Hola ${patient.firstName}! \u{1F917}\n\n` +
-      `Muchas gracias por venir a tu sesión del *${weekday} ${dayMonth} a las ${time}hs*. ` +
-      `Fue un gusto atenderte \u{1F4AB}\n\n` +
-      `Te recordamos que tenés pendiente el pago de *$${feeFormatted}* correspondiente a esa sesión.${aliasLine}\n\n` +
-      `_Si ya realizaste la transferencia, por favor ignorá este mensaje. \u{1F64F}_\n\n` +
-      `\u{2764}\uFE0F Hasta la próxima, ${professional.fullName}`;
+    const tpl = await this.getTemplate(professional.id, MessageType.PAYMENT_REMINDER);
+    if (!tpl.isEnabled) return;
+
+    const text = this.interpolate(tpl.body, {
+      nombrePaciente: patient.firstName,
+      nombreProfesional: professional.fullName,
+      diaSemana: weekday,
+      fechaMes: dayMonth,
+      hora: time,
+      monto: feeFormatted,
+      aliasPago: professional.paymentAlias ?? '',
+    });
 
     const to = normalizeArWhatsappNumber(patient.phone);
     try {
@@ -555,7 +603,9 @@ export class WhatsappMessagingService {
       normalized === '1' ||
       digitReply === '1' ||
       /^1\uFE0F\u20E3/.test(normalized) ||
-      /\b(si|sí|confirmo|voy|dale|ok|claro|perfecto|ahí estoy|ahi estoy)\b/.test(lower);
+      /\b(si|sí|confirmo|voy|dale|ok|claro|perfecto|ahí estoy|ahi estoy)\b/.test(
+        lower,
+      );
     const isTwo =
       normalized === '2' ||
       digitReply === '2' ||
@@ -591,7 +641,9 @@ export class WhatsappMessagingService {
       select: { id: true, phone: true, firstName: true, lastName: true },
     });
 
-    const patient = patients.find((p) => p.phone && phonesMatch(p.phone, fromJidDigits));
+    const patient = patients.find(
+      (p) => p.phone && phonesMatch(p.phone, fromJidDigits),
+    );
 
     if (!patient || !patient.phone) return false;
 
@@ -628,7 +680,10 @@ export class WhatsappMessagingService {
       professional.timezone,
     );
     const rel = reminderRelativeDay(appointment.startAt, professional.timezone);
-    const whenLabel = rel || formatAppointmentHuman(appointment.startAt, professional.timezone).weekday;
+    const whenLabel =
+      rel ||
+      formatAppointmentHuman(appointment.startAt, professional.timezone)
+        .weekday;
 
     if (isOne) {
       await this.prisma.appointment.update({
@@ -665,13 +720,15 @@ export class WhatsappMessagingService {
           content: `\u{2705} ${patientName} confirmó su turno de ${notifBody}`,
         }).catch(() => undefined);
       }
-      void this.notifications.create({
-        professionalId: professional.id,
-        type: 'PATIENT_CONFIRMED',
-        title: `${patientName} confirmó su turno`,
-        body: notifBody,
-        link: '/appointments',
-      }).catch(() => undefined);
+      void this.notifications
+        .create({
+          professionalId: professional.id,
+          type: 'PATIENT_CONFIRMED',
+          title: `${patientName} confirmó su turno`,
+          body: notifBody,
+          link: '/appointments',
+        })
+        .catch(() => undefined);
 
       return true;
     }
@@ -704,13 +761,15 @@ export class WhatsappMessagingService {
         content: `\u{274C} ${patientName} canceló su turno de ${notifBody}`,
       }).catch(() => undefined);
     }
-    void this.notifications.create({
-      professionalId: professional.id,
-      type: 'PATIENT_CANCELLED',
-      title: `${patientName} canceló su turno`,
-      body: notifBody,
-      link: '/appointments',
-    }).catch(() => undefined);
+    void this.notifications
+      .create({
+        professionalId: professional.id,
+        type: 'PATIENT_CANCELLED',
+        title: `${patientName} canceló su turno`,
+        body: notifBody,
+        link: '/appointments',
+      })
+      .catch(() => undefined);
 
     return true;
   }

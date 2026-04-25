@@ -19,6 +19,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { MessagesModule } from './messages/messages.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { MessageTemplatesModule } from './message-templates/message-templates.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     MessagesModule,
     DashboardModule,
     NotificationsModule,
+    MessageTemplatesModule,
   ],
   controllers: [AppController],
   providers: [

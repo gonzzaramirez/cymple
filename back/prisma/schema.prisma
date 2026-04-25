@@ -93,6 +93,7 @@ model Professional {
   messageLogs        MessageLog[]
   webhookEventLogs   WebhookEventLog[]
   notifications      Notification[]
+  messageTemplates   MessageTemplate[]
 }
 
 model WeeklyAvailability {
@@ -294,4 +295,19 @@ model Notification {
   professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
 
   @@index([professionalId, readAt, createdAt])
+}
+
+model MessageTemplate {
+  id             String      @id @default(cuid())
+  professionalId String
+  messageType    MessageType
+  isEnabled      Boolean     @default(true)
+  body           String      @db.Text
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@unique([professionalId, messageType])
+  @@index([professionalId])
 }

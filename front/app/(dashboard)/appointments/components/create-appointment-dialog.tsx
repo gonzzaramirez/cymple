@@ -45,8 +45,10 @@ import {
   ChevronDown,
   MapPin,
   Video,
+  Banknote,
+  ArrowLeftRight,
 } from "lucide-react";
-import { AppointmentModality, Patient } from "@/lib/types";
+import { AppointmentModality, Patient, PaymentMethod } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type SlotItem = {
@@ -97,6 +99,7 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
   const [fee, setFee] = useState("");
   const [reason, setReason] = useState("");
   const [modality, setModality] = useState<AppointmentModality>("PRESENCIAL");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
 
   useImperativeHandle(ref, () => ({
     openWithPatient(patientId: string, patientName: string) {
@@ -174,6 +177,7 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
     setFee("");
     setReason("");
     setModality("PRESENCIAL");
+    setPaymentMethod("");
   }
 
   function autoResizeNotes(el: HTMLTextAreaElement) {
@@ -261,6 +265,7 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
     };
     if (duration) payload.durationMinutes = Number(duration);
     if (feeVal) payload.fee = Number(feeVal);
+    if (paymentMethod) payload.paymentMethod = paymentMethod;
 
     const response = await fetch("/api/backend/appointments", {
       method: "POST",
@@ -636,6 +641,40 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
                   Virtual
                 </button>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Método de pago</Label>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("CASH")}
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors",
+                    paymentMethod === "CASH"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                  )}
+                >
+                  <Banknote className="size-4" />
+                  Efectivo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("TRANSFER")}
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors",
+                    paymentMethod === "TRANSFER"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                  )}
+                >
+                  <ArrowLeftRight className="size-4" />
+                  Transferencia
+                </button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Opcional. Si elegís transferencia, se guarda para luego usar en el flujo de pago.
+              </p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">

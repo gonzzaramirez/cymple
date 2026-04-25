@@ -27,27 +27,21 @@ export function AppointmentsView({ items, initialDate }: AppointmentsViewProps) 
   const createDialogRef = useRef<CreateAppointmentDialogHandle>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const confirmedCount = items.filter((item) => item.status === "CONFIRMED").length;
+  const pendingCount = items.filter((item) => item.status === "PENDING").length;
 
   // ── Lista: datos propios (no restringidos a "esta semana") ──────────────
-  const [listItems, setListItems] = useState<Appointment[] | null>(null);
-  const [listLoading, setListLoading] = useState(false);
-
-  // Cuando el servidor devuelve nuevos `items` (tras crear/refrescar), invalidar la lista
-  useEffect(() => {
-    setListItems(null);
-  }, [items]);
-
-  // Invalidar la lista cuando cambian los filtros de URL (search, status, from, to)
-  useEffect(() => {
-    setListItems(null);
-  }, [searchParams]);
+  const listKey = `${searchParams.toString()}|${items.map((item) => item.id).join(",")}`;
+  const [listState, setListState] = useState<{
+    key: string;
+    items: Appointment[];
+  } | null>(null);
 
   // Fetch de todos los turnos al cambiar a vista lista, propagando los filtros activos de URL
   useEffect(() => {
     if (view !== "table") return;
-    if (listItems !== null) return; // ya está cargado
+    if (listState?.key === listKey) return; // ya está cargado
     let cancelled = false;
-    setListLoading(true);
 
     const params = new URLSearchParams();
     params.set("limit", "100");
@@ -67,12 +61,17 @@ export function AppointmentsView({ items, initialDate }: AppointmentsViewProps) 
     fetch(`/api/backend/appointments?${params.toString()}`)
       .then((r) => r.json())
       .then((data: { items?: Appointment[] }) => {
-        if (!cancelled) setListItems(data.items ?? []);
+        if (!cancelled) {
+          setListState({ key: listKey, items: data.items ?? [] });
+        }
       })
-      .catch(() => { if (!cancelled) setListItems([]); })
-      .finally(() => { if (!cancelled) setListLoading(false); });
+      .catch(() => {
+        if (!cancelled) {
+          setListState({ key: listKey, items: [] });
+        }
+      });
     return () => { cancelled = true; };
-  }, [view, listItems, searchParams]);
+  }, [view, listState?.key, listKey, searchParams]);
 
   // Tras crear un turno, navegar a la semana que lo contiene
   const handleAppointmentCreated = useCallback(
@@ -92,38 +91,63 @@ export function AppointmentsView({ items, initialDate }: AppointmentsViewProps) 
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-3xl font-semibold tracking-[-0.02em]">
-            Agenda
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Turnos y calendario
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="inline-flex items-center rounded-xl bg-muted p-1">
-            {VIEW_OPTIONS.map((opt) => {
-              const Icon = opt.icon;
-              const active = view === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setView(opt.value)}
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-all ${
-                    active
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <Icon className="size-3.5" />
-                  {opt.label}
-                </button>
-              );
-            })}
+      <div className="rounded-3xl bg-card p-4 shadow-card md:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">
+              Operación diaria
+            </p>
+            <h1 className="mt-2 font-display text-3xl font-semibold tracking-[-0.02em] md:text-4xl">
+              Agenda
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Turnos, estados y búsqueda rápida de pacientes.
+            </p>
           </div>
-          <CreateAppointmentDialog ref={createDialogRef} onSuccess={handleAppointmentCreated} />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="inline-flex w-full items-center rounded-xl bg-muted p-1 sm:w-auto">
+              {VIEW_OPTIONS.map((opt) => {
+                const Icon = opt.icon;
+                const active = view === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setView(opt.value)}
+                    className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all sm:flex-none ${
+                      active
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Icon className="size-3.5" />
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+            <CreateAppointmentDialog ref={createDialogRef} onSuccess={handleAppointmentCreated} />
+          </div>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+          <div className="rounded-2xl bg-muted/35 p-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+              En rango
+            </p>
+            <p className="mt-1 font-display text-2xl font-semibold">{items.length}</p>
+          </div>
+          <div className="rounded-2xl bg-muted/35 p-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+              Confirmados
+            </p>
+            <p className="mt-1 font-display text-2xl font-semibold">{confirmedCount}</p>
+          </div>
+          <div className="rounded-2xl bg-muted/35 p-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+              Pendientes
+            </p>
+            <p className="mt-1 font-display text-2xl font-semibold">{pendingCount}</p>
+          </div>
         </div>
       </div>
 
@@ -134,12 +158,12 @@ export function AppointmentsView({ items, initialDate }: AppointmentsViewProps) 
 
       {view === "calendar" ? (
         <ScheduleCalendar items={items} selectedDate={initialDate} />
-      ) : listLoading ? (
+      ) : listState?.key !== listKey ? (
         <div className="flex items-center justify-center rounded-2xl bg-card p-12 shadow-card">
           <p className="text-sm text-muted-foreground">Cargando turnos...</p>
         </div>
       ) : (
-        <AppointmentsList items={listItems ?? items} />
+        <AppointmentsList items={listState.items} />
       )}
     </div>
   );

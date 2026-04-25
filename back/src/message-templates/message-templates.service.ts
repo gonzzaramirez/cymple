@@ -1,0 +1,138 @@
+import { Injectable } from '@nestjs/common';
+import { MessageType } from '@prisma/client';
+import { PrismaService } from '../common/prisma/prisma.service';
+import { UpsertTemplateDto } from './dto/upsert-template.dto';
+
+export const TEMPLATABLE_TYPES = [
+  MessageType.APPOINTMENT_CREATED,
+  MessageType.APPOINTMENT_REMINDER,
+  MessageType.APPOINTMENT_RESCHEDULED,
+  MessageType.APPOINTMENT_CANCELLED,
+  MessageType.PAYMENT_REMINDER,
+] as const;
+
+export type TemplatableType = (typeof TEMPLATABLE_TYPES)[number];
+
+export const DEFAULT_TEMPLATES: Record<TemplatableType, string> = {
+  [MessageType.APPOINTMENT_CREATED]:
+    `Hola {{nombrePaciente}}! 🗓️\n` +
+    `Te confirmamos tu turno con {{nombreProfesional}}:\n` +
+    `📅 {{diaSemana}}, {{fechaMes}} a las {{hora}}hs\n\n` +
+    `¡Te esperamos!`,
+
+  [MessageType.APPOINTMENT_REMINDER]:
+    `📋 Recordatorio de turno\n` +
+    `Hola {{nombrePaciente}}! {{diaRelativo}} tenés turno con {{nombreProfesional}} a las {{hora}}hs.\n\n` +
+    `Confirmá tu asistencia:\n` +
+    `1️⃣ Confirmo que voy\n` +
+    `2️⃣ No puedo asistir`,
+
+  [MessageType.APPOINTMENT_RESCHEDULED]:
+    `🔄 Tu turno fue reprogramado.\n` +
+    `Nueva fecha: *{{diaSemana}}, {{fechaMes}} a las {{hora}}hs* con {{nombreProfesional}}.\n\n` +
+    `📍 ¡Te esperamos!`,
+
+  [MessageType.APPOINTMENT_CANCELLED]:
+    `Hola {{nombrePaciente}}, tu turno del *{{diaSemana}} {{fechaMes}} a las {{hora}}hs* con {{nombreProfesional}} fue cancelado.\n\n` +
+    `Contactate con nosotros para reprogramar. ¡Hasta pronto! 👋`,
+
+  [MessageType.PAYMENT_REMINDER]:
+    'Hola {{nombrePaciente}}! 🤗\n\n' +
+    'Muchas gracias por venir a tu sesión del *{{diaSemana}} {{fechaMes}} a las {{hora}}hs*. ' +
+    'Fue un gusto atenderte 💫\n\n' +
+    'Te recordamos que tenés pendiente el pago de *${{monto}}* correspondiente a esa sesión.\n' +
+    '💳 Alias: *{{aliasPago}}*\n\n' +
+    '_Si ya realizaste la transferencia, por favor ignorá este mensaje. 🙏_\n\n' +
+    '❤️ Hasta la próxima, {{nombreProfesional}}',
+};
+
+export interface ResolvedTemplate {
+  messageType: TemplatableType;
+  body: string;
+  isEnabled: boolean;
+  isDefault: boolean;
+}
+
+@Injectable()
+export class MessageTemplatesService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async findAll(professionalId: string): Promise<ResolvedTemplate[]> {
+    const saved = await this.prisma.messageTemplate.findMany({
+      where: { professionalId },
+    });
+
+    const savedMap = new Map(saved.map((t) => [t.messageType, t]));
+
+    return TEMPLATABLE_TYPES.map((type) => {
+      const record = savedMap.get(type);
+      return {
+        messageType: type,
+        body: record?.body ?? DEFAULT_TEMPLATES[type],
+        isEnabled: record?.isEnabled ?? true,
+        isDefault: !record,
+      };
+    });
+  }
+
+  async upsert(
+    professionalId: string,
+    messageType: TemplatableType,
+    dto: UpsertTemplateDto,
+  ): Promise<ResolvedTemplate> {
+    const record = await this.prisma.messageTemplate.upsert({
+      where: {
+        professionalId_messageType: { professionalId, messageType },
+      },
+      create: {
+        professionalId,
+        messageType,
+        body: dto.body,
+        isEnabled: dto.isEnabled ?? true,
+      },
+      update: {
+        body: dto.body,
+        isEnabled: dto.isEnabled ?? true,
+      },
+    });
+
+    return {
+      messageType: record.messageType as TemplatableType,
+      body: record.body,
+      isEnabled: record.isEnabled,
+      isDefault: false,
+    };
+  }
+
+  async resetToDefault(
+    professionalId: string,
+    messageType: TemplatableType,
+  ): Promise<ResolvedTemplate> {
+    await this.prisma.messageTemplate.deleteMany({
+      where: { professionalId, messageType },
+    });
+
+    return {
+      messageType,
+      body: DEFAULT_TEMPLATES[messageType],
+      isEnabled: true,
+      isDefault: true,
+    };
+  }
+
+  async getOne(
+    professionalId: string,
+    messageType: TemplatableType,
+  ): Promise<ResolvedTemplate> {
+    const record = await this.prisma.messageTemplate.findUnique({
+      where: { professionalId_messageType: { professionalId, messageType } },
+    });
+
+    return {
+      messageType,
+      body: record?.body ?? DEFAULT_TEMPLATES[messageType],
+      isEnabled: record?.isEnabled ?? true,
+      isDefault: !record,
+    };
+  }
+}

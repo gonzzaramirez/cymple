@@ -47,7 +47,11 @@ describe('AppointmentsService', () => {
       create: jest.fn().mockResolvedValue({}),
     };
 
-    const service = new AppointmentsService(prismaMock, whatsappMock as any, notificationsMock as any);
+    const service = new AppointmentsService(
+      prismaMock,
+      whatsappMock as any,
+      notificationsMock as any,
+    );
 
     await service.changeStatus('prof-1', 'app-1', {
       status: AppointmentStatus.ATTENDED,

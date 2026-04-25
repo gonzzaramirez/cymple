@@ -16,6 +16,20 @@ export type Patient = {
   birthDate?: string | null;
   notes?: string | null;
   createdAt: string;
+  summary?: {
+    totalSessions: number;
+    absentCount: number;
+    nextAppointment?: {
+      id: string;
+      startAt: string;
+      status: Appointment["status"];
+    } | null;
+    lastAppointment?: {
+      id: string;
+      startAt: string;
+      status: Appointment["status"];
+    } | null;
+  };
 };
 
 export type AppointmentModality = "PRESENCIAL" | "VIRTUAL";
@@ -98,4 +112,18 @@ export type MessageGroupedByPatient = {
   totalMessages: number;
   typeCounts: Partial<Record<string, number>>;
   lastMessageAt: string | null;
+};
+
+export type MessageTemplateType =
+  | "APPOINTMENT_CREATED"
+  | "APPOINTMENT_REMINDER"
+  | "APPOINTMENT_RESCHEDULED"
+  | "APPOINTMENT_CANCELLED"
+  | "PAYMENT_REMINDER";
+
+export type MessageTemplate = {
+  messageType: MessageTemplateType;
+  body: string;
+  isEnabled: boolean;
+  isDefault: boolean;
 };

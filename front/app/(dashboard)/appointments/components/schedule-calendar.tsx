@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import "temporal-polyfill/global";
 import {
@@ -13,6 +13,7 @@ import { useNextCalendarApp, ScheduleXCalendar } from "@schedule-x/react";
 import { createEventModalPlugin } from "@schedule-x/event-modal";
 import { createCurrentTimePlugin } from "@schedule-x/current-time";
 import { Appointment as AppointmentType } from "@/lib/types";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { AppointmentEventModal } from "./appointment-event-modal";
 
 /** Claves en minúsculas: deben coincidir con calendarId del evento (status en minúsculas). */
@@ -140,18 +141,12 @@ type ScheduleCalendarProps = {
 export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const isMobile = useIsMobile();
 
   // Refs para que los callbacks del calendario siempre accedan a los valores más recientes
   const searchParamsRef = useRef(searchParams);
-  searchParamsRef.current = searchParams;
   const routerRef = useRef(router);
-  routerRef.current = router;
 
-  const [isMobile, setIsMobile] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.matchMedia("(max-width: 768px)").matches
-  );
   const [selectedAppointment, setSelectedAppointment] =
     useState<AppointmentType | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -172,11 +167,12 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
   }, [selectedDate]);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 768px)");
-    const handleChange = (event: MediaQueryListEvent) => setIsMobile(event.matches);
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
-  }, []);
+    searchParamsRef.current = searchParams;
+  }, [searchParams]);
+
+  useEffect(() => {
+    routerRef.current = router;
+  }, [router]);
 
   const calendarApp = useNextCalendarApp(
     {
@@ -192,7 +188,7 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
         end: "21:00",
       },
       weekOptions: {
-        gridHeight: isMobile ? 520 : 700,
+        gridHeight: isMobile ? 560 : 680,
         eventWidth: 100,
         gridStep: 30,
       },
@@ -263,7 +259,7 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
   return (
     <div>
       <div className="overflow-hidden rounded-2xl bg-card shadow-card">
-        <div className="sx-calendar-wrapper">
+        <div className="sx-calendar-wrapper" data-mobile={isMobile ? "true" : "false"}>
           {calendarApp && <ScheduleXCalendar calendarApp={calendarApp} />}
         </div>
       </div>

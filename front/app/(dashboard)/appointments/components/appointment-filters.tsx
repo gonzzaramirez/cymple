@@ -86,13 +86,13 @@ export function AppointmentFilters({ view, onCreateAppointment }: AppointmentFil
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-2 rounded-2xl bg-card p-3 shadow-card sm:flex-row sm:flex-wrap sm:items-center">
         {isCalendar ? (
-          <div className="min-w-[220px] max-w-xs flex-1">
+          <div className="min-w-0 flex-1 sm:min-w-[240px] sm:max-w-sm">
             <PatientSearchPreview onCreateAppointment={onCreateAppointment} />
           </div>
         ) : (
-          <div className="relative flex-1 min-w-[200px] max-w-xs">
+          <div className="relative min-w-0 flex-1 sm:min-w-[240px] sm:max-w-sm">
             <Input
               placeholder="Buscar paciente..."
               value={search}
@@ -115,7 +115,7 @@ export function AppointmentFilters({ view, onCreateAppointment }: AppointmentFil
               <Button
                 variant={hasActiveFilters ? "default" : "outline"}
                 size="sm"
-                className="gap-1.5"
+                className="w-full gap-1.5 sm:w-auto"
               >
                 <Filter className="size-3.5" />
                 Filtros

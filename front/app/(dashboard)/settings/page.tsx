@@ -1,11 +1,12 @@
-import { SettingsForm } from "./components/settings-form";
-import { WhatsappConnectionCard } from "./components/whatsapp-connection-card";
 import { serverApiFetch } from "@/lib/server-api";
-import { ProfessionalSettings } from "@/lib/types";
+import { MessageTemplate, ProfessionalSettings } from "@/lib/types";
+import { SettingsTabs } from "./components/settings-tabs";
 
 export default async function SettingsPage() {
-  const settings =
-    await serverApiFetch<ProfessionalSettings>("professional/settings");
+  const [settings, templates] = await Promise.all([
+    serverApiFetch<ProfessionalSettings>("professional/settings"),
+    serverApiFetch<MessageTemplate[]>("message-templates"),
+  ]);
 
   return (
     <section className="space-y-6">
@@ -14,11 +15,10 @@ export default async function SettingsPage() {
           Configuración
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Parámetros base de agenda y recordatorios
+          Parámetros de agenda, WhatsApp y plantillas de mensajes
         </p>
       </div>
-      <WhatsappConnectionCard />
-      <SettingsForm settings={settings} />
+      <SettingsTabs settings={settings} templates={templates} />
     </section>
   );
 }

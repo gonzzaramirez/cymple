@@ -4,20 +4,23 @@ import { useRef } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  Activity,
+  ArrowLeft,
+  Calendar,
+  CalendarClock,
+  CreditCard,
+  DollarSign,
+  Mail,
+  MessageSquareText,
+  Phone,
+  Sparkles,
+  UserRound,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import Link from "next/link";
-import {
-  ArrowLeft,
-  Phone,
-  Mail,
-  CreditCard,
-  Calendar,
-  DollarSign,
-  Activity,
-  MessageSquareText,
-} from "lucide-react";
 import {
   messageTypeLabel,
   MESSAGE_DIRECTION_LABELS,
@@ -25,7 +28,10 @@ import {
 import { cn } from "@/lib/utils";
 import { EditPatientDialog } from "../../components/edit-patient-dialog";
 import { DeletePatientButton } from "../../components/delete-patient-button";
-import { CreateAppointmentDialog, CreateAppointmentDialogHandle } from "../../../appointments/components/create-appointment-dialog";
+import {
+  CreateAppointmentDialog,
+  CreateAppointmentDialogHandle,
+} from "../../../appointments/components/create-appointment-dialog";
 
 type PatientFull = {
   id: string;
@@ -98,6 +104,137 @@ function messageBadgeVariant(
   }
 }
 
+function appointmentStatus(status: string) {
+  return statusConfig[status] ?? {
+    label: status,
+    variant: "secondary" as const,
+  };
+}
+
+function formatShortDateTime(value: string) {
+  return format(new Date(value), "EEE dd/MM HH:mm", { locale: es });
+}
+
+function MetricCard({
+  label,
+  value,
+  icon: Icon,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  icon: typeof Activity;
+  tone?: "default" | "muted" | "success";
+}) {
+  return (
+    <Card size="sm" className="shadow-none ring-1 ring-border/70">
+      <CardContent>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+            {label}
+          </p>
+          <Icon
+            className={cn(
+              "size-4",
+              tone === "success" ? "text-[#34c759]" : "text-muted-foreground",
+            )}
+          />
+        </div>
+        <p
+          className={cn(
+            "mt-3 font-display text-2xl font-semibold tracking-[-0.02em]",
+            tone === "muted" ? "text-muted-foreground" : "text-foreground",
+          )}
+        >
+          {value}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function InfoLine({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Phone;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-start gap-3 rounded-xl bg-muted/35 p-3">
+      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      <div className="min-w-0">
+        <p className="text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground">
+          {label}
+        </p>
+        <p className="mt-1 break-words text-sm font-medium">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function AppointmentRow({
+  appointment,
+  subdued = false,
+}: {
+  appointment: HistoryAppointment;
+  subdued?: boolean;
+}) {
+  const cfg = appointmentStatus(appointment.status);
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-3 rounded-xl px-4 py-3 transition-colors sm:flex-row sm:items-center sm:justify-between",
+        subdued ? "hover:bg-muted/35" : "bg-muted/35 hover:bg-muted/50",
+      )}
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-card text-muted-foreground ring-1 ring-border/70">
+          <Calendar className="size-4" />
+        </div>
+        <div className="min-w-0">
+          <p className="font-medium">{formatShortDateTime(appointment.startAt)}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {format(new Date(appointment.startAt), "yyyy", { locale: es })}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center justify-between gap-3 sm:justify-end">
+        <span className="font-mono text-sm text-muted-foreground">
+          $ {appointment.fee}
+        </span>
+        <Badge variant={cfg.variant}>{cfg.label}</Badge>
+      </div>
+    </div>
+  );
+}
+
+function MessageRow({ message }: { message: PatientMessage }) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={messageBadgeVariant(message.messageType)}>
+          {messageTypeLabel(message.messageType)}
+        </Badge>
+        <Badge variant="outline">
+          {MESSAGE_DIRECTION_LABELS[message.direction] ?? message.direction}
+        </Badge>
+        <span className="text-xs text-muted-foreground">
+          {format(new Date(message.createdAt), "dd/MM/yyyy HH:mm", {
+            locale: es,
+          })}
+        </span>
+      </div>
+      <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm leading-relaxed">
+        {message.content}
+      </p>
+    </div>
+  );
+}
+
 export function PatientDetail({
   patient,
   appointments,
@@ -116,274 +253,244 @@ export function PatientDetail({
       (a) =>
         a.status === "ATTENDED" ||
         a.status === "ABSENT" ||
-        a.status === "CANCELLED"
+        a.status === "CANCELLED",
     )
-    .sort(
-      (a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime()
-    );
+    .sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
+
+  const absentCount = appointments.filter((a) => a.status === "ABSENT").length;
+  const latestAppointment = appointments[0];
+  const latestMessages = messages.slice(0, 6);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => router.push("/patients")}
-        >
-          <ArrowLeft className="size-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="font-display text-3xl font-semibold tracking-[-0.02em]">
-            {patient.lastName}, {patient.firstName}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Ficha de paciente
-          </p>
+      <div className="rounded-3xl bg-card p-5 shadow-card md:p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex min-w-0 gap-4">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => router.push("/patients")}
+              className="mt-1 shrink-0"
+            >
+              <ArrowLeft className="size-4" />
+            </Button>
+            <div className="min-w-0">
+              <div className="mb-3 flex items-center gap-2">
+                <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <UserRound className="size-5" />
+                </div>
+                <Badge variant={upcoming.length > 0 ? "info" : "secondary"}>
+                  {upcoming.length > 0 ? "Paciente activo" : "Sin turno activo"}
+                </Badge>
+              </div>
+              <h1 className="font-display text-3xl font-semibold tracking-[-0.03em] md:text-4xl">
+                {patient.lastName}, {patient.firstName}
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                Ficha operativa con contacto, próximos pasos, actividad y mensajes
+                recientes.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {patient.phone ? (
+                  <Badge variant="outline">
+                    <Phone className="size-3" />
+                    {patient.phone}
+                  </Badge>
+                ) : null}
+                {patient.email ? (
+                  <Badge variant="outline">
+                    <Mail className="size-3" />
+                    {patient.email}
+                  </Badge>
+                ) : null}
+                {patient.dni ? <Badge variant="secondary">DNI {patient.dni}</Badge> : null}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <CreateAppointmentDialog
+              ref={createApptRef}
+              hideTrigger
+              onSuccess={() => router.refresh()}
+            />
+            <Button
+              variant="default"
+              onClick={() =>
+                createApptRef.current?.openWithPatient(
+                  patient.id,
+                  `${patient.lastName}, ${patient.firstName}`,
+                )
+              }
+            >
+              + Nuevo turno
+            </Button>
+            <EditPatientDialog patient={patient} />
+            <DeletePatientButton
+              patientId={patient.id}
+              patientName={`${patient.firstName} ${patient.lastName}`}
+            />
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <EditPatientDialog patient={patient} />
-          <DeletePatientButton
-            patientId={patient.id}
-            patientName={`${patient.firstName} ${patient.lastName}`}
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            label="Sesiones"
+            value={summary.totalSessions.toString()}
+            icon={Activity}
+            tone="success"
+          />
+          <MetricCard
+            label="Facturado"
+            value={`$ ${summary.totalBilled.toLocaleString("es-AR")}`}
+            icon={DollarSign}
+          />
+          <MetricCard
+            label="Ausencias"
+            value={absentCount.toString()}
+            icon={Sparkles}
+            tone={absentCount > 0 ? "muted" : "default"}
+          />
+          <MetricCard
+            label="Último turno"
+            value={latestAppointment ? formatShortDateTime(latestAppointment.startAt) : "Sin historial"}
+            icon={CalendarClock}
+            tone="muted"
           />
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="shadow-card">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold uppercase tracking-[0.05em] text-muted-foreground">
-              Contacto
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {patient.phone && (
-              <div className="flex items-center gap-2.5">
-                <Phone className="size-4 text-muted-foreground" />
-                <span className="font-mono text-sm">{patient.phone}</span>
-              </div>
-            )}
-            {patient.email && (
-              <div className="flex items-center gap-2.5">
-                <Mail className="size-4 text-muted-foreground" />
-                <span className="text-sm">{patient.email}</span>
-              </div>
-            )}
-            {patient.dni && (
-              <div className="flex items-center gap-2.5">
-                <CreditCard className="size-4 text-muted-foreground" />
-                <span className="text-sm">{patient.dni}</span>
-              </div>
-            )}
-            {patient.birthDate && (
-              <div className="flex items-center gap-2.5">
-                <Calendar className="size-4 text-muted-foreground" />
-                <span className="text-sm">
-                  {format(new Date(patient.birthDate), "dd/MM/yyyy")}
-                </span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-card">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold uppercase tracking-[0.05em] text-muted-foreground">
-              Resumen
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Activity className="size-4 text-[#34c759]" />
-                <span className="text-sm text-muted-foreground">Sesiones</span>
-              </div>
-              <span className="text-lg font-semibold">
-                {summary.totalSessions}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <DollarSign className="size-4 text-primary" />
-                <span className="text-sm text-muted-foreground">
-                  Total facturado
-                </span>
-              </div>
-              <span className="text-lg font-mono font-semibold">
-                $ {summary.totalBilled.toLocaleString("es-AR")}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {patient.notes && (
-          <Card className="shadow-card">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold uppercase tracking-[0.05em] text-muted-foreground">
-                Notas
-              </CardTitle>
+      <div className="grid gap-5 xl:grid-cols-[minmax(280px,0.38fr)_1fr]">
+        <div className="space-y-5">
+          <Card>
+            <CardHeader className="pb-0">
+              <CardTitle>Datos clave</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm whitespace-pre-wrap">{patient.notes}</p>
+            <CardContent className="space-y-3">
+              <InfoLine icon={Phone} label="Teléfono" value={patient.phone || "Sin cargar"} />
+              <InfoLine icon={Mail} label="Email" value={patient.email || "Sin cargar"} />
+              <InfoLine icon={CreditCard} label="DNI" value={patient.dni || "Sin cargar"} />
+              <InfoLine
+                icon={Calendar}
+                label="Nacimiento"
+                value={
+                  patient.birthDate
+                    ? format(new Date(patient.birthDate), "dd/MM/yyyy")
+                    : "Sin cargar"
+                }
+              />
             </CardContent>
           </Card>
-        )}
-      </div>
 
-      <Card className="shadow-card">
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <CardTitle className="text-sm font-semibold uppercase tracking-[0.05em] text-muted-foreground">
-            Próximos turnos
-          </CardTitle>
-          {/* Diálogo oculto (sin trigger propio): se abre con openWithPatient */}
-          <CreateAppointmentDialog
-            ref={createApptRef}
-            hideTrigger
-            onSuccess={() => router.refresh()}
-          />
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() =>
-              createApptRef.current?.openWithPatient(
-                patient.id,
-                `${patient.lastName}, ${patient.firstName}`,
-              )
-            }
-          >
-            + Nuevo turno
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {upcoming.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">
-              No hay turnos programados
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {upcoming.map((appt) => {
-                const cfg = statusConfig[appt.status] ?? {
-                  label: appt.status,
-                  variant: "secondary" as const,
-                };
-                return (
-                  <div
-                    key={appt.id}
-                    className="flex items-center justify-between rounded-xl bg-muted/40 px-4 py-3 transition-colors hover:bg-muted/60"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Calendar className="size-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">
-                        {format(new Date(appt.startAt), "EEE dd/MM HH:mm", {
-                          locale: es,
-                        })}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono text-sm text-muted-foreground">
-                        $ {appt.fee}
-                      </span>
-                      <Badge variant={cfg.variant}>{cfg.label}</Badge>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader className="pb-0">
+              <CardTitle>Notas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+                {patient.notes || "Sin notas cargadas para este paciente."}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
 
-      <Card className="shadow-card">
-        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.05em] text-muted-foreground">
-            <MessageSquareText className="size-4" />
-            Mensajes (WhatsApp)
-          </CardTitle>
-          <Link
-            href={`/messages?patientId=${patient.id}`}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-          >
-            Ver en bandeja global
-          </Link>
-        </CardHeader>
-        <CardContent>
-          {messages.length === 0 ?
-            <p className="py-4 text-center text-sm text-muted-foreground">
-              Todavía no hay mensajes registrados para este paciente.
-            </p>
-          : <div className="max-h-[480px] space-y-3 overflow-y-auto pr-1">
-              {messages.map((m) => (
-                <div
-                  key={m.id}
-                  className="rounded-xl border border-border/50 bg-muted/20 p-3"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant={messageBadgeVariant(m.messageType)}>
-                      {messageTypeLabel(m.messageType)}
-                    </Badge>
-                    <Badge variant="outline">
-                      {MESSAGE_DIRECTION_LABELS[m.direction] ?? m.direction}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {format(new Date(m.createdAt), "dd/MM/yyyy HH:mm", {
-                        locale: es,
-                      })}
-                    </span>
-                  </div>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">
-                    {m.content}
-                  </p>
+        <div className="space-y-5">
+          <Card>
+            <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 pb-0">
+              <div>
+                <CardTitle>Próximos turnos</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Lo que requiere atención primero.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  createApptRef.current?.openWithPatient(
+                    patient.id,
+                    `${patient.lastName}, ${patient.firstName}`,
+                  )
+                }
+              >
+                Agendar
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {upcoming.length === 0 ? (
+                <p className="rounded-xl bg-muted/35 p-4 text-center text-sm text-muted-foreground">
+                  No hay turnos programados.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {upcoming.slice(0, 4).map((appointment) => (
+                    <AppointmentRow key={appointment.id} appointment={appointment} />
+                  ))}
                 </div>
-              ))}
-            </div>
-          }
-        </CardContent>
-      </Card>
+              )}
+            </CardContent>
+          </Card>
 
-      <Card className="shadow-card">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold uppercase tracking-[0.05em] text-muted-foreground">
-            Historial de turnos
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {past.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">
-              Sin historial de turnos
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {past.map((appt) => {
-                const cfg = statusConfig[appt.status] ?? {
-                  label: appt.status,
-                  variant: "secondary" as const,
-                };
-                return (
-                  <div
-                    key={appt.id}
-                    className="flex items-center justify-between rounded-xl px-4 py-3 transition-colors hover:bg-muted/40"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Calendar className="size-4 text-muted-foreground" />
-                      <span className="text-sm">
-                        {format(new Date(appt.startAt), "EEE dd/MM/yyyy HH:mm", {
-                          locale: es,
-                        })}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono text-sm text-muted-foreground">
-                        $ {appt.fee}
-                      </span>
-                      <Badge variant={cfg.variant}>{cfg.label}</Badge>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader className="pb-0">
+              <CardTitle>Historial de turnos</CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Últimos movimientos, sin cargar toda la ficha visualmente.
+              </p>
+            </CardHeader>
+            <CardContent>
+              {past.length === 0 ? (
+                <p className="rounded-xl bg-muted/35 p-4 text-center text-sm text-muted-foreground">
+                  Sin historial de turnos.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {past.slice(0, 8).map((appointment) => (
+                    <AppointmentRow
+                      key={appointment.id}
+                      appointment={appointment}
+                      subdued
+                    />
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 pb-0">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquareText className="size-4 text-muted-foreground" />
+                  Mensajes recientes
+                </CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  WhatsApp y automatizaciones vinculadas al paciente.
+                </p>
+              </div>
+              <Link
+                href={`/messages?patientId=${patient.id}`}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+              >
+                Ver bandeja
+              </Link>
+            </CardHeader>
+            <CardContent>
+              {latestMessages.length === 0 ? (
+                <p className="rounded-xl bg-muted/35 p-4 text-center text-sm text-muted-foreground">
+                  Todavía no hay mensajes registrados para este paciente.
+                </p>
+              ) : (
+                <div className="grid gap-3 lg:grid-cols-2">
+                  {latestMessages.map((message) => (
+                    <MessageRow key={message.id} message={message} />
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

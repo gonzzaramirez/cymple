@@ -8,7 +8,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { AppointmentModality } from '@prisma/client';
+import { AppointmentModality, PaymentMethod } from '@prisma/client';
 
 export class CreateAppointmentDto {
   @IsString()
@@ -37,4 +37,8 @@ export class CreateAppointmentDto {
   @IsOptional()
   @IsEnum(AppointmentModality)
   modality?: AppointmentModality;
+
+  @IsOptional()
+  @IsEnum(PaymentMethod)
+  paymentMethod?: PaymentMethod;
 }

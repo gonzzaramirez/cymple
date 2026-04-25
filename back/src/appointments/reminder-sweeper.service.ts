@@ -92,7 +92,10 @@ export class ReminderSweeper {
         // Ventana de 5 min: la hora/minuto del profesional cae dentro de la ventana actual
         const currentMinutes = dtNow.hour * 60 + dtNow.minute;
         const targetMinutes = targetHour * 60 + targetMinute;
-        if (currentMinutes < targetMinutes || currentMinutes >= targetMinutes + 5) {
+        if (
+          currentMinutes < targetMinutes ||
+          currentMinutes >= targetMinutes + 5
+        ) {
           continue;
         }
 
@@ -153,7 +156,9 @@ export class ReminderSweeper {
           });
           this.logger.log(`Auto-confirmed appointment ${apt.id}`);
         } catch (error) {
-          this.logger.error(`Failed to auto-confirm appointment ${apt.id}: ${error}`);
+          this.logger.error(
+            `Failed to auto-confirm appointment ${apt.id}: ${error}`,
+          );
         }
       }
     }
