@@ -380,7 +380,7 @@ export function CenterScheduleCalendar({
         today: "Hoy",
         Week: "Semana",
         week: "Semana",
-        Day: "Día",
+        Day: "Dï¿½a",
         Month: "Mes",
         Date: "Fecha",
         date: "Fecha",
@@ -528,7 +528,7 @@ export function CenterScheduleCalendar({
         <div className="space-y-3 rounded-2xl bg-card p-3 shadow-card ring-border">
           <div className="flex items-center justify-between rounded-xl border border-[var(--border)] px-3 py-2">
             <h3 className="text-sm font-semibold">
-              Agenda por profesional · {focusedDate.toLocaleDateString("es-AR", { dateStyle: "full" })}
+              Agenda por profesional ï¿½ {focusedDate.toLocaleDateString("es-AR", { dateStyle: "full" })}
             </h3>
           </div>
 

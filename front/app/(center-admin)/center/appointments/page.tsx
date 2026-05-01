@@ -4,7 +4,7 @@ import { Appointment, MemberProfessional } from "@/lib/types";
 import { CenterScheduleCalendar } from "./components/center-schedule-calendar";
 
 export const metadata: Metadata = {
-  title: "Agenda | Centro Médico | Cymple",
+  title: "Agenda | Centro Mï¿½dico | Cymple",
 };
 
 type CalendarLayout = "resource" | "compact";
@@ -60,7 +60,7 @@ export default async function CenterAppointmentsPage({
           Agenda del Centro
         </h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Todos los turnos del centro. Usá vistas y filtros para distinguir superposiciones.
+          Todos los turnos del centro. Usï¿½ vistas y filtros para distinguir superposiciones.
         </p>
       </div>
       <CenterScheduleCalendar
