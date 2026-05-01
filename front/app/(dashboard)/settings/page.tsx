@@ -1,6 +1,11 @@
 import { serverApiFetch } from "@/lib/server-api";
+import type { Metadata } from "next";
 import { MessageTemplate, ProfessionalSettings } from "@/lib/types";
 import { SettingsTabs } from "./components/settings-tabs";
+
+export const metadata: Metadata = {
+  title: "Configuración | Cymple",
+};
 
 export default async function SettingsPage() {
   const [settings, templates] = await Promise.all([

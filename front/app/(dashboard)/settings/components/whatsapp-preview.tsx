@@ -1,10 +1,9 @@
-"use client";
-
 import { interpolateTemplate } from "@/lib/message-templates";
 
 interface WhatsappPreviewProps {
   body: string;
   sampleData: Record<string, string>;
+  previewTime: string;
 }
 
 function renderMessageBody(text: string) {
@@ -35,15 +34,8 @@ function renderMessageBody(text: string) {
   });
 }
 
-export function WhatsappPreview({ body, sampleData }: WhatsappPreviewProps) {
+export function WhatsappPreview({ body, sampleData, previewTime }: WhatsappPreviewProps) {
   const interpolated = interpolateTemplate(body, sampleData);
-
-  const now = new Date();
-  const timeStr = now.toLocaleTimeString("es-AR", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
 
   return (
     <div
@@ -52,7 +44,7 @@ export function WhatsappPreview({ body, sampleData }: WhatsappPreviewProps) {
     >
       {/* WhatsApp header bar */}
       <div className="flex items-center gap-3 px-4 py-3 bg-[#075e54]">
-        <div className="w-9 h-9 rounded-full bg-[#25d366]/30 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+        <div className="w-9 h-9 rounded-full bg-[#25d366]/30 flex items-center justify-center text-white text-sm font-bold shrink-0">
           P
         </div>
         <div className="flex-1 min-w-0">
@@ -84,12 +76,12 @@ export function WhatsappPreview({ body, sampleData }: WhatsappPreviewProps) {
               }}
             />
             <div className="bg-[#dcf8c6] rounded-tl-2xl rounded-bl-2xl rounded-br-2xl px-3 pt-2 pb-1 shadow-sm">
-              <p className="text-[#111] text-[13.5px] leading-[1.45] whitespace-pre-wrap break-words">
+              <p className="text-[#111] text-[13.5px] leading-[1.45] whitespace-pre-wrap wrap-break-word">
                 {renderMessageBody(interpolated)}
               </p>
               {/* Timestamp + ticks */}
               <div className="flex items-center justify-end gap-1 mt-1">
-                <span className="text-[10px] text-[#667781]">{timeStr}</span>
+                <span className="text-[10px] text-[#667781]">{previewTime}</span>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 18 18"

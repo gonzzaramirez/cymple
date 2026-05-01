@@ -1,17 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import {
-  Command,
-  CommandInput,
-  CommandList,
-  CommandItem,
-  CommandEmpty,
-} from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Patient, Appointment } from "@/lib/types";
 import {
   Search,
@@ -54,6 +49,7 @@ type PatientSearchPreviewProps = {
 export function PatientSearchPreview({
   onCreateAppointment,
 }: PatientSearchPreviewProps) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(false);
@@ -137,42 +133,47 @@ export function PatientSearchPreview({
     const name = `${selected.lastName}, ${selected.firstName}`;
 
     return (
-      <div className="rounded-lg p-3 animate-in fade-in-0 slide-in-from-top-2 duration-200">
+      <div className="animate-in fade-in-0 slide-in-from-top-2 space-y-2 duration-200">
+        <div className="flex h-10 items-center gap-2 rounded-xl border border-border bg-background px-3">
+          <Search className="size-4 shrink-0 text-muted-foreground" />
+          <div className="min-w-0 flex-1">
+            <span className="inline-flex max-w-full items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+              <span className="truncate">{name}</span>
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={clearSelected}
+            className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+            aria-label="Limpiar paciente seleccionado"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <div className="rounded-xl border border-border/70 bg-background/60 p-3">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                {selected.firstName[0]}
-                {selected.lastName[0]}
-              </div>
-              <div>
-                <p className="font-semibold">{name}</p>
-                <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <div className="space-y-1">
+              <p className="font-semibold">{name}</p>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1">
+                  <Phone className="size-3" />
+                  {selected.phone}
+                </span>
+                {selected.email && (
                   <span className="inline-flex items-center gap-1">
-                    <Phone className="size-3" />
-                    {selected.phone}
+                    <Mail className="size-3" />
+                    {selected.email}
                   </span>
-                  {selected.email && (
-                    <span className="inline-flex items-center gap-1">
-                      <Mail className="size-3" />
-                      {selected.email}
-                    </span>
-                  )}
-                  {selected.dni && (
-                    <span className="inline-flex items-center gap-1">
-                      <CreditCard className="size-3" />
-                      {selected.dni}
-                    </span>
-                  )}
-                </div>
+                )}
+                {selected.dni && (
+                  <span className="inline-flex items-center gap-1">
+                    <CreditCard className="size-3" />
+                    {selected.dni}
+                  </span>
+                )}
               </div>
             </div>
-            <button
-              type="button"
-              onClick={clearSelected}
-              className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
-            >
-              <X className="size-4" />
-            </button>
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-2">
@@ -249,78 +250,77 @@ export function PatientSearchPreview({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => { window.location.href = `/patients/${selected.id}`; }}
+              onClick={() => router.push(`/patients/${selected.id}`)}
             >
               <User className="size-3.5" />
               Ver ficha
               <ChevronRight className="size-3" />
             </Button>
           </div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="relative">
-      {/* shouldFilter=false: el API ya filtra server-side; sin esto cmdk re-filtra
-          los resultados en el cliente y descarta coincidencias válidas (acentos, etc.) */}
-      <Command shouldFilter={false} className="rounded-lg border-0 bg-transparent shadow-none">
-        <div className="flex items-center border-b border-border px-3">
-          <Search className="size-4 shrink-0 text-muted-foreground" />
-          <CommandInput
-            placeholder="Buscar paciente por nombre o teléfono..."
-            value={search}
-            onValueChange={setSearch}
-            className="border-0 focus:ring-0 h-9 text-sm"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearch("");
-                setPatients([]);
-              }}
-              className="rounded-full p-1 text-muted-foreground hover:text-foreground cursor-pointer"
-            >
-              <X className="size-3.5" />
-            </button>
+      <div className="flex h-10 items-center gap-2 rounded-xl border border-border bg-background px-3">
+        <Search className="size-4 shrink-0 text-muted-foreground" />
+        <Input
+          placeholder="Buscar paciente por nombre o teléfono..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="h-8 border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => {
+              setSearch("");
+              setPatients([]);
+            }}
+            className="rounded-full p-1 text-muted-foreground hover:text-foreground cursor-pointer"
+            aria-label="Limpiar búsqueda"
+          >
+            <X className="size-3.5" />
+          </button>
+        )}
+      </div>
+
+      {search.trim().length > 0 && (
+        <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-140 overflow-hidden rounded-xl border border-border bg-popover shadow-lg">
+          {loading ? (
+            <div className="flex items-center justify-center py-4">
+              <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          ) : patients.length === 0 ? (
+            <p className="px-3 py-3 text-sm text-muted-foreground">No se encontraron pacientes</p>
+          ) : (
+            <div className="max-h-72 overflow-y-auto p-1">
+              {patients.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => void selectPatient(p)}
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-muted/70"
+                >
+                  <div className="flex size-8 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground shrink-0">
+                    {p.firstName[0]}
+                    {p.lastName[0]}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">
+                      {p.lastName}, {p.firstName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{p.phone ?? "Sin teléfono"}</p>
+                  </div>
+                  <ChevronRight className="size-3.5 text-muted-foreground shrink-0" />
+                </button>
+              ))}
+            </div>
           )}
         </div>
-        {search.trim().length > 0 && (
-          <CommandList>
-            {loading ? (
-              <div className="flex items-center justify-center py-4">
-                <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              </div>
-            ) : patients.length === 0 ? (
-              <CommandEmpty>No se encontraron pacientes</CommandEmpty>
-            ) : (
-              <div className="p-1">
-                {patients.map((p) => (
-                  <CommandItem
-                    key={p.id}
-                    value={`${p.lastName} ${p.firstName} ${p.phone ?? ""}`}
-                    onSelect={() => selectPatient(p)}
-                    className="cursor-pointer rounded-lg px-3 py-2.5"
-                  >
-                    <div className="flex size-8 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground shrink-0">
-                      {p.firstName[0]}
-                      {p.lastName[0]}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
-                        {p.lastName}, {p.firstName}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{p.phone ?? "Sin teléfono"}</p>
-                    </div>
-                    <ChevronRight className="size-3.5 text-muted-foreground shrink-0" />
-                  </CommandItem>
-                ))}
-              </div>
-            )}
-          </CommandList>
-        )}
-      </Command>
+      )}
     </div>
   );
 }

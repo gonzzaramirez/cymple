@@ -1,16 +1,28 @@
 "use client";
 
 import { useRef, useCallback, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Calendar, List } from "lucide-react";
 import { AppointmentFilters } from "./appointment-filters";
-import { ScheduleCalendar } from "./schedule-calendar";
 import { AppointmentsList } from "./appointments-list";
 import {
   CreateAppointmentDialog,
   CreateAppointmentDialogHandle,
 } from "./create-appointment-dialog";
 import { ApiList, Appointment } from "@/lib/types";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const ScheduleCalendar = dynamic(
+  () =>
+    import("./schedule-calendar").then((m) => ({
+      default: m.ScheduleCalendar,
+    })),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-[520px] rounded-2xl" />,
+  },
+);
 
 const VIEW_OPTIONS = [
   { value: "calendar" as const, label: "Calendario", icon: Calendar, ui: "calendar" as const },

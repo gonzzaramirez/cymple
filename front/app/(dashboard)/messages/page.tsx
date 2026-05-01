@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -20,6 +21,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Mensajes | Cymple",
+};
 
 function badgeVariantForType(
   messageType: string,

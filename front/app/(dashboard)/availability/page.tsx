@@ -1,4 +1,5 @@
 import { serverApiFetch } from "@/lib/server-api";
+import type { Metadata } from "next";
 import { AvailabilityConfig } from "./components/availability-config";
 
 type WeeklyRange = {
@@ -38,6 +39,10 @@ type SpecificDate = {
   professionalId: string;
   ranges: SpecificRange[];
   slotCapacities?: SlotCapacity[];
+};
+
+export const metadata: Metadata = {
+  title: "Disponibilidad | Cymple",
 };
 
 export default async function AvailabilityPage() {

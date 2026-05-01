@@ -1,9 +1,10 @@
 import { Suspense } from "react";
+import dynamic from "next/dynamic";
+import type { Metadata } from "next";
 import { CreateExpenseDialog } from "./components/create-expense-dialog";
 import { CreateRevenueDialog } from "./components/create-revenue-dialog";
 import { FinanceSummaryCards } from "./components/finance-summary-cards";
 import { FinanceTables } from "./components/finance-tables";
-import { FinanceChart } from "./components/finance-chart";
 import { serverApiFetch } from "@/lib/server-api";
 import { FinanceSummary } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,6 +22,21 @@ type ExpenseList = Array<{
   amount: string;
   occurredAt: string;
 }>;
+
+const FinanceChart = dynamic(
+  () =>
+    import("./components/finance-chart").then((m) => ({
+      default: m.FinanceChart,
+    })),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-[320px] rounded-2xl" />,
+  },
+);
+
+export const metadata: Metadata = {
+  title: "Finanzas | Cymple",
+};
 
 export default async function FinancePage() {
   const [summary, revenues, expenses] = await Promise.all([

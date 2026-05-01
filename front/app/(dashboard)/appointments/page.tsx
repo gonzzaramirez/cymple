@@ -1,8 +1,13 @@
 import { AppointmentsView } from "./components/appointments-view";
+import type { Metadata } from "next";
 import { serverApiFetch } from "@/lib/server-api";
 import { ApiList, Appointment } from "@/lib/types";
 
 const DEFAULT_LIST_LIMIT = 20;
+
+export const metadata: Metadata = {
+  title: "Agenda | Cymple",
+};
 
 type CalendarResponse = {
   items: Appointment[];

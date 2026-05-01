@@ -118,7 +118,7 @@ export function AppointmentFilters({
     <div className="border-b border-border/50 pb-5 md:pb-6">
       <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-stretch lg:gap-4 xl:items-center">
           {isCalendar ? (
-            <div className="min-w-0 w-full flex-1 rounded-xl border border-border bg-card p-2 shadow-sm lg:max-w-xl xl:max-w-2xl">
+            <div className="min-w-0 w-full flex-1 lg:max-w-xl xl:max-w-2xl">
               <PatientSearchPreview onCreateAppointment={onCreateAppointment} />
             </div>
           ) : (
@@ -184,7 +184,7 @@ export function AppointmentFilters({
                   </Button>
                 }
               />
-          <PopoverContent className="z-[120] w-72 p-3" align="start">
+          <PopoverContent positionerClassName="z-[120]" className="w-72 p-3" align="start">
             <div className="space-y-3">
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground">
@@ -239,7 +239,7 @@ export function AppointmentFilters({
                       </Button>
                     }
                   />
-                  <PopoverContent className="z-[130] w-auto p-0" align="start">
+                  <PopoverContent positionerClassName="z-[130]" className="w-auto p-0" align="start">
                     <Calendar
                       mode="range"
                       selected={dateRange}

@@ -1,12 +1,13 @@
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import dynamic from "next/dynamic";
+import type { Metadata } from "next";
 import { AlertTriangle, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { serverApiFetch } from "@/lib/server-api";
 import { StatsCards } from "./components/stats-cards";
-import { WeeklyChart } from "./components/weekly-chart";
-
 import { NextAppointmentCard } from "./components/next-appointment-card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type MeResponse = {
   fullName: string;
@@ -56,6 +57,21 @@ type DashboardStats = {
     total: number;
     attended: number;
   }>;
+};
+
+const WeeklyChart = dynamic(
+  () =>
+    import("./components/weekly-chart").then((m) => ({
+      default: m.WeeklyChart,
+    })),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-[300px] rounded-2xl" />,
+  },
+);
+
+export const metadata: Metadata = {
+  title: "Inicio | Cymple",
 };
 
 export default async function HomePage() {

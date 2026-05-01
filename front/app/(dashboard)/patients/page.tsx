@@ -1,9 +1,14 @@
 import { CreatePatientDialog } from "./components/create-patient-dialog";
+import type { Metadata } from "next";
 import { PatientsDirectory } from "./components/patients-directory";
 import { serverApiFetch } from "@/lib/server-api";
 import { ApiList, Patient } from "@/lib/types";
 
 const DEFAULT_LIMIT = 20;
+
+export const metadata: Metadata = {
+  title: "Pacientes | Cymple",
+};
 
 export default async function PatientsPage({
   searchParams,

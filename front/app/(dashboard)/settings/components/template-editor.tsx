@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,15 @@ export function TemplateEditor({
   onSave,
   onReset,
 }: TemplateEditorProps) {
+  const previewTime = useMemo(
+    () =>
+      new Date().toLocaleTimeString("es-AR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }),
+    [],
+  );
   const [body, setBody] = useState(template.body);
   const [isPending, startTransition] = useTransition();
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -124,7 +133,7 @@ export function TemplateEditor({
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Vista previa (con datos de ejemplo)
           </p>
-          <WhatsappPreview body={body} sampleData={meta.sampleData} />
+          <WhatsappPreview body={body} sampleData={meta.sampleData} previewTime={previewTime} />
         </div>
       </div>
 
