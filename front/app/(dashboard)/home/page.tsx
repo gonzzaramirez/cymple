@@ -65,7 +65,6 @@ const WeeklyChart = dynamic(
       default: m.WeeklyChart,
     })),
   {
-    ssr: false,
     loading: () => <Skeleton className="h-[300px] rounded-2xl" />,
   },
 );

@@ -29,7 +29,6 @@ const FinanceChart = dynamic(
       default: m.FinanceChart,
     })),
   {
-    ssr: false,
     loading: () => <Skeleton className="h-[320px] rounded-2xl" />,
   },
 );
