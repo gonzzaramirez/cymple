@@ -15,16 +15,20 @@ export async function serverApiFetch<T>(
     redirect("/login");
   }
   const incomingHeaders = await headers();
-  const forwardedHost = incomingHeaders.get("x-forwarded-host");
-  const host = incomingHeaders.get("host");
-  const tenantSlug = resolveTenantSlugFromHostname(forwardedHost ?? host ?? "");
+  const tenantHeaderSlug = incomingHeaders.get("x-tenant-slug");
+  const tenantHost =
+    incomingHeaders.get("x-tenant-host") ??
+    incomingHeaders.get("x-forwarded-host") ??
+    incomingHeaders.get("host");
+  const tenantSlug =
+    tenantHeaderSlug ?? resolveTenantSlugFromHostname(tenantHost ?? "");
 
   const response = await fetch(`${API_BASE_URL}/${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-      ...(forwardedHost ? { "X-Forwarded-Host": forwardedHost } : {}),
+      ...(tenantHost ? { "X-Forwarded-Host": tenantHost } : {}),
       ...(incomingHeaders.get("x-forwarded-proto")
         ? { "X-Forwarded-Proto": incomingHeaders.get("x-forwarded-proto")! }
         : {}),

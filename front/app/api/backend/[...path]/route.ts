@@ -12,11 +12,14 @@ async function proxy(
   const url = new URL(request.url);
   const target = `${API_BASE_URL}/${pathname}${url.search}`;
   const token = (await cookies()).get(AUTH_COOKIE)?.value;
-  const originalHost =
+  const tenantHost =
+    request.headers.get("x-tenant-host") ??
     request.headers.get("x-forwarded-host") ??
     request.headers.get("host") ??
     url.host;
-  const tenantSlug = resolveTenantSlugFromHostname(originalHost);
+  const tenantSlug =
+    request.headers.get("x-tenant-slug") ??
+    resolveTenantSlugFromHostname(tenantHost);
 
   if (!token) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -28,7 +31,7 @@ async function proxy(
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
-      ...(originalHost ? { "X-Forwarded-Host": originalHost } : {}),
+      ...(tenantHost ? { "X-Forwarded-Host": tenantHost } : {}),
       ...(request.headers.get("x-forwarded-proto")
         ? { "X-Forwarded-Proto": request.headers.get("x-forwarded-proto")! }
         : {}),

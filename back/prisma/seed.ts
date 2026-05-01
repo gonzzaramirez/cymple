@@ -10,8 +10,8 @@ async function main() {
     where: { email: 'test@gmail.com' },
     update: {},
     create: {
-      slug: 'consultorio-demo',
-      fullName: 'Gonzalo Ramirez',
+      slug: 'demo',
+      fullName: 'Demo',
       email: 'test@gmail.com',
       passwordHash,
       phone: '+5491111111111',

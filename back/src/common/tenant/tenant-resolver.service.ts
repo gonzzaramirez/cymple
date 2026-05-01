@@ -4,6 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 
 const TENANT_HEADER = 'x-tenant-slug';
 const FORWARDED_HOST_HEADER = 'x-forwarded-host';
+const ORIGIN_HEADER = 'origin';
+const TENANT_SLUG_REGEX = /^[a-z0-9-]+$/;
 
 export interface ResolvedTenant {
   slug: string;
@@ -38,33 +40,57 @@ export class TenantResolverService {
   }
 
   extractSlugFromRequest(req: any): string {
-    const tenantHeader = this.readSingleHeader(req?.headers?.[TENANT_HEADER]);
+    const tenantHeader = this.validateSlug(
+      this.readSingleHeader(req?.headers?.[TENANT_HEADER]),
+      'Header de tenant inválido',
+    );
     const host = this.resolveHostname(req);
+    const originHost = this.resolveOriginHostname(req);
     const baseDomain = this.configService.get<string>('BASE_DOMAIN')?.toLowerCase();
-    const isProd = (this.configService.get<string>('NODE_ENV') ?? '').toLowerCase() === 'production';
+    const isProd =
+      (this.configService.get<string>('NODE_ENV') ?? '').toLowerCase() === 'production';
 
-    if (host && baseDomain) {
-      if (host === baseDomain) {
-        if (tenantHeader) return tenantHeader;
-        throw new BadRequestException('Subdominio requerido');
-      }
+    const hostSlug = this.extractSlugFromHostname(host, baseDomain);
+    const originSlug = this.extractSlugFromHostname(originHost, baseDomain);
 
-      if (!host.endsWith(`.${baseDomain}`)) {
-        throw new BadRequestException('Host inválido para tenant');
-      }
-
-      const slug = host.slice(0, -(baseDomain.length + 1)).split('.').at(-1)?.trim();
-      if (!slug) throw new BadRequestException('No se pudo resolver tenant');
-
-      if (tenantHeader && tenantHeader !== slug) {
-        throw new BadRequestException('Tenant mismatch');
-      }
-      return slug;
+    if (tenantHeader) {
+      return tenantHeader;
     }
 
-    if (tenantHeader) return tenantHeader;
+    if (hostSlug && originSlug && hostSlug !== originSlug) {
+      throw new BadRequestException('Tenant mismatch');
+    }
+
+    if (hostSlug) return hostSlug;
+    if (originSlug) return originSlug;
+
+    if (baseDomain && host === baseDomain) {
+      throw new BadRequestException('Subdominio requerido');
+    }
+
+    if (baseDomain && host && !host.endsWith(`.${baseDomain}`) && host !== 'localhost') {
+      throw new BadRequestException('Host inválido para tenant');
+    }
+
     if (isProd) throw new BadRequestException('No se pudo resolver tenant');
     return 'demo';
+  }
+
+  private extractSlugFromHostname(
+    hostname: string | null,
+    baseDomain: string | undefined,
+  ): string | null {
+    if (!hostname || !baseDomain) return null;
+    if (hostname === baseDomain) return null;
+    if (!hostname.endsWith(`.${baseDomain}`)) return null;
+
+    const slug = hostname
+      .slice(0, -(baseDomain.length + 1))
+      .split('.')
+      .at(-1)
+      ?.trim()
+      .toLowerCase();
+    return this.validateSlug(slug ?? null, 'No se pudo resolver tenant');
   }
 
   private resolveHostname(req: any): string | null {
@@ -75,6 +101,16 @@ export class TenantResolverService {
     return rawHost.split(',')[0]?.trim().split(':')[0] ?? null;
   }
 
+  private resolveOriginHostname(req: any): string | null {
+    const origin = this.readSingleHeader(req?.headers?.[ORIGIN_HEADER]);
+    if (!origin) return null;
+    try {
+      return new URL(origin).hostname.toLowerCase();
+    } catch {
+      return null;
+    }
+  }
+
   private readSingleHeader(value: unknown): string | null {
     if (Array.isArray(value)) {
       return value[0]?.toString().trim().toLowerCase() || null;
@@ -83,5 +119,14 @@ export class TenantResolverService {
       return value.trim().toLowerCase() || null;
     }
     return null;
+  }
+
+  private validateSlug(value: string | null, message: string): string | null {
+    if (!value) return null;
+    const normalized = value.toLowerCase();
+    if (!TENANT_SLUG_REGEX.test(normalized)) {
+      throw new BadRequestException(message);
+    }
+    return normalized;
   }
 }

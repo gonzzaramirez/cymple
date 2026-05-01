@@ -6,7 +6,9 @@ import { resolveTenantSlugFromHostname } from "@/lib/tenant";
 export async function POST(request: Request) {
   const body = await request.json();
   const url = new URL(request.url);
-  const tenantSlug = resolveTenantSlugFromHostname(url.hostname);
+  const tenantHeaderSlug = request.headers.get("x-tenant-slug");
+  const tenantSlug =
+    tenantHeaderSlug ?? resolveTenantSlugFromHostname(url.hostname);
 
   const response = await fetch(`${API_BASE_URL}/auth/login`, {
     method: "POST",
@@ -28,6 +30,7 @@ export async function POST(request: Request) {
   }
 
   const store = await cookies();
+  // Cookie host-only to isolate session per tenant subdomain.
   store.set(AUTH_COOKIE, payload.accessToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
