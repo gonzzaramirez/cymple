@@ -35,6 +35,10 @@ export class CalendarQueryDto {
   patientId?: string;
 
   @IsOptional()
+  @IsString()
+  professionalId?: string;
+
+  @IsOptional()
   @Transform(({ value }) => {
     if (value == null || value === '') return undefined;
     const raw = Array.isArray(value) ? value : [value];

@@ -16,11 +16,11 @@ import { TenantGuard } from '../common/tenant/tenant.guard';
 import { buildAccessContext } from '../common/tenant/access-context';
 import { FinanceService } from './finance.service';
 import { FinanceSummaryQueryDto } from './dto/summary-query.dto';
-import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { CreateRevenueDto } from './dto/create-revenue.dto';
 import { UpdateRevenueDto } from './dto/update-revenue.dto';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
+import { FinanceListQueryDto } from './dto/list-finance.dto';
 
 @Controller('finance')
 @UseGuards(JwtAuthGuard, TenantGuard)
@@ -33,7 +33,7 @@ export class FinanceController {
   }
 
   @Get('revenues')
-  listRevenues(@Req() req: Request, @Query() query: PaginationQueryDto) {
+  listRevenues(@Req() req: Request, @Query() query: FinanceListQueryDto) {
     return this.financeService.listRevenues(buildAccessContext(req), query);
   }
 
@@ -52,7 +52,7 @@ export class FinanceController {
   }
 
   @Get('expenses')
-  listExpenses(@Req() req: Request, @Query() query: PaginationQueryDto) {
+  listExpenses(@Req() req: Request, @Query() query: FinanceListQueryDto) {
     return this.financeService.listExpenses(buildAccessContext(req), query);
   }
 

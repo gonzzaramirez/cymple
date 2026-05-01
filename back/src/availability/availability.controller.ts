@@ -1,9 +1,8 @@
-import {
-  BadRequestException,
-  Body,
+﻿import {
   Controller,
   Get,
   Put,
+  Body,
   Query,
   Req,
   UseGuards,
@@ -22,59 +21,68 @@ import { SlotsQueryDto } from './dto/slots-query.dto';
 export class AvailabilityController {
   constructor(private readonly availabilityService: AvailabilityService) {}
 
-  private resolveProfessionalId(req: Request, queryProfessionalId?: string): string {
-    const ctx = buildAccessContext(req);
-    if (ctx.role === 'CENTER_ADMIN') {
-      if (!queryProfessionalId) {
-        throw new BadRequestException('Parámetro professionalId requerido para administrador de centro');
-      }
-      return queryProfessionalId;
-    }
-    return ctx.professionalId!;
+  private resolveProfessionalId(
+    req: Request,
+    queryProfessionalId?: string,
+  ): Promise<string> {
+    return this.availabilityService.resolveProfessionalIdForContext(
+      buildAccessContext(req),
+      queryProfessionalId,
+    );
   }
 
   @Get('weekly')
-  getWeekly(@Req() req: Request, @Query('professionalId') proId?: string) {
-    return this.availabilityService.getWeekly(this.resolveProfessionalId(req, proId));
+  async getWeekly(
+    @Req() req: Request,
+    @Query('professionalId') proId?: string,
+  ) {
+    return this.availabilityService.getWeekly(
+      await this.resolveProfessionalId(req, proId),
+    );
   }
 
   @Get('specific-dates')
-  getSpecificDates(@Req() req: Request, @Query('professionalId') proId?: string) {
-    return this.availabilityService.getSpecificDates(this.resolveProfessionalId(req, proId));
+  async getSpecificDates(
+    @Req() req: Request,
+    @Query('professionalId') proId?: string,
+  ) {
+    return this.availabilityService.getSpecificDates(
+      await this.resolveProfessionalId(req, proId),
+    );
   }
 
   @Put('weekly')
-  upsertWeekly(
+  async upsertWeekly(
     @Req() req: Request,
     @Body() dto: UpsertWeeklyAvailabilityDto,
     @Query('professionalId') proId?: string,
   ) {
     return this.availabilityService.upsertWeekly(
-      this.resolveProfessionalId(req, proId),
+      await this.resolveProfessionalId(req, proId),
       dto,
     );
   }
 
   @Put('specific-dates')
-  upsertSpecificDates(
+  async upsertSpecificDates(
     @Req() req: Request,
     @Body() dto: UpsertSpecificDateAvailabilityDto,
     @Query('professionalId') proId?: string,
   ) {
     return this.availabilityService.upsertSpecificDates(
-      this.resolveProfessionalId(req, proId),
+      await this.resolveProfessionalId(req, proId),
       dto,
     );
   }
 
   @Get('slots')
-  getSlots(
+  async getSlots(
     @Req() req: Request,
     @Query() query: SlotsQueryDto,
     @Query('professionalId') proId?: string,
   ) {
     return this.availabilityService.getSlots(
-      this.resolveProfessionalId(req, proId),
+      await this.resolveProfessionalId(req, proId),
       query.date,
     );
   }

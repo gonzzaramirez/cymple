@@ -85,6 +85,8 @@ model Organization {
   professionals    Professional[]
   patients         Patient[]
   appointments     Appointment[]
+  revenues         Revenue[]
+  expenses         Expense[]
   messageLogs      MessageLog[]
   messageTemplates MessageTemplate[]
   notifications    Notification[]
@@ -92,29 +94,29 @@ model Organization {
 }
 
 model Professional {
-  id                  String       @id @default(cuid())
-  slug                String       @unique
+  id                  String   @id @default(cuid())
+  slug                String   @unique
   fullName            String
-  email               String       @unique
+  email               String   @unique
   passwordHash        String
   phone               String?
   specialty           String?
-  timezone            String       @default("America/Argentina/Buenos_Aires")
-  consultationMinutes Int          @default(30)
-  bufferMinutes       Int          @default(10)
-  minRescheduleHours  Int          @default(4)
-  standardFee         Decimal      @db.Decimal(10, 2)
-  reminderHours       Int          @default(24)
-  dailyDigestEnabled  Boolean      @default(false)
-  dailyDigestTime     String       @default("08:00")
+  timezone            String   @default("America/Argentina/Buenos_Aires")
+  consultationMinutes Int      @default(30)
+  bufferMinutes       Int      @default(10)
+  minRescheduleHours  Int      @default(4)
+  standardFee         Decimal  @db.Decimal(10, 2)
+  reminderHours       Int      @default(24)
+  dailyDigestEnabled  Boolean  @default(false)
+  dailyDigestTime     String   @default("08:00")
   autoConfirmHours    Int?
   paymentAlias        String?
   waInstanceName      String?
-  waStatus            WaStatus     @default(DISCONNECTED)
-  isActive            Boolean      @default(true)
+  waStatus            WaStatus @default(DISCONNECTED)
+  isActive            Boolean  @default(true)
   organizationId      String?
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   organization       Organization?              @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   weeklyAvailability WeeklyAvailability[]
@@ -139,7 +141,7 @@ model WeeklyAvailability {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  professional Professional       @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  professional Professional        @relation(fields: [professionalId], references: [id], onDelete: Cascade)
   ranges       AvailabilityRange[]
 
   @@unique([professionalId, weekday])
@@ -154,8 +156,8 @@ model SpecificDateAvailability {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  professional Professional       @relation(fields: [professionalId], references: [id], onDelete: Cascade)
-  ranges       AvailabilityRange[]
+  professional   Professional               @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  ranges         AvailabilityRange[]
   slotCapacities AvailabilitySlotCapacity[]
 
   @@unique([professionalId, date])
@@ -261,9 +263,10 @@ model Appointment {
 }
 
 model Revenue {
-  id             String   @id @default(cuid())
-  professionalId String
-  appointmentId  String?  @unique
+  id             String         @id @default(cuid())
+  professionalId String?
+  organizationId String?
+  appointmentId  String?        @unique
   amount         Decimal        @db.Decimal(10, 2)
   occurredAt     DateTime
   notes          String?
@@ -271,24 +274,29 @@ model Revenue {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
-  appointment  Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  professional Professional? @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  appointment  Appointment?  @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
 
   @@index([professionalId, occurredAt])
+  @@index([organizationId, occurredAt])
 }
 
 model Expense {
   id             String   @id @default(cuid())
-  professionalId String
+  professionalId String?
+  organizationId String?
   concept        String
   amount         Decimal  @db.Decimal(10, 2)
   occurredAt     DateTime
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  professional Professional? @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([professionalId, occurredAt])
+  @@index([organizationId, occurredAt])
 }
 
 model MessageLog {
@@ -319,17 +327,17 @@ model MessageLog {
 }
 
 model WebhookEventLog {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   professionalId String?
   organizationId String?
   source         String
   eventType      String
   payload        Json
   processedAt    DateTime?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime  @default(now())
 
-  professional Professional?  @relation(fields: [professionalId], references: [id], onDelete: SetNull)
-  organization Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  professional Professional? @relation(fields: [professionalId], references: [id], onDelete: SetNull)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   @@index([professionalId, createdAt])
   @@index([organizationId, createdAt])
@@ -347,8 +355,8 @@ model Notification {
   readAt         DateTime?
   createdAt      DateTime  @default(now())
 
-  professional Professional?  @relation(fields: [professionalId], references: [id], onDelete: Cascade)
-  organization Organization?  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  professional Professional? @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([professionalId, readAt, createdAt])
   @@index([organizationId, readAt, createdAt])
@@ -364,8 +372,8 @@ model MessageTemplate {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  professional Professional?  @relation(fields: [professionalId], references: [id], onDelete: Cascade)
-  organization Organization?  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  professional Professional? @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([professionalId, messageType])
   @@unique([organizationId, messageType])

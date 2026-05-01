@@ -1,13 +1,47 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Weekday } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { UpsertWeeklyAvailabilityDto } from './dto/upsert-weekly-availability.dto';
 import { UpsertSpecificDateAvailabilityDto } from './dto/upsert-specific-date-availability.dto';
 import { ARG_TZ, addMinutes, setTimeOnDate } from '../common/utils/date.utils';
+import { AccessContext } from '../common/tenant/access-context';
 
 @Injectable()
 export class AvailabilityService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async resolveProfessionalIdForContext(
+    ctx: AccessContext,
+    queryProfessionalId?: string,
+  ): Promise<string> {
+    if (ctx.role !== 'CENTER_ADMIN') {
+      return ctx.professionalId!;
+    }
+
+    if (!queryProfessionalId) {
+      throw new BadRequestException(
+        'Parámetro professionalId requerido para administrador de centro',
+      );
+    }
+
+    const professional = await this.prisma.professional.findFirst({
+      where: {
+        id: queryProfessionalId,
+        organizationId: ctx.organizationId,
+      },
+      select: { id: true },
+    });
+
+    if (!professional) {
+      throw new NotFoundException('Profesional no encontrado en el centro');
+    }
+
+    return professional.id;
+  }
 
   async upsertWeekly(professionalId: string, dto: UpsertWeeklyAvailabilityDto) {
     await this.prisma.$transaction(async (tx) => {

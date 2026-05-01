@@ -33,9 +33,7 @@ export class AppointmentsService {
   async create(ctx: AccessContext, dto: CreateAppointmentDto) {
     // CENTER_ADMIN must specify professionalId in the DTO
     const professionalId =
-      ctx.role === 'CENTER_ADMIN'
-        ? dto.professionalId
-        : ctx.professionalId;
+      ctx.role === 'CENTER_ADMIN' ? dto.professionalId : ctx.professionalId;
 
     if (!professionalId) {
       throw new BadRequestException(
@@ -43,12 +41,11 @@ export class AppointmentsService {
       );
     }
 
-    // Verify the professional belongs to the org if CENTER_ADMIN
     if (ctx.role === 'CENTER_ADMIN') {
-      const pro = await this.prisma.professional.findFirst({
-        where: { id: professionalId, organizationId: ctx.organizationId },
-      });
-      if (!pro) throw new NotFoundException('Profesional no encontrado en el centro');
+      await this.ensureProfessionalInOrganization(
+        professionalId,
+        ctx.organizationId,
+      );
     }
 
     const professional = await this.prisma.professional.findUniqueOrThrow({
@@ -114,14 +111,16 @@ export class AppointmentsService {
         where: { appointmentId: created.id },
         create: {
           professionalId,
+          organizationId: professional.organizationId ?? null,
           appointmentId: created.id,
           amount: created.fee,
           occurredAt: created.startAt,
           paymentMethod: dto.paymentMethod,
-        },
+        } as any,
         update: {
+          organizationId: professional.organizationId ?? null,
           paymentMethod: dto.paymentMethod,
-        },
+        } as any,
       });
     }
 
@@ -134,7 +133,14 @@ export class AppointmentsService {
 
   async list(ctx: AccessContext, query: ListAppointmentsDto) {
     const skip = (query.page - 1) * query.limit;
-    const isMultiProfessional = ctx.role === 'CENTER_ADMIN' && !query.professionalId;
+    if (ctx.role === 'CENTER_ADMIN' && query.professionalId) {
+      await this.ensureProfessionalInOrganization(
+        query.professionalId,
+        ctx.organizationId,
+      );
+    }
+
+    const isCenterAdmin = ctx.role === 'CENTER_ADMIN';
     const where: Prisma.AppointmentWhereInput = {
       ...this.buildAppointmentWhereFromCtx(ctx, query.professionalId),
       ...(query.status?.length ? { status: { in: query.status } } : {}),
@@ -165,7 +171,9 @@ export class AppointmentsService {
                 },
                 { phone: { contains: query.search.trim() } },
                 { dni: { contains: query.search.trim(), mode: 'insensitive' } },
-                { email: { contains: query.search.trim(), mode: 'insensitive' } },
+                {
+                  email: { contains: query.search.trim(), mode: 'insensitive' },
+                },
               ],
             },
           }
@@ -187,7 +195,7 @@ export class AppointmentsService {
               phone: true,
             },
           },
-          ...(isMultiProfessional
+          ...(isCenterAdmin
             ? {
                 professional: {
                   select: {
@@ -213,13 +221,24 @@ export class AppointmentsService {
   }
 
   async calendar(ctx: AccessContext, query: CalendarQueryDto) {
-    // For CENTER_ADMIN calendar: use provided professionalId or org timezone
     const professionalId =
-      ctx.role === 'CENTER_ADMIN'
-        ? ((query as any).professionalId as string | undefined)
-        : ctx.professionalId;
+      ctx.role === 'CENTER_ADMIN' ? query.professionalId : ctx.professionalId;
+
+    if (ctx.role === 'CENTER_ADMIN' && professionalId) {
+      await this.ensureProfessionalInOrganization(
+        professionalId,
+        ctx.organizationId,
+      );
+    }
+
     const hasProfessionalIds =
       ctx.role === 'CENTER_ADMIN' && (query.professionalIds?.length ?? 0) > 0;
+    if (ctx.role === 'CENTER_ADMIN' && query.professionalIds?.length) {
+      await this.ensureProfessionalsInOrganization(
+        query.professionalIds,
+        ctx.organizationId,
+      );
+    }
     const isMultiProfessional = hasProfessionalIds;
 
     const timezone = isMultiProfessional
@@ -229,10 +248,10 @@ export class AppointmentsService {
             select: { timezone: true },
           })
         ).timezone
-      : (query as any).professionalId
+      : professionalId && ctx.role === 'CENTER_ADMIN'
         ? (
             await this.prisma.professional.findUniqueOrThrow({
-              where: { id: (query as any).professionalId },
+              where: { id: professionalId },
               select: { timezone: true },
             })
           ).timezone
@@ -253,11 +272,12 @@ export class AppointmentsService {
     );
 
     const where: Prisma.AppointmentWhereInput = {
-      organizationId: isMultiProfessional ? ctx.organizationId : undefined,
+      organizationId:
+        ctx.role === 'CENTER_ADMIN' ? ctx.organizationId : undefined,
       professionalId: isMultiProfessional
         ? undefined
         : ctx.role === 'CENTER_ADMIN'
-          ? (query as any).professionalId
+          ? professionalId
           : ctx.professionalId,
       ...(isMultiProfessional && (query.professionalIds?.length ?? 0) > 0
         ? { professionalId: { in: query.professionalIds } }
@@ -281,6 +301,17 @@ export class AppointmentsService {
             phone: true,
           },
         },
+        ...(ctx.role === 'CENTER_ADMIN'
+          ? {
+              professional: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  specialty: true,
+                },
+              },
+            }
+          : {}),
       },
       orderBy: { startAt: 'asc' },
     });
@@ -377,16 +408,18 @@ export class AppointmentsService {
         where: { appointmentId: appointment.id },
         create: {
           professionalId: appointment.professionalId,
+          organizationId: appointment.organizationId ?? null,
           appointmentId: appointment.id,
           amount: appointment.fee,
           occurredAt: appointment.startAt,
           paymentMethod: dto.paymentMethod ?? null,
-        },
+        } as any,
         update: {
+          organizationId: appointment.organizationId ?? null,
           amount: appointment.fee,
           occurredAt: appointment.startAt,
           paymentMethod: dto.paymentMethod ?? undefined,
-        },
+        } as any,
       });
     }
 
@@ -495,10 +528,42 @@ export class AppointmentsService {
     if (ctx.role === 'CENTER_ADMIN') {
       return {
         organizationId: ctx.organizationId,
-        ...(overrideProfessionalId ? { professionalId: overrideProfessionalId } : {}),
+        ...(overrideProfessionalId
+          ? { professionalId: overrideProfessionalId }
+          : {}),
       };
     }
     return { professionalId: ctx.professionalId };
+  }
+
+  private async ensureProfessionalInOrganization(
+    professionalId: string,
+    organizationId: string,
+  ) {
+    const professional = await this.prisma.professional.findFirst({
+      where: { id: professionalId, organizationId },
+      select: { id: true },
+    });
+
+    if (!professional) {
+      throw new NotFoundException('Profesional no encontrado en el centro');
+    }
+  }
+
+  private async ensureProfessionalsInOrganization(
+    professionalIds: string[],
+    organizationId: string,
+  ) {
+    const uniqueIds = [...new Set(professionalIds)];
+    const count = await this.prisma.professional.count({
+      where: { id: { in: uniqueIds }, organizationId },
+    });
+
+    if (count !== uniqueIds.length) {
+      throw new NotFoundException(
+        'Uno o más profesionales no pertenecen al centro',
+      );
+    }
   }
 
   private async ensureSlotAvailable(

@@ -40,7 +40,7 @@ export default async function CenterPatientsPage({
       {data ? (
         <CenterPatientsManager
           data={data}
-          professionals={professionals.map((p) => ({ id: p.id, fullName: p.fullName }))}
+          professionals={professionals.map((p) => ({ id: p.id, fullName: p.fullName, email: p.email }))}
           initialQuery={query}
           limit={limit}
         />

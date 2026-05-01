@@ -13,9 +13,16 @@ import { createCurrentTimePlugin } from "@schedule-x/current-time";
 import { createEventModalPlugin } from "@schedule-x/event-modal";
 import { ScheduleXCalendar, useNextCalendarApp } from "@schedule-x/react";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Appointment } from "@/lib/types";
+import { ApiList, Appointment } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CenterAppointmentsList } from "./center-appointments-list";
 
 type CalendarLayout = "resource" | "compact";
+type AgendaMode = "calendar" | "list";
+type ProfessionalOption = { id: string; fullName?: string | null; email?: string | null };
 
 type ConflictInfo = {
   hasConflict: boolean;
@@ -66,7 +73,11 @@ function safeId(id: string): string {
   return id.replace(/[^a-zA-Z0-9_-]/g, "_");
 }
 
-function professionalInitials(fullName?: string): string {
+function professionalDisplayName(professional: ProfessionalOption): string {
+  return professional.fullName?.trim() || professional.email?.trim() || professional.id;
+}
+
+function professionalInitials(fullName?: string | null): string {
   if (!fullName) return "?";
   const tokens = fullName.trim().split(/\s+/).slice(0, 2);
   return tokens.map((token) => token[0]?.toUpperCase() ?? "").join("");
@@ -200,17 +211,29 @@ function formatHm(date: Date): string {
 
 type Props = {
   items: Appointment[];
-  professionals: { id: string; fullName: string }[];
+  listData: ApiList<Appointment> | null;
+  professionals: ProfessionalOption[];
   selectedDate: string;
   initialLayout: CalendarLayout;
+  initialMode: AgendaMode;
   initialProfessionalIds: string[];
 };
 
+const STATUS_OPTIONS: { value: Appointment["status"]; label: string }[] = [
+  { value: "PENDING", label: "Pendiente" },
+  { value: "CONFIRMED", label: "Confirmado" },
+  { value: "ATTENDED", label: "Atendido" },
+  { value: "ABSENT", label: "Ausente" },
+  { value: "CANCELLED", label: "Cancelado" },
+];
+
 export function CenterScheduleCalendar({
   items,
+  listData,
   professionals,
   selectedDate,
   initialLayout,
+  initialMode,
   initialProfessionalIds,
 }: Props) {
   const router = useRouter();
@@ -219,7 +242,12 @@ export function CenterScheduleCalendar({
   const searchParamsRef = useRef(searchParams);
   const routerRef = useRef(router);
 
-  const [layout, setLayout] = useState<CalendarLayout>(initialLayout);
+  const [mode, setMode] = useState<AgendaMode>(initialMode);
+  const [layout, setLayout] = useState<CalendarLayout>(() => {
+    if (initialMode !== "calendar" || typeof window === "undefined") return initialLayout;
+    const stored = window.localStorage.getItem("center:agenda-layout");
+    return stored === "resource" || stored === "compact" ? stored : initialLayout;
+  });
   const [selectedProfessionals, setSelectedProfessionals] = useState<string[]>(
     initialProfessionalIds,
   );
@@ -236,36 +264,26 @@ export function CenterScheduleCalendar({
   }, [router]);
 
   useEffect(() => {
-    setFocusedDate(parseDate(selectedDate));
-  }, [selectedDate]);
-
-  useEffect(() => {
-    const stored = localStorage.getItem("center:agenda-layout");
-    if (stored === "resource" || stored === "compact") {
-      setLayout(stored);
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem("center:agenda-layout", layout);
-  }, [layout]);
+    if (mode === "calendar") localStorage.setItem("center:agenda-layout", layout);
+  }, [layout, mode]);
 
   const defaultMobileProfessionalId = professionals[0]?.id;
-
-  useEffect(() => {
-    if (isMobile && selectedProfessionals.length === 0 && defaultMobileProfessionalId) {
-      setSelectedProfessionals([defaultMobileProfessionalId]);
-    }
-  }, [isMobile, selectedProfessionals.length, defaultMobileProfessionalId]);
+  const effectiveSelectedProfessionals = useMemo(
+    () =>
+      isMobile && selectedProfessionals.length === 0 && defaultMobileProfessionalId
+        ? [defaultMobileProfessionalId]
+        : selectedProfessionals,
+    [defaultMobileProfessionalId, isMobile, selectedProfessionals],
+  );
 
   const visibleAppointments = useMemo(() => getVisibleAppointments(items), [items]);
 
   const filteredItems = useMemo(() => {
-    if (selectedProfessionals.length === 0) return visibleAppointments;
+    if (effectiveSelectedProfessionals.length === 0) return visibleAppointments;
     return visibleAppointments.filter((appointment) =>
-      selectedProfessionals.includes(appointment.professionalId),
+      effectiveSelectedProfessionals.includes(appointment.professionalId),
     );
-  }, [visibleAppointments, selectedProfessionals]);
+  }, [visibleAppointments, effectiveSelectedProfessionals]);
 
   const conflictMap = useMemo(() => detectConflicts(visibleAppointments), [visibleAppointments]);
 
@@ -294,7 +312,7 @@ export function CenterScheduleCalendar({
     professionals.forEach((professional, index) => {
       const colors = PROFESSIONAL_COLORS[index % PROFESSIONAL_COLORS.length];
       result[`prof-${safeId(professional.id)}`] = {
-        colorName: professional.fullName,
+        colorName: professionalDisplayName(professional),
         lightColors: colors.light,
         darkColors: colors.dark,
       };
@@ -363,13 +381,14 @@ export function CenterScheduleCalendar({
         const epochMs = range.start.toInstant().epochMilliseconds;
         const targetDate = new Date(epochMs);
         setFocusedDate(targetDate);
-        const professionalIds = selectedProfessionals.join(",");
+        const professionalIds = effectiveSelectedProfessionals.join(",");
         const queryString = buildQueryParams(searchParamsRef.current, {
           date: targetDate.toISOString(),
           ui: "calendar",
           view: resolvedView,
           layout,
           professionalIds,
+          page: undefined,
         });
         routerRef.current.push(`/center/appointments?${queryString}`);
       },
@@ -400,13 +419,15 @@ export function CenterScheduleCalendar({
   }, [calendarApp, events]);
 
   useEffect(() => {
-    const professionalIds = selectedProfessionals.join(",");
+    if (mode !== "calendar") return;
+    const professionalIds = effectiveSelectedProfessionals.join(",");
     const queryString = buildQueryParams(searchParamsRef.current, {
+      ui: "calendar",
       layout,
       professionalIds,
     });
     routerRef.current.replace(`/center/appointments?${queryString}`);
-  }, [layout, selectedProfessionals]);
+  }, [effectiveSelectedProfessionals, layout, mode]);
 
   function toggleProfessional(professionalId: string) {
     if (isMobile) {
@@ -429,9 +450,9 @@ export function CenterScheduleCalendar({
   }
 
   const activeProfessionals = useMemo(() => {
-    if (selectedProfessionals.length === 0) return professionals;
-    return professionals.filter((prof) => selectedProfessionals.includes(prof.id));
-  }, [professionals, selectedProfessionals]);
+    if (effectiveSelectedProfessionals.length === 0) return professionals;
+    return professionals.filter((prof) => effectiveSelectedProfessionals.includes(prof.id));
+  }, [effectiveSelectedProfessionals, professionals]);
 
   const resourceAppointments = useMemo(() => {
     const startBoundary = new Date(focusedDate);
@@ -454,25 +475,63 @@ export function CenterScheduleCalendar({
     [],
   );
 
+  function switchToCalendar(nextLayout: CalendarLayout) {
+    setMode("calendar");
+    setLayout(nextLayout);
+    const professionalIds = effectiveSelectedProfessionals.join(",");
+    const queryString = buildQueryParams(searchParamsRef.current, {
+      ui: "calendar",
+      layout: nextLayout,
+      professionalIds,
+      page: undefined,
+    });
+    routerRef.current.push(`/center/appointments?${queryString}`);
+  }
+
+  function switchToList() {
+    setMode("list");
+    const queryString = buildQueryParams(searchParamsRef.current, {
+      ui: "list",
+      layout: "list",
+      page: searchParamsRef.current.get("page") ?? "1",
+      limit: searchParamsRef.current.get("limit") ?? "20",
+    });
+    routerRef.current.push(`/center/appointments?${queryString}`);
+  }
+
+  const selectedListProfessionalId = searchParams.get("professionalId") ?? "all";
+  const selectedListStatus = searchParams.get("status") ?? "all";
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border)] bg-card px-3 py-2 shadow-card">
         <span className="mr-1 text-xs font-medium text-muted-foreground">Vista:</span>
         <button
-          onClick={() => setLayout("resource")}
+          type="button"
+          onClick={() => switchToCalendar("resource")}
           className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-            layout === "resource" ? "bg-primary text-primary-foreground" : "bg-accent text-foreground"
+            mode === "calendar" && layout === "resource" ? "bg-primary text-primary-foreground" : "bg-accent text-foreground"
           }`}
         >
           Recursos
         </button>
         <button
-          onClick={() => setLayout("compact")}
+          type="button"
+          onClick={() => switchToCalendar("compact")}
           className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-            layout === "compact" ? "bg-primary text-primary-foreground" : "bg-accent text-foreground"
+            mode === "calendar" && layout === "compact" ? "bg-primary text-primary-foreground" : "bg-accent text-foreground"
           }`}
         >
           Compacta
+        </button>
+        <button
+          type="button"
+          onClick={switchToList}
+          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+            mode === "list" ? "bg-primary text-primary-foreground" : "bg-accent text-foreground"
+          }`}
+        >
+          Lista
         </button>
       </div>
 
@@ -480,8 +539,8 @@ export function CenterScheduleCalendar({
         <span className="mr-1 text-xs font-medium text-muted-foreground">Profesionales:</span>
         {professionals.map((professional, index) => {
           const isActive =
-            selectedProfessionals.length === 0 ||
-            selectedProfessionals.includes(professional.id);
+            effectiveSelectedProfessionals.length === 0 ||
+            effectiveSelectedProfessionals.includes(professional.id);
           const colors = PROFESSIONAL_COLORS[index % PROFESSIONAL_COLORS.length];
           const conflictCount = conflictCountByProfessional.get(professional.id) ?? 0;
 
@@ -500,12 +559,12 @@ export function CenterScheduleCalendar({
                       color: colors.light.onContainer,
                     }
               }
-              title={`Filtrar por ${professional.fullName}`}
+              title={`Filtrar por ${professionalDisplayName(professional)}`}
             >
               <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-white/85 text-[10px] font-bold text-slate-700">
-                {professionalInitials(professional.fullName)}
+                {professionalInitials(professionalDisplayName(professional))}
               </span>
-              <span>{professional.fullName}</span>
+              <span>{professionalDisplayName(professional)}</span>
               {conflictCount > 0 && (
                 <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
                   ? {conflictCount}
@@ -524,7 +583,60 @@ export function CenterScheduleCalendar({
         )}
       </div>
 
-      {layout === "resource" && !isMobile ? (
+      {mode === "list" && (
+        <form
+          method="get"
+          action="/center/appointments"
+          className="grid gap-3 rounded-xl border border-[var(--border)] bg-card p-3 shadow-card md:grid-cols-[1.4fr_repeat(4,1fr)_auto] md:items-end"
+        >
+          <input type="hidden" name="ui" value="list" />
+          <input type="hidden" name="layout" value="list" />
+          <input type="hidden" name="page" value="1" />
+          <div className="space-y-1.5">
+            <Label htmlFor="center-appt-search" className="text-xs">Buscar</Label>
+            <Input id="center-appt-search" name="search" defaultValue={searchParams.get("search") ?? ""} placeholder="Paciente, DNI, tel?fono o email" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Estado</Label>
+            <Select name="status" defaultValue={selectedListStatus}>
+              <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {STATUS_OPTIONS.map((status) => <SelectItem key={status.value} value={status.value}>{status.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Profesional</Label>
+            <Select name="professionalId" defaultValue={selectedListProfessionalId}>
+              <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {professionals.map((professional) => (
+                  <SelectItem key={professional.id} value={professional.id}>{professionalDisplayName(professional)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="center-appt-from" className="text-xs">Desde</Label>
+            <Input id="center-appt-from" type="date" name="from" defaultValue={searchParams.get("from") ?? ""} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="center-appt-to" className="text-xs">Hasta</Label>
+            <Input id="center-appt-to" type="date" name="to" defaultValue={searchParams.get("to") ?? ""} />
+          </div>
+          <Button type="submit">Filtrar</Button>
+        </form>
+      )}
+
+      {mode === "list" ? (
+        listData ? <CenterAppointmentsList data={listData} professionals={professionals} /> : (
+          <div className="rounded-2xl border border-dashed border-border/80 bg-card/30 p-10 text-center text-sm text-muted-foreground">
+            No se pudo cargar el listado de turnos.
+          </div>
+        )
+      ) : layout === "resource" && !isMobile ? (
         <div className="space-y-3 rounded-2xl bg-card p-3 shadow-card ring-border">
           <div className="flex items-center justify-between rounded-xl border border-[var(--border)] px-3 py-2">
             <h3 className="text-sm font-semibold">
@@ -542,16 +654,16 @@ export function CenterScheduleCalendar({
                 <div key={professional.id} className="border-r border-[var(--border)] bg-muted px-3 py-2">
                   <div className="flex items-center gap-2">
                     <span className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold text-white" style={{ backgroundColor: colors.light.main }}>
-                      {professionalInitials(professional.fullName)}
+                      {professionalInitials(professionalDisplayName(professional))}
                     </span>
-                    <span className="truncate text-sm font-semibold">{professional.fullName}</span>
+                    <span className="truncate text-sm font-semibold">{professionalDisplayName(professional)}</span>
                   </div>
                 </div>
               );
             })}
 
             <div className="relative border-r border-[var(--border)] bg-background">
-              {hours.map((hour, idx) => (
+              {hours.map((hour) => (
                 <div key={hour} className="border-t border-[var(--border)] px-2 pt-1 text-[11px] text-muted-foreground" style={{ height: `${60 * MINUTE_HEIGHT}px` }}>
                   {hour}
                 </div>

@@ -26,23 +26,51 @@ export class DashboardService {
     });
     const tz = org.timezone;
     const now = new Date();
-    const { start: monthStart, end: monthEnd } = resolveCalendarRangeInTimeZone('month', now, tz);
-    const { start: weekStart, end: weekEnd } = resolveCalendarRangeInTimeZone('week', now, tz);
+    const next24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const { start: todayStart, end: todayEnd } = resolveCalendarRangeInTimeZone(
+      'day',
+      now,
+      tz,
+    );
+    const { start: monthStart, end: monthEnd } = resolveCalendarRangeInTimeZone(
+      'month',
+      now,
+      tz,
+    );
+    const { start: weekStart, end: weekEnd } = resolveCalendarRangeInTimeZone(
+      'week',
+      now,
+      tz,
+    );
 
     const [
       totalProfessionals,
       totalPatients,
-      appointmentsThisWeek,
+      appointmentsThisWeekAll,
+      appointmentsToday,
       appointmentsThisMonth,
       revenues,
+      expenses,
+      pendingNext24h,
+      upcomingToday,
       professionals,
     ] = await Promise.all([
-      this.prisma.professional.count({ where: { organizationId, isActive: true } }),
+      this.prisma.professional.count({
+        where: { organizationId, isActive: true },
+      }),
       this.prisma.patient.count({ where: { organizationId, deletedAt: null } }),
-      this.prisma.appointment.count({
+      this.prisma.appointment.findMany({
         where: {
           organizationId,
           startAt: { gte: weekStart, lte: weekEnd },
+          status: { not: AppointmentStatus.CANCELLED },
+        },
+        select: { startAt: true, status: true },
+      }),
+      this.prisma.appointment.count({
+        where: {
+          organizationId,
+          startAt: { gte: todayStart, lte: todayEnd },
           status: { not: AppointmentStatus.CANCELLED },
         },
       }),
@@ -55,10 +83,46 @@ export class DashboardService {
       }),
       this.prisma.revenue.aggregate({
         where: {
-          professional: { organizationId },
+          OR: [{ organizationId }, { professional: { organizationId } }],
           occurredAt: { gte: monthStart, lte: monthEnd },
-        },
+        } as any,
         _sum: { amount: true },
+      }),
+      this.prisma.expense.aggregate({
+        where: {
+          OR: [{ organizationId }, { professional: { organizationId } }],
+          occurredAt: { gte: monthStart, lte: monthEnd },
+        } as any,
+        _sum: { amount: true },
+      }),
+      this.prisma.appointment.count({
+        where: {
+          organizationId,
+          status: AppointmentStatus.PENDING,
+          startAt: { gte: now, lte: next24h },
+        },
+      }),
+      this.prisma.appointment.findMany({
+        where: {
+          organizationId,
+          startAt: { gte: now, lte: todayEnd },
+          status: {
+            in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
+          },
+        },
+        orderBy: { startAt: 'asc' },
+        take: 8,
+        select: {
+          id: true,
+          startAt: true,
+          status: true,
+          patient: {
+            select: { id: true, firstName: true, lastName: true },
+          },
+          professional: {
+            select: { id: true, fullName: true, specialty: true },
+          },
+        },
       }),
       this.prisma.professional.findMany({
         where: { organizationId, isActive: true },
@@ -80,18 +144,52 @@ export class DashboardService {
       }),
     ]);
 
+    const revenue = Number(revenues._sum.amount ?? 0);
+    const expense = Number(expenses._sum.amount ?? 0);
+    const DAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    const weekStartLocal = DateTime.fromJSDate(weekStart).setZone(tz);
+    const weeklyChart = Array.from({ length: 7 }, (_, i) => {
+      const dateStr = weekStartLocal.plus({ days: i }).toFormat('yyyy-MM-dd');
+      const dayAppointments = appointmentsThisWeekAll.filter(
+        (a) => calendarDateKeyInTimeZone(new Date(a.startAt), tz) === dateStr,
+      );
+
+      return {
+        day: DAY_LABELS[i],
+        total: dayAppointments.length,
+        attended: dayAppointments.filter(
+          (a) => a.status === AppointmentStatus.ATTENDED,
+        ).length,
+      };
+    });
+
+    const professionalBreakdown = professionals.map((p) => ({
+      id: p.id,
+      fullName: p.fullName,
+      specialty: p.specialty,
+      appointmentsThisMonth: p._count.appointments,
+    }));
+
     return {
       totalProfessionals,
       totalPatients,
-      appointmentsThisWeek,
+      appointmentsToday,
+      appointmentsThisWeek: appointmentsThisWeekAll.length,
+      appointmentsTodayCount: appointmentsToday,
+      appointmentsWeek: appointmentsThisWeekAll.length,
+      appointmentsMonth: appointmentsThisMonth,
       appointmentsThisMonth,
-      revenueThisMonth: Number(revenues._sum.amount ?? 0),
-      professionals: professionals.map((p) => ({
-        id: p.id,
-        fullName: p.fullName,
-        specialty: p.specialty,
-        appointmentsThisMonth: p._count.appointments,
-      })),
+      pendingNext24h,
+      upcomingToday,
+      weeklyChart,
+      financeThisMonth: {
+        revenue,
+        expenses: expense,
+        net: revenue - expense,
+      },
+      revenueThisMonth: revenue,
+      professionals: professionalBreakdown,
+      breakdown: professionalBreakdown,
     };
   }
 
@@ -294,4 +392,3 @@ export class DashboardService {
     };
   }
 }
-
