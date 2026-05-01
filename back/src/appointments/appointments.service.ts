@@ -134,6 +134,7 @@ export class AppointmentsService {
 
   async list(ctx: AccessContext, query: ListAppointmentsDto) {
     const skip = (query.page - 1) * query.limit;
+    const isMultiProfessional = ctx.role === 'CENTER_ADMIN' && !query.professionalId;
     const where: Prisma.AppointmentWhereInput = {
       ...this.buildAppointmentWhereFromCtx(ctx, query.professionalId),
       ...(query.status?.length ? { status: { in: query.status } } : {}),
@@ -177,27 +178,27 @@ export class AppointmentsService {
         skip,
         take: query.limit,
         orderBy: { startAt: 'desc' },
-include: {
-        patient: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            phone: true,
+        include: {
+          patient: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+            },
           },
-        },
-        ...(isMultiProfessional
-          ? {
-              professional: {
-                select: {
-                  id: true,
-                  fullName: true,
-                  specialty: true,
+          ...(isMultiProfessional
+            ? {
+                professional: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                    specialty: true,
+                  },
                 },
-              },
-            }
-          : {}),
-      },
+              }
+            : {}),
+        },
       }),
       this.prisma.appointment.count({ where }),
     ]);
@@ -215,8 +216,11 @@ include: {
     // For CENTER_ADMIN calendar: use provided professionalId or org timezone
     const professionalId =
       ctx.role === 'CENTER_ADMIN'
-        ? (query as any).professionalId as string | undefined
+        ? ((query as any).professionalId as string | undefined)
         : ctx.professionalId;
+    const hasProfessionalIds =
+      ctx.role === 'CENTER_ADMIN' && (query.professionalIds?.length ?? 0) > 0;
+    const isMultiProfessional = hasProfessionalIds;
 
     const timezone = isMultiProfessional
       ? (
@@ -248,9 +252,6 @@ include: {
       timezone,
     );
 
-    const isMultiProfessional =
-      ctx.role === 'CENTER_ADMIN' && query.professionalIds?.length;
-
     const where: Prisma.AppointmentWhereInput = {
       organizationId: isMultiProfessional ? ctx.organizationId : undefined,
       professionalId: isMultiProfessional
@@ -258,7 +259,7 @@ include: {
         : ctx.role === 'CENTER_ADMIN'
           ? (query as any).professionalId
           : ctx.professionalId,
-      ...(isMultiProfessional && query.professionalIds.length
+      ...(isMultiProfessional && (query.professionalIds?.length ?? 0) > 0
         ? { professionalId: { in: query.professionalIds } }
         : {}),
       startAt: {
