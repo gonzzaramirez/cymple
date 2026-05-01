@@ -15,9 +15,17 @@ ENV NODE_ENV=production
 ENV PORT=3080
 
 COPY package*.json ./
-COPY --from=deps /app/node_modules ./node_modules
+# 1. Instalamos SOLO dependencias de producción para una imagen súper liviana
+RUN npm ci --omit=dev
+
+# 2. Copiamos los esquemas de Prisma
+COPY prisma ./prisma/
+
+# 3. Generamos el cliente de Prisma en esta etapa final
+RUN npx prisma generate
+
+# 4. Copiamos el código transpilado
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/prisma ./prisma
 
 EXPOSE 3080
 CMD ["node", "dist/main"]
