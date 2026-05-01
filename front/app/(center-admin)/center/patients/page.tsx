@@ -1,15 +1,30 @@
 import type { Metadata } from "next";
 import { serverApiFetch } from "@/lib/server-api";
-import { ApiList, Patient } from "@/lib/types";
+import { ApiList, MemberProfessional, Patient } from "@/lib/types";
+import { CenterPatientsManager } from "./components/center-patients-manager";
 
 export const metadata: Metadata = {
   title: "Pacientes | Centro Médico | Cymple",
 };
 
-export default async function CenterPatientsPage() {
-  const data = await serverApiFetch<ApiList<Patient>>("patients?page=1&limit=20").catch(
-    () => null,
-  );
+export default async function CenterPatientsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; limit?: string; query?: string }>;
+}) {
+  const sp = await searchParams;
+  const page = Number(sp.page ?? "1");
+  const limit = Number(sp.limit ?? "20");
+  const query = sp.query?.trim() ?? "";
+  const qs = new URLSearchParams();
+  qs.set("page", String(Number.isFinite(page) && page > 0 ? page : 1));
+  qs.set("limit", String(Number.isFinite(limit) && limit > 0 ? limit : 20));
+  if (query) qs.set("query", query);
+
+  const [data, professionals] = await Promise.all([
+    serverApiFetch<ApiList<Patient>>(`patients?${qs.toString()}`).catch(() => null),
+    serverApiFetch<MemberProfessional[]>("organization/professionals").catch(() => []),
+  ]);
 
   return (
     <section className="space-y-6">
@@ -23,25 +38,12 @@ export default async function CenterPatientsPage() {
       </div>
 
       {data ? (
-        <div className="rounded-2xl border border-[var(--border-light)] bg-card p-5 shadow-card">
-          <p className="text-sm text-muted-foreground">
-            {data.total} pacientes en total
-          </p>
-          <div className="mt-4 divide-y divide-[var(--border-light)]">
-            {data.items.map((p) => (
-              <div key={p.id} className="flex items-center justify-between py-3">
-                <div>
-                  <p className="text-sm font-medium">
-                    {p.lastName}, {p.firstName}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {p.phone ?? p.email ?? "Sin contacto"}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <CenterPatientsManager
+          data={data}
+          professionals={professionals.map((p) => ({ id: p.id, fullName: p.fullName }))}
+          initialQuery={query}
+          limit={limit}
+        />
       ) : (
         <p className="text-muted-foreground">No hay pacientes registrados.</p>
       )}

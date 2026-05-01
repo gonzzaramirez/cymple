@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { serverApiFetch } from "@/lib/server-api";
 import { Appointment, MemberProfessional } from "@/lib/types";
 import { CenterScheduleCalendar } from "./components/center-schedule-calendar";
+import { CenterCreateAppointmentDialog } from "./components/center-create-appointment-dialog";
 
 export const metadata: Metadata = {
-  title: "Agenda | Centro M�dico | Cymple",
+  title: "Agenda | Centro Médico | Cymple",
 };
 
 type CalendarLayout = "resource" | "compact";
@@ -55,13 +56,18 @@ export default async function CenterAppointmentsPage({
 
   return (
     <section className="space-y-6">
-      <div>
-        <h1 className="font-display text-3xl font-semibold tracking-[-0.02em] md:text-4xl">
-          Agenda del Centro
-        </h1>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Todos los turnos del centro. Us� vistas y filtros para distinguir superposiciones.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="font-display text-3xl font-semibold tracking-[-0.02em] md:text-4xl">
+            Agenda del Centro
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Todos los turnos del centro. Usá vistas y filtros para distinguir superposiciones.
+          </p>
+        </div>
+        <CenterCreateAppointmentDialog
+          professionals={professionals.map((p) => ({ id: p.id, fullName: p.fullName }))}
+        />
       </div>
       <CenterScheduleCalendar
         items={calendarWithAll.items}

@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
+import { serverApiFetch } from "@/lib/server-api";
+import { MessageTemplate } from "@/lib/types";
+import { CenterSettingsTabs } from "./components/center-settings-tabs";
 
 export const metadata: Metadata = {
   title: "Configuración | Centro Médico | Cymple",
 };
 
-export default function CenterSettingsPage() {
+export default async function CenterSettingsPage() {
+  const templates = await serverApiFetch<MessageTemplate[]>("message-templates").catch(() => []);
+
   return (
     <section className="space-y-6">
       <div>
@@ -15,11 +20,7 @@ export default function CenterSettingsPage() {
           Configuración del centro y WhatsApp compartido.
         </p>
       </div>
-      <div className="flex items-center justify-center rounded-2xl border border-[var(--border-light)] bg-card p-12 shadow-card">
-        <p className="text-muted-foreground">
-          Configuración del centro en construcción
-        </p>
-      </div>
+      <CenterSettingsTabs templates={templates} />
     </section>
   );
 }

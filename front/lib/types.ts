@@ -32,6 +32,10 @@ export type Patient = {
   birthDate?: string | null;
   notes?: string | null;
   createdAt: string;
+  professional?: {
+    id: string;
+    fullName: string;
+  } | null;
   summary?: {
     totalSessions: number;
     nextAppointment?: {

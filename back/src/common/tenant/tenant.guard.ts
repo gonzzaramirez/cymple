@@ -37,7 +37,7 @@ export class TenantGuard implements CanActivate {
         ) {
           throw new UnauthorizedException('Token no pertenece a este tenant');
         }
-        if (tenant.professionalId !== user.sub) {
+        if (tenant.professionalId && tenant.professionalId !== user.sub) {
           throw new UnauthorizedException('Token no pertenece a este tenant');
         }
         req.professionalId = user.sub;

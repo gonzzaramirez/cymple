@@ -16,13 +16,27 @@ export class PatientsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(ctx: AccessContext, dto: CreatePatientDto) {
-    if (ctx.role === 'CENTER_ADMIN') {
+    const organizationId = ctx.organizationId ?? null;
+    const professionalId =
+      ctx.role === 'CENTER_ADMIN' ? dto.professionalId : ctx.professionalId;
+
+    if (!professionalId) {
       throw new BadRequestException(
-        'El administrador del centro no puede crear pacientes directamente. Use la cuenta de un profesional.',
+        'professionalId es obligatorio para crear pacientes desde el centro',
       );
     }
-    const professionalId = ctx.professionalId;
-    const organizationId = ctx.organizationId ?? null;
+
+    if (ctx.role === 'CENTER_ADMIN') {
+      const professional = await this.prisma.professional.findFirst({
+        where: { id: professionalId, organizationId: ctx.organizationId },
+        select: { id: true },
+      });
+      if (!professional) {
+        throw new BadRequestException(
+          'El profesional seleccionado no pertenece al centro',
+        );
+      }
+    }
 
     // For center patients, check for duplicates at org level
     if (organizationId && dto.phone) {
