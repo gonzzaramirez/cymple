@@ -177,16 +177,27 @@ export class AppointmentsService {
         skip,
         take: query.limit,
         orderBy: { startAt: 'desc' },
-        include: {
-          patient: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              phone: true,
-            },
+include: {
+        patient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
           },
         },
+        ...(isMultiProfessional
+          ? {
+              professional: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  specialty: true,
+                },
+              },
+            }
+          : {}),
+      },
       }),
       this.prisma.appointment.count({ where }),
     ]);
@@ -207,21 +218,28 @@ export class AppointmentsService {
         ? (query as any).professionalId as string | undefined
         : ctx.professionalId;
 
-    const timezone = professionalId
+    const timezone = isMultiProfessional
       ? (
-          await this.prisma.professional.findUniqueOrThrow({
-            where: { id: professionalId },
+          await this.prisma.organization.findUniqueOrThrow({
+            where: { id: ctx.organizationId },
             select: { timezone: true },
           })
         ).timezone
-      : ctx.role === 'CENTER_ADMIN'
+      : (query as any).professionalId
         ? (
-            await this.prisma.organization.findUniqueOrThrow({
-              where: { id: ctx.organizationId },
+            await this.prisma.professional.findUniqueOrThrow({
+              where: { id: (query as any).professionalId },
               select: { timezone: true },
             })
           ).timezone
-        : 'America/Argentina/Buenos_Aires';
+        : ctx.professionalId
+          ? (
+              await this.prisma.professional.findUniqueOrThrow({
+                where: { id: ctx.professionalId },
+                select: { timezone: true },
+              })
+            ).timezone
+          : 'America/Argentina/Buenos_Aires';
 
     const date = new Date(query.date);
     const range = resolveCalendarRangeInTimeZone(
@@ -230,8 +248,19 @@ export class AppointmentsService {
       timezone,
     );
 
+    const isMultiProfessional =
+      ctx.role === 'CENTER_ADMIN' && query.professionalIds?.length;
+
     const where: Prisma.AppointmentWhereInput = {
-      ...this.buildAppointmentWhereFromCtx(ctx, professionalId),
+      organizationId: isMultiProfessional ? ctx.organizationId : undefined,
+      professionalId: isMultiProfessional
+        ? undefined
+        : ctx.role === 'CENTER_ADMIN'
+          ? (query as any).professionalId
+          : ctx.professionalId,
+      ...(isMultiProfessional && query.professionalIds.length
+        ? { professionalId: { in: query.professionalIds } }
+        : {}),
       startAt: {
         gte: range.start,
         lte: range.end,
@@ -255,14 +284,13 @@ export class AppointmentsService {
       orderBy: { startAt: 'asc' },
     });
 
-    // Enrich with absentCount per patient
     const patientIds = [...new Set(appointments.map((a) => a.patientId))];
     const absentCounts =
       patientIds.length > 0
         ? await this.prisma.appointment.groupBy({
             by: ['patientId'],
             where: {
-              ...this.buildAppointmentWhereFromCtx(ctx, professionalId),
+              organizationId: ctx.organizationId,
               patientId: { in: patientIds },
               status: AppointmentStatus.ABSENT,
             },

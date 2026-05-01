@@ -68,6 +68,11 @@ export type Appointment = {
     lastName: string;
     absentCount?: number;
   };
+  professional?: {
+    id: string;
+    fullName: string;
+    specialty?: string | null;
+  };
 };
 
 export type FinanceSummary = {
