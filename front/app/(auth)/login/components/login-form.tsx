@@ -23,10 +23,19 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      email: "admin@medagenda.local",
-      password: "Admin1234!",
-    },
+    defaultValues: (() => {
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        if (
+          url.hostname === "test.cymple.com" ||
+          (url.searchParams && url.searchParams.get("demo") === "1") ||
+          url.pathname.split("/").includes("test")
+        ) {
+          return { email: "test@gmail.com", password: "test123" };
+        }
+      }
+      return { email: "", password: "" };
+    })(),
   });
 
   async function onSubmit(values: FormValues) {
@@ -82,12 +91,7 @@ export function LoginForm() {
               </p>
             ) : null}
           </div>
-          <Button
-            disabled={loading}
-            className="w-full"
-            type="submit"
-            size="lg"
-          >
+          <Button disabled={loading} className="w-full" type="submit" size="lg">
             {loading ? "Ingresando..." : "Entrar"}
           </Button>
         </form>
