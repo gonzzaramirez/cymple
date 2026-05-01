@@ -6,6 +6,7 @@ const TENANT_HEADER = 'x-tenant-slug';
 const FORWARDED_HOST_HEADER = 'x-forwarded-host';
 const ORIGIN_HEADER = 'origin';
 const TENANT_SLUG_REGEX = /^[a-z0-9-]+$/;
+const RESERVED_INFRA_SUBDOMAINS = new Set(['api', 'www']);
 
 export interface ResolvedTenant {
   slug: string;
@@ -90,7 +91,11 @@ export class TenantResolverService {
       .at(-1)
       ?.trim()
       .toLowerCase();
-    return this.validateSlug(slug ?? null, 'No se pudo resolver tenant');
+    const validatedSlug = this.validateSlug(slug ?? null, 'No se pudo resolver tenant');
+    if (validatedSlug && RESERVED_INFRA_SUBDOMAINS.has(validatedSlug)) {
+      return null;
+    }
+    return validatedSlug;
   }
 
   private resolveHostname(req: any): string | null {

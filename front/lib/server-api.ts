@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { API_BASE_URL } from "./env";
 import { getAuthToken } from "./server-auth";
-import { resolveTenantSlugFromHostname } from "./tenant";
+import { resolveTenantSlugFromHostname, resolveTenantSlugFromToken } from "./tenant";
 
 type RequestInitWithMethod = RequestInit & { method?: string };
 
@@ -21,7 +21,9 @@ export async function serverApiFetch<T>(
     incomingHeaders.get("x-forwarded-host") ??
     incomingHeaders.get("host");
   const tenantSlug =
-    tenantHeaderSlug ?? resolveTenantSlugFromHostname(tenantHost ?? "");
+    tenantHeaderSlug ??
+    resolveTenantSlugFromHostname(tenantHost ?? "") ??
+    resolveTenantSlugFromToken(token);
 
   const response = await fetch(`${API_BASE_URL}/${path}`, {
     ...init,

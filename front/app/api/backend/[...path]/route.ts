@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { API_BASE_URL, AUTH_COOKIE } from "@/lib/env";
-import { resolveTenantSlugFromHostname } from "@/lib/tenant";
+import { resolveTenantSlugFromHostname, resolveTenantSlugFromToken } from "@/lib/tenant";
 
 async function proxy(
   request: Request,
@@ -19,7 +19,8 @@ async function proxy(
     url.host;
   const tenantSlug =
     request.headers.get("x-tenant-slug") ??
-    resolveTenantSlugFromHostname(tenantHost);
+    resolveTenantSlugFromHostname(tenantHost) ??
+    resolveTenantSlugFromToken(token);
 
   if (!token) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
