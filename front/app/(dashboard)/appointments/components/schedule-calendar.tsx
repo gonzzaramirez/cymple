@@ -217,9 +217,9 @@ export function ScheduleCalendar({ items, selectedDate, hideWeekends }: Schedule
         end: "21:00",
       },
       weekOptions: {
-        gridHeight: isMobile ? 620 : 860,
+        gridHeight: isMobile ? 520 : 620,
         nDays: hideWeekends ? 5 : 7,
-        eventWidth: isMobile ? 100 : 130,
+        eventWidth: isMobile ? 98 : 96,
         gridStep: 30,
       },
       calendars: STATUS_CALENDARS,

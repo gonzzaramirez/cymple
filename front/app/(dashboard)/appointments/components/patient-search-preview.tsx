@@ -137,7 +137,7 @@ export function PatientSearchPreview({
     const name = `${selected.lastName}, ${selected.firstName}`;
 
     return (
-      <div className="rounded-xl border border-border bg-card p-4 shadow-sm animate-in fade-in-0 slide-in-from-top-2 duration-200">
+      <div className="rounded-lg p-3 animate-in fade-in-0 slide-in-from-top-2 duration-200">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
@@ -264,7 +264,7 @@ export function PatientSearchPreview({
     <div className="relative">
       {/* shouldFilter=false: el API ya filtra server-side; sin esto cmdk re-filtra
           los resultados en el cliente y descarta coincidencias válidas (acentos, etc.) */}
-      <Command shouldFilter={false} className="rounded-xl border border-border bg-card shadow-sm">
+      <Command shouldFilter={false} className="rounded-lg border-0 bg-transparent shadow-none">
         <div className="flex items-center border-b border-border px-3">
           <Search className="size-4 shrink-0 text-muted-foreground" />
           <CommandInput

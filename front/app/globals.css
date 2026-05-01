@@ -287,6 +287,9 @@
     font-weight: 600;
     padding: 3px 7px;
     border: none;
+    box-sizing: border-box;
+    max-width: 100%;
+    overflow: hidden;
   }
 
   .sx-calendar-wrapper .sx__month-agenda-event {
@@ -324,11 +327,22 @@
   }
 
   .sx-calendar-wrapper .sx__calendar-wrapper {
-    min-width: min(1024px, 100%);
+    min-width: min(960px, 100%);
   }
 
   .sx-calendar-wrapper .sx__week-grid {
-    min-height: 820px;
+    min-height: 600px;
+  }
+
+  .sx-calendar-wrapper .sx__time-grid-event-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+
+  .sx-calendar-wrapper .sx__time-grid-day {
+    min-width: 0;
   }
 
   .sx-calendar-wrapper[data-mobile="true"] {
@@ -373,7 +387,17 @@
     }
 
     .sx-calendar-wrapper .sx__week-grid {
-      min-height: 560px;
+      min-height: 500px;
+    }
+  }
+
+  @media (max-width: 1366px) {
+    .sx-calendar-wrapper .sx__calendar-wrapper {
+      min-width: 100%;
+    }
+
+    .sx-calendar-wrapper .sx__week-grid {
+      min-height: 520px;
     }
   }
 
