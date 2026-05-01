@@ -7,11 +7,13 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { JwtAuthGuard } from '../common/auth/jwt-auth.guard';
 import { TenantGuard } from '../common/tenant/tenant.guard';
-import { CurrentProfessionalId } from '../common/tenant/current-professional-id.decorator';
+import { buildAccessContext } from '../common/tenant/access-context';
 import { FinanceService } from './finance.service';
 import { FinanceSummaryQueryDto } from './dto/summary-query.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
@@ -26,68 +28,50 @@ export class FinanceController {
   constructor(private readonly financeService: FinanceService) {}
 
   @Get('summary')
-  summary(
-    @CurrentProfessionalId() professionalId: string,
-    @Query() query: FinanceSummaryQueryDto,
-  ) {
-    return this.financeService.summary(professionalId, query);
+  summary(@Req() req: Request, @Query() query: FinanceSummaryQueryDto) {
+    return this.financeService.summary(buildAccessContext(req), query);
   }
 
   @Get('revenues')
-  listRevenues(
-    @CurrentProfessionalId() professionalId: string,
-    @Query() query: PaginationQueryDto,
-  ) {
-    return this.financeService.listRevenues(professionalId, query);
+  listRevenues(@Req() req: Request, @Query() query: PaginationQueryDto) {
+    return this.financeService.listRevenues(buildAccessContext(req), query);
   }
 
   @Post('revenues')
-  createRevenue(
-    @CurrentProfessionalId() professionalId: string,
-    @Body() dto: CreateRevenueDto,
-  ) {
-    return this.financeService.createRevenue(professionalId, dto);
+  createRevenue(@Req() req: Request, @Body() dto: CreateRevenueDto) {
+    return this.financeService.createRevenue(buildAccessContext(req), dto);
   }
 
   @Patch('revenues/:id')
   updateRevenue(
-    @CurrentProfessionalId() professionalId: string,
+    @Req() req: Request,
     @Param('id') id: string,
     @Body() dto: UpdateRevenueDto,
   ) {
-    return this.financeService.updateRevenue(professionalId, id, dto);
+    return this.financeService.updateRevenue(buildAccessContext(req), id, dto);
   }
 
   @Get('expenses')
-  listExpenses(
-    @CurrentProfessionalId() professionalId: string,
-    @Query() query: PaginationQueryDto,
-  ) {
-    return this.financeService.listExpenses(professionalId, query);
+  listExpenses(@Req() req: Request, @Query() query: PaginationQueryDto) {
+    return this.financeService.listExpenses(buildAccessContext(req), query);
   }
 
   @Post('expenses')
-  createExpense(
-    @CurrentProfessionalId() professionalId: string,
-    @Body() dto: CreateExpenseDto,
-  ) {
-    return this.financeService.createExpense(professionalId, dto);
+  createExpense(@Req() req: Request, @Body() dto: CreateExpenseDto) {
+    return this.financeService.createExpense(buildAccessContext(req), dto);
   }
 
   @Patch('expenses/:id')
   updateExpense(
-    @CurrentProfessionalId() professionalId: string,
+    @Req() req: Request,
     @Param('id') id: string,
     @Body() dto: UpdateExpenseDto,
   ) {
-    return this.financeService.updateExpense(professionalId, id, dto);
+    return this.financeService.updateExpense(buildAccessContext(req), id, dto);
   }
 
   @Delete('expenses/:id')
-  removeExpense(
-    @CurrentProfessionalId() professionalId: string,
-    @Param('id') id: string,
-  ) {
-    return this.financeService.removeExpense(professionalId, id);
+  removeExpense(@Req() req: Request, @Param('id') id: string) {
+    return this.financeService.removeExpense(buildAccessContext(req), id);
   }
 }

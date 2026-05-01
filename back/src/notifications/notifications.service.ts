@@ -6,7 +6,8 @@ export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(params: {
-    professionalId: string;
+    professionalId?: string;
+    organizationId?: string;
     type: string;
     title: string;
     body?: string;
@@ -15,6 +16,7 @@ export class NotificationsService {
     return this.prisma.notification.create({
       data: {
         professionalId: params.professionalId,
+        organizationId: params.organizationId,
         type: params.type,
         title: params.title,
         body: params.body,
@@ -23,23 +25,25 @@ export class NotificationsService {
     });
   }
 
-  async findRecent(professionalId: string) {
+  async findRecent(id: string, isOrg = false) {
+    const where = isOrg ? { organizationId: id } : { professionalId: id };
     const [items, unreadCount] = await this.prisma.$transaction([
       this.prisma.notification.findMany({
-        where: { professionalId },
+        where,
         orderBy: { createdAt: 'desc' },
         take: 20,
       }),
       this.prisma.notification.count({
-        where: { professionalId, readAt: null },
+        where: { ...where, readAt: null },
       }),
     ]);
     return { items, unreadCount };
   }
 
-  async markAllRead(professionalId: string) {
+  async markAllRead(id: string, isOrg = false) {
+    const where = isOrg ? { organizationId: id } : { professionalId: id };
     await this.prisma.notification.updateMany({
-      where: { professionalId, readAt: null },
+      where: { ...where, readAt: null },
       data: { readAt: new Date() },
     });
   }

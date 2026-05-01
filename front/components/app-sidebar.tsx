@@ -46,11 +46,13 @@ const baseNavItems = [
 type AppSidebarProps = {
   professionalName: string;
   pendingNext24h?: number;
+  centerName?: string;
 };
 
 export function AppSidebar({
   professionalName,
   pendingNext24h: initialPending = 0,
+  centerName,
 }: AppSidebarProps) {
   const pathname = usePathname();
   const { setOpenMobile } = useSidebar();
@@ -258,8 +260,8 @@ export function AppSidebar({
               <p className="truncate text-[14px] font-medium leading-tight text-[#0a0a0a] dark:text-foreground">
                 {firstName}
               </p>
-              <p className="text-[12px] leading-tight text-[#1d1d1f] dark:text-muted-foreground">
-                Profesional
+              <p className="truncate text-[12px] leading-tight text-[#1d1d1f] dark:text-muted-foreground">
+                {centerName ? centerName : "Profesional"}
               </p>
             </div>
 

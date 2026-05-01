@@ -7,11 +7,13 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { JwtAuthGuard } from '../common/auth/jwt-auth.guard';
 import { TenantGuard } from '../common/tenant/tenant.guard';
-import { CurrentProfessionalId } from '../common/tenant/current-professional-id.decorator';
+import { buildAccessContext } from '../common/tenant/access-context';
 import { PatientsService } from './patients.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
@@ -23,59 +25,41 @@ export class PatientsController {
   constructor(private readonly patientsService: PatientsService) {}
 
   @Post()
-  create(
-    @CurrentProfessionalId() professionalId: string,
-    @Body() dto: CreatePatientDto,
-  ) {
-    return this.patientsService.create(professionalId, dto);
+  create(@Req() req: Request, @Body() dto: CreatePatientDto) {
+    return this.patientsService.create(buildAccessContext(req), dto);
   }
 
   @Get()
-  list(
-    @CurrentProfessionalId() professionalId: string,
-    @Query() query: SearchPatientsDto,
-  ) {
-    return this.patientsService.list(professionalId, query);
+  list(@Req() req: Request, @Query() query: SearchPatientsDto) {
+    return this.patientsService.list(buildAccessContext(req), query);
   }
 
   @Get('search')
-  search(
-    @CurrentProfessionalId() professionalId: string,
-    @Query() query: SearchPatientsDto,
-  ) {
-    return this.patientsService.list(professionalId, query);
+  search(@Req() req: Request, @Query() query: SearchPatientsDto) {
+    return this.patientsService.list(buildAccessContext(req), query);
   }
 
   @Get(':id')
-  getOne(
-    @CurrentProfessionalId() professionalId: string,
-    @Param('id') patientId: string,
-  ) {
-    return this.patientsService.getOne(professionalId, patientId);
+  getOne(@Req() req: Request, @Param('id') patientId: string) {
+    return this.patientsService.getOne(buildAccessContext(req), patientId);
   }
 
   @Patch(':id')
   update(
-    @CurrentProfessionalId() professionalId: string,
+    @Req() req: Request,
     @Param('id') patientId: string,
     @Body() dto: UpdatePatientDto,
   ) {
-    return this.patientsService.update(professionalId, patientId, dto);
+    return this.patientsService.update(buildAccessContext(req), patientId, dto);
   }
 
   @Delete(':id')
-  remove(
-    @CurrentProfessionalId() professionalId: string,
-    @Param('id') patientId: string,
-  ) {
-    return this.patientsService.remove(professionalId, patientId);
+  remove(@Req() req: Request, @Param('id') patientId: string) {
+    return this.patientsService.remove(buildAccessContext(req), patientId);
   }
 
   @Get(':id/history')
-  history(
-    @CurrentProfessionalId() professionalId: string,
-    @Param('id') patientId: string,
-  ) {
-    return this.patientsService.history(professionalId, patientId);
+  history(@Req() req: Request, @Param('id') patientId: string) {
+    return this.patientsService.history(buildAccessContext(req), patientId);
   }
 }

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { AppointmentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { AccessContext } from '../common/tenant/access-context';
 import { FinanceSummaryQueryDto } from './dto/summary-query.dto';
 import { CreateRevenueDto } from './dto/create-revenue.dto';
 import { UpdateRevenueDto } from './dto/update-revenue.dto';
@@ -13,52 +14,54 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 export class FinanceService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async summary(professionalId: string, query: FinanceSummaryQueryDto) {
+  async summary(ctx: AccessContext, query: FinanceSummaryQueryDto) {
     const base = query.month ? new Date(query.month) : new Date();
     const from = startOfMonth(base);
     const to = endOfMonth(base);
 
+    const isOrgAdmin = ctx.role === 'CENTER_ADMIN';
+    const proFilter = isOrgAdmin
+      ? { professional: { organizationId: ctx.organizationId as string } }
+      : { professionalId: ctx.professionalId as string };
+    const apptFilter = isOrgAdmin
+      ? { organizationId: ctx.organizationId as string }
+      : { professionalId: ctx.professionalId as string };
+
     const [revenues, expenses, attendedCount, absentCount, totalAppointments] =
       await Promise.all([
         this.prisma.revenue.aggregate({
-          where: {
-            professionalId,
-            occurredAt: { gte: from, lte: to },
-          },
+          where: { ...proFilter, occurredAt: { gte: from, lte: to } },
           _sum: { amount: true },
         }),
         this.prisma.expense.aggregate({
-          where: {
-            professionalId,
-            occurredAt: { gte: from, lte: to },
-          },
+          where: { ...proFilter, occurredAt: { gte: from, lte: to } },
           _sum: { amount: true },
         }),
         this.prisma.appointment.count({
           where: {
-            professionalId,
+            ...apptFilter,
             status: AppointmentStatus.ATTENDED,
             startAt: { gte: from, lte: to },
           },
         }),
         this.prisma.appointment.count({
           where: {
-            professionalId,
+            ...apptFilter,
             status: AppointmentStatus.ABSENT,
             startAt: { gte: from, lte: to },
           },
         }),
         this.prisma.appointment.count({
           where: {
-            professionalId,
+            ...apptFilter,
             startAt: { gte: from, lte: to },
             status: { not: AppointmentStatus.CANCELLED },
           },
         }),
       ]);
 
-    const income = Number(revenues._sum.amount ?? 0);
-    const outcome = Number(expenses._sum.amount ?? 0);
+    const income = Number(revenues._sum?.amount ?? 0);
+    const outcome = Number(expenses._sum?.amount ?? 0);
     const occupancy =
       totalAppointments > 0 ? (attendedCount / totalAppointments) * 100 : 0;
 
@@ -75,20 +78,32 @@ export class FinanceService {
     };
   }
 
-  listRevenues(professionalId: string, query: PaginationQueryDto) {
+  listRevenues(ctx: AccessContext, query: PaginationQueryDto) {
     const skip = (query.page - 1) * query.limit;
+    const where =
+      ctx.role === 'CENTER_ADMIN'
+        ? { professional: { organizationId: ctx.organizationId } }
+        : { professionalId: ctx.professionalId };
+
     return this.prisma.revenue.findMany({
-      where: { professionalId },
+      where: where as any,
       skip,
       take: query.limit,
       orderBy: { occurredAt: 'desc' },
+      include:
+        ctx.role === 'CENTER_ADMIN'
+          ? { professional: { select: { id: true, fullName: true } } }
+          : undefined,
     });
   }
 
-  createRevenue(professionalId: string, dto: CreateRevenueDto) {
+  createRevenue(ctx: AccessContext, dto: CreateRevenueDto) {
+    if (ctx.role === 'CENTER_ADMIN') {
+      throw new Error('Centro no puede crear ingresos directamente');
+    }
     return this.prisma.revenue.create({
       data: {
-        professionalId,
+        professionalId: ctx.professionalId,
         appointmentId: dto.appointmentId,
         amount: new Prisma.Decimal(dto.amount),
         occurredAt: new Date(dto.occurredAt),
@@ -97,14 +112,12 @@ export class FinanceService {
     });
   }
 
-  async updateRevenue(
-    professionalId: string,
-    id: string,
-    dto: UpdateRevenueDto,
-  ) {
-    const existing = await this.prisma.revenue.findFirst({
-      where: { id, professionalId },
-    });
+  async updateRevenue(ctx: AccessContext, id: string, dto: UpdateRevenueDto) {
+    const where =
+      ctx.role === 'CENTER_ADMIN'
+        ? { id, professional: { organizationId: ctx.organizationId } }
+        : { id, professionalId: ctx.professionalId };
+    const existing = await this.prisma.revenue.findFirst({ where: where as any });
     if (!existing) throw new NotFoundException('Ingreso no encontrado');
 
     return this.prisma.revenue.update({
@@ -118,20 +131,32 @@ export class FinanceService {
     });
   }
 
-  listExpenses(professionalId: string, query: PaginationQueryDto) {
+  listExpenses(ctx: AccessContext, query: PaginationQueryDto) {
     const skip = (query.page - 1) * query.limit;
+    const where =
+      ctx.role === 'CENTER_ADMIN'
+        ? { professional: { organizationId: ctx.organizationId } }
+        : { professionalId: ctx.professionalId };
+
     return this.prisma.expense.findMany({
-      where: { professionalId },
+      where: where as any,
       skip,
       take: query.limit,
       orderBy: { occurredAt: 'desc' },
+      include:
+        ctx.role === 'CENTER_ADMIN'
+          ? { professional: { select: { id: true, fullName: true } } }
+          : undefined,
     });
   }
 
-  createExpense(professionalId: string, dto: CreateExpenseDto) {
+  createExpense(ctx: AccessContext, dto: CreateExpenseDto) {
+    if (ctx.role === 'CENTER_ADMIN') {
+      throw new Error('Centro no puede crear egresos directamente');
+    }
     return this.prisma.expense.create({
       data: {
-        professionalId,
+        professionalId: ctx.professionalId,
         concept: dto.concept,
         amount: new Prisma.Decimal(dto.amount),
         occurredAt: new Date(dto.occurredAt),
@@ -139,14 +164,12 @@ export class FinanceService {
     });
   }
 
-  async updateExpense(
-    professionalId: string,
-    id: string,
-    dto: UpdateExpenseDto,
-  ) {
-    const existing = await this.prisma.expense.findFirst({
-      where: { id, professionalId },
-    });
+  async updateExpense(ctx: AccessContext, id: string, dto: UpdateExpenseDto) {
+    const where =
+      ctx.role === 'CENTER_ADMIN'
+        ? { id, professional: { organizationId: ctx.organizationId } }
+        : { id, professionalId: ctx.professionalId };
+    const existing = await this.prisma.expense.findFirst({ where: where as any });
     if (!existing) throw new NotFoundException('Egreso no encontrado');
 
     return this.prisma.expense.update({
@@ -160,10 +183,12 @@ export class FinanceService {
     });
   }
 
-  async removeExpense(professionalId: string, id: string) {
-    const existing = await this.prisma.expense.findFirst({
-      where: { id, professionalId },
-    });
+  async removeExpense(ctx: AccessContext, id: string) {
+    const where =
+      ctx.role === 'CENTER_ADMIN'
+        ? { id, professional: { organizationId: ctx.organizationId } }
+        : { id, professionalId: ctx.professionalId };
+    const existing = await this.prisma.expense.findFirst({ where: where as any });
     if (!existing) throw new NotFoundException('Egreso no encontrado');
     await this.prisma.expense.delete({ where: { id } });
     return { id, deleted: true };

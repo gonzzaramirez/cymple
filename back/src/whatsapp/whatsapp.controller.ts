@@ -1,8 +1,9 @@
-import { Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
+import type { Request } from 'express';
 import { JwtAuthGuard } from '../common/auth/jwt-auth.guard';
 import { TenantGuard } from '../common/tenant/tenant.guard';
-import { CurrentProfessionalId } from '../common/tenant/current-professional-id.decorator';
+import { buildAccessContext } from '../common/tenant/access-context';
 import { WhatsappConnectionService } from './whatsapp-connection.service';
 
 @Controller('whatsapp')
@@ -12,17 +13,29 @@ export class WhatsappController {
   constructor(private readonly connection: WhatsappConnectionService) {}
 
   @Post('start')
-  start(@CurrentProfessionalId() professionalId: string) {
-    return this.connection.start(professionalId);
+  start(@Req() req: Request) {
+    const ctx = buildAccessContext(req);
+    if (ctx.role === 'CENTER_ADMIN') {
+      return this.connection.startOrg(ctx.organizationId);
+    }
+    return this.connection.start(ctx.professionalId!);
   }
 
   @Get('status')
-  status(@CurrentProfessionalId() professionalId: string) {
-    return this.connection.getStatus(professionalId);
+  status(@Req() req: Request) {
+    const ctx = buildAccessContext(req);
+    if (ctx.role === 'CENTER_ADMIN') {
+      return this.connection.getStatusOrg(ctx.organizationId);
+    }
+    return this.connection.getStatus(ctx.professionalId!);
   }
 
   @Post('logout')
-  logout(@CurrentProfessionalId() professionalId: string) {
-    return this.connection.logout(professionalId).then(() => ({ ok: true }));
+  logout(@Req() req: Request) {
+    const ctx = buildAccessContext(req);
+    if (ctx.role === 'CENTER_ADMIN') {
+      return this.connection.logoutOrg(ctx.organizationId).then(() => ({ ok: true }));
+    }
+    return this.connection.logout(ctx.professionalId!).then(() => ({ ok: true }));
   }
 }

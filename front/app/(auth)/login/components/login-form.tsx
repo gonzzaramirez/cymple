@@ -18,6 +18,16 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+type LoginResponse = {
+  accessToken: string;
+  user: {
+    id: string;
+    email: string;
+    fullName: string;
+    role: string;
+  };
+};
+
 export function LoginForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -39,8 +49,14 @@ export function LoginForm() {
       return;
     }
 
+    const data = (await response.json()) as LoginResponse;
     sileo.success({ title: "Sesión iniciada" });
-    router.replace("/");
+
+    if (data.user?.role === "CENTER_ADMIN") {
+      router.replace("/center/home");
+    } else {
+      router.replace("/home");
+    }
   }
 
   return (

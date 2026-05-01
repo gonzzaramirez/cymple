@@ -17,8 +17,11 @@ describe('PatientsService', () => {
 
     const service = new PatientsService(prismaMock);
 
-    await expect(service.remove('prof-1', 'pat-1')).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      service.remove(
+        { role: 'INDEPENDENT', professionalId: 'prof-1', organizationId: null },
+        'pat-1',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

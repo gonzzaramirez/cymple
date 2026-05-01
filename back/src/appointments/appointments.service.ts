@@ -11,6 +11,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AccessContext } from '../common/tenant/access-context';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { CalendarQueryDto } from './dto/calendar-query.dto';
 import { ListAppointmentsDto } from './dto/list-appointments.dto';
@@ -29,7 +30,27 @@ export class AppointmentsService {
     private readonly notifications: NotificationsService,
   ) {}
 
-  async create(professionalId: string, dto: CreateAppointmentDto) {
+  async create(ctx: AccessContext, dto: CreateAppointmentDto) {
+    // CENTER_ADMIN must specify professionalId in the DTO
+    const professionalId =
+      ctx.role === 'CENTER_ADMIN'
+        ? dto.professionalId
+        : ctx.professionalId;
+
+    if (!professionalId) {
+      throw new BadRequestException(
+        'Se requiere professionalId para crear un turno como administrador del centro',
+      );
+    }
+
+    // Verify the professional belongs to the org if CENTER_ADMIN
+    if (ctx.role === 'CENTER_ADMIN') {
+      const pro = await this.prisma.professional.findFirst({
+        where: { id: professionalId, organizationId: ctx.organizationId },
+      });
+      if (!pro) throw new NotFoundException('Profesional no encontrado en el centro');
+    }
+
     const professional = await this.prisma.professional.findUniqueOrThrow({
       where: { id: professionalId },
       select: {
@@ -37,14 +58,17 @@ export class AppointmentsService {
         bufferMinutes: true,
         standardFee: true,
         reminderHours: true,
+        organizationId: true,
       },
     });
 
     const patient = await this.prisma.patient.findFirst({
       where: {
         id: dto.patientId,
-        professionalId,
         deletedAt: null,
+        ...(ctx.role === 'CENTER_ADMIN' || ctx.role === 'CENTER_MEMBER'
+          ? { organizationId: ctx.organizationId }
+          : { professionalId }),
       },
     });
 
@@ -59,6 +83,7 @@ export class AppointmentsService {
     const created = await this.prisma.appointment.create({
       data: {
         professionalId,
+        organizationId: professional.organizationId ?? null,
         patientId: patient.id,
         startAt,
         endAt,
@@ -107,10 +132,10 @@ export class AppointmentsService {
     return created;
   }
 
-  async list(professionalId: string, query: ListAppointmentsDto) {
+  async list(ctx: AccessContext, query: ListAppointmentsDto) {
     const skip = (query.page - 1) * query.limit;
     const where: Prisma.AppointmentWhereInput = {
-      professionalId,
+      ...this.buildAppointmentWhereFromCtx(ctx, query.professionalId),
       ...(query.status?.length ? { status: { in: query.status } } : {}),
       ...(query.patientId ? { patientId: query.patientId } : {}),
       ...(query.from || query.to
@@ -175,20 +200,38 @@ export class AppointmentsService {
     };
   }
 
-  async calendar(professionalId: string, query: CalendarQueryDto) {
-    const professional = await this.prisma.professional.findUniqueOrThrow({
-      where: { id: professionalId },
-      select: { timezone: true },
-    });
+  async calendar(ctx: AccessContext, query: CalendarQueryDto) {
+    // For CENTER_ADMIN calendar: use provided professionalId or org timezone
+    const professionalId =
+      ctx.role === 'CENTER_ADMIN'
+        ? (query as any).professionalId as string | undefined
+        : ctx.professionalId;
+
+    const timezone = professionalId
+      ? (
+          await this.prisma.professional.findUniqueOrThrow({
+            where: { id: professionalId },
+            select: { timezone: true },
+          })
+        ).timezone
+      : ctx.role === 'CENTER_ADMIN'
+        ? (
+            await this.prisma.organization.findUniqueOrThrow({
+              where: { id: ctx.organizationId },
+              select: { timezone: true },
+            })
+          ).timezone
+        : 'America/Argentina/Buenos_Aires';
+
     const date = new Date(query.date);
     const range = resolveCalendarRangeInTimeZone(
       query.view ?? 'week',
       date,
-      professional.timezone,
+      timezone,
     );
 
     const where: Prisma.AppointmentWhereInput = {
-      professionalId,
+      ...this.buildAppointmentWhereFromCtx(ctx, professionalId),
       startAt: {
         gte: range.start,
         lte: range.end,
@@ -219,7 +262,7 @@ export class AppointmentsService {
         ? await this.prisma.appointment.groupBy({
             by: ['patientId'],
             where: {
-              professionalId,
+              ...this.buildAppointmentWhereFromCtx(ctx, professionalId),
               patientId: { in: patientIds },
               status: AppointmentStatus.ABSENT,
             },
@@ -244,9 +287,12 @@ export class AppointmentsService {
     };
   }
 
-  async getOne(professionalId: string, appointmentId: string) {
+  async getOne(ctx: AccessContext, appointmentId: string) {
     const appointment = await this.prisma.appointment.findFirst({
-      where: { id: appointmentId, professionalId },
+      where: {
+        id: appointmentId,
+        ...this.buildAppointmentWhereFromCtx(ctx),
+      },
       include: {
         patient: {
           select: {
@@ -263,7 +309,7 @@ export class AppointmentsService {
 
     const absentCount = await this.prisma.appointment.count({
       where: {
-        professionalId,
+        ...this.buildAppointmentWhereFromCtx(ctx),
         patientId: appointment.patientId,
         status: AppointmentStatus.ABSENT,
       },
@@ -276,14 +322,11 @@ export class AppointmentsService {
   }
 
   async changeStatus(
-    professionalId: string,
+    ctx: AccessContext,
     appointmentId: string,
     dto: ChangeAppointmentStatusDto,
   ) {
-    const appointment = await this.getOwnedAppointment(
-      professionalId,
-      appointmentId,
-    );
+    const appointment = await this.getOwnedAppointment(ctx, appointmentId);
 
     if (appointment.status === AppointmentStatus.CANCELLED) {
       throw new BadRequestException(
@@ -304,7 +347,7 @@ export class AppointmentsService {
       await this.prisma.revenue.upsert({
         where: { appointmentId: appointment.id },
         create: {
-          professionalId,
+          professionalId: appointment.professionalId,
           appointmentId: appointment.id,
           amount: appointment.fee,
           occurredAt: appointment.startAt,
@@ -335,14 +378,11 @@ export class AppointmentsService {
   }
 
   async reschedule(
-    professionalId: string,
+    ctx: AccessContext,
     appointmentId: string,
     dto: RescheduleAppointmentDto,
   ) {
-    const appointment = await this.getOwnedAppointment(
-      professionalId,
-      appointmentId,
-    );
+    const appointment = await this.getOwnedAppointment(ctx, appointmentId);
     if (appointment.status === AppointmentStatus.CANCELLED) {
       throw new BadRequestException(
         'No se puede reprogramar un turno cancelado',
@@ -350,14 +390,14 @@ export class AppointmentsService {
     }
 
     const professional = await this.prisma.professional.findUniqueOrThrow({
-      where: { id: professionalId },
+      where: { id: appointment.professionalId },
       select: { reminderHours: true },
     });
 
     const startAt = new Date(dto.startAt);
     const endAt = addMinutes(startAt, appointment.durationMinutes);
     await this.ensureSlotAvailable(
-      professionalId,
+      appointment.professionalId,
       startAt,
       endAt,
       appointment.id,
@@ -387,14 +427,11 @@ export class AppointmentsService {
   }
 
   async cancel(
-    professionalId: string,
+    ctx: AccessContext,
     appointmentId: string,
     dto: CancelAppointmentDto,
   ) {
-    const appointment = await this.getOwnedAppointment(
-      professionalId,
-      appointmentId,
-    );
+    const appointment = await this.getOwnedAppointment(ctx, appointmentId);
 
     if (appointment.status === AppointmentStatus.CANCELLED) {
       return appointment;
@@ -411,15 +448,28 @@ export class AppointmentsService {
     });
   }
 
-  private async getOwnedAppointment(
-    professionalId: string,
-    appointmentId: string,
-  ) {
+  private async getOwnedAppointment(ctx: AccessContext, appointmentId: string) {
     const appointment = await this.prisma.appointment.findFirst({
-      where: { id: appointmentId, professionalId },
+      where: {
+        id: appointmentId,
+        ...this.buildAppointmentWhereFromCtx(ctx),
+      },
     });
     if (!appointment) throw new NotFoundException('Turno no encontrado');
     return appointment;
+  }
+
+  private buildAppointmentWhereFromCtx(
+    ctx: AccessContext,
+    overrideProfessionalId?: string | null,
+  ): Prisma.AppointmentWhereInput {
+    if (ctx.role === 'CENTER_ADMIN') {
+      return {
+        organizationId: ctx.organizationId,
+        ...(overrideProfessionalId ? { professionalId: overrideProfessionalId } : {}),
+      };
+    }
+    return { professionalId: ctx.professionalId };
   }
 
   private async ensureSlotAvailable(

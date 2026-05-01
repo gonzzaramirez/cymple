@@ -22,6 +22,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { MessageTemplatesModule } from './message-templates/message-templates.module';
 import { TenantModule } from './common/tenant/tenant.module';
 import { AuditModule } from './common/audit/audit.module';
+import { OrganizationModule } from './organization/organization.module';
 
 @Module({
   imports: [
@@ -71,6 +72,7 @@ import { AuditModule } from './common/audit/audit.module';
     DashboardModule,
     NotificationsModule,
     MessageTemplatesModule,
+    OrganizationModule,
   ],
   controllers: [AppController],
   providers: [

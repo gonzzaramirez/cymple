@@ -61,29 +61,62 @@ enum PaymentMethod {
   TRANSFER
 }
 
+enum AccountRole {
+  INDEPENDENT
+  CENTER_ADMIN
+  CENTER_MEMBER
+}
+
+// Centro médico / clínica. Actúa como tenant padre.
+model Organization {
+  id             String   @id @default(cuid())
+  slug           String   @unique
+  name           String
+  email          String   @unique
+  passwordHash   String
+  phone          String?
+  timezone       String   @default("America/Argentina/Buenos_Aires")
+  isActive       Boolean  @default(true)
+  waInstanceName String?
+  waStatus       WaStatus @default(DISCONNECTED)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  professionals    Professional[]
+  patients         Patient[]
+  appointments     Appointment[]
+  messageLogs      MessageLog[]
+  messageTemplates MessageTemplate[]
+  notifications    Notification[]
+  webhookEventLogs WebhookEventLog[]
+}
+
 model Professional {
-  id                  String   @id @default(cuid())
-  slug                String   @unique
+  id                  String       @id @default(cuid())
+  slug                String       @unique
   fullName            String
-  email               String   @unique
+  email               String       @unique
   passwordHash        String
   phone               String?
-  timezone            String   @default("America/Argentina/Buenos_Aires")
-  consultationMinutes Int      @default(30)
-  bufferMinutes       Int      @default(10)
-  minRescheduleHours  Int      @default(4)
-  standardFee         Decimal  @db.Decimal(10, 2)
-  reminderHours       Int      @default(24)
-  dailyDigestEnabled  Boolean  @default(false)
-  dailyDigestTime     String   @default("08:00")
+  specialty           String?
+  timezone            String       @default("America/Argentina/Buenos_Aires")
+  consultationMinutes Int          @default(30)
+  bufferMinutes       Int          @default(10)
+  minRescheduleHours  Int          @default(4)
+  standardFee         Decimal      @db.Decimal(10, 2)
+  reminderHours       Int          @default(24)
+  dailyDigestEnabled  Boolean      @default(false)
+  dailyDigestTime     String       @default("08:00")
   autoConfirmHours    Int?
   paymentAlias        String?
   waInstanceName      String?
-  waStatus            WaStatus @default(DISCONNECTED)
-  isActive            Boolean  @default(true)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  waStatus            WaStatus     @default(DISCONNECTED)
+  isActive            Boolean      @default(true)
+  organizationId      String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
 
+  organization       Organization?              @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   weeklyAvailability WeeklyAvailability[]
   specificDateSlots  SpecificDateAvailability[]
   patients           Patient[]
@@ -94,6 +127,8 @@ model Professional {
   webhookEventLogs   WebhookEventLog[]
   notifications      Notification[]
   messageTemplates   MessageTemplate[]
+
+  @@index([organizationId])
 }
 
 model WeeklyAvailability {
@@ -161,6 +196,7 @@ model AvailabilitySlotCapacity {
 model Patient {
   id             String    @id @default(cuid())
   professionalId String
+  organizationId String?
   firstName      String
   lastName       String
   phone          String?
@@ -173,44 +209,55 @@ model Patient {
   updatedAt      DateTime  @updatedAt
 
   professional Professional  @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   appointments Appointment[]
   messageLogs  MessageLog[]
 
+  // Solo professionals: unique phone/dni per professional
   @@unique([professionalId, phone])
   @@unique([professionalId, dni])
+  // Center patients: unique phone/dni per org (nulls are distinct in PG, so only applies when organizationId is set)
+  @@unique([organizationId, phone])
+  @@unique([organizationId, dni])
   @@index([professionalId, lastName, firstName])
   @@index([professionalId, createdAt])
+  @@index([organizationId, lastName, firstName])
+  @@index([organizationId, createdAt])
 }
 
 model Appointment {
-  id                   String            @id @default(cuid())
-  professionalId       String
-  patientId            String
-  startAt              DateTime
-  endAt                DateTime
-  durationMinutes      Int
-  bufferMinutes        Int
-  status               AppointmentStatus   @default(PENDING)
-  modality             AppointmentModality @default(PRESENCIAL)
-  fee                  Decimal             @db.Decimal(10, 2)
-  reason               String?
-  cancelledAt          DateTime?
-  attendedAt           DateTime?
-  reminderScheduledFor DateTime?
-  reminderSentAt       DateTime?
-  reminderJobId        String?
+  id                    String              @id @default(cuid())
+  professionalId        String
+  organizationId        String?
+  patientId             String
+  startAt               DateTime
+  endAt                 DateTime
+  durationMinutes       Int
+  bufferMinutes         Int
+  status                AppointmentStatus   @default(PENDING)
+  modality              AppointmentModality @default(PRESENCIAL)
+  fee                   Decimal             @db.Decimal(10, 2)
+  reason                String?
+  cancelledAt           DateTime?
+  attendedAt            DateTime?
+  reminderScheduledFor  DateTime?
+  reminderSentAt        DateTime?
+  reminderJobId         String?
   paymentReminderSentAt DateTime?
-  createdAt            DateTime          @default(now())
-  updatedAt            DateTime          @updatedAt
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
 
-  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
-  patient      Patient      @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  professional Professional  @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Restrict)
   revenue      Revenue?
   messageLogs  MessageLog[]
 
   @@index([professionalId, startAt])
   @@index([professionalId, status, startAt])
   @@index([patientId, startAt])
+  @@index([organizationId, startAt])
+  @@index([organizationId, status, startAt])
 }
 
 model Revenue {
@@ -247,6 +294,7 @@ model Expense {
 model MessageLog {
   id             String           @id @default(cuid())
   professionalId String
+  organizationId String?
   patientId      String?
   appointmentId  String?
   direction      MessageDirection
@@ -258,33 +306,40 @@ model MessageLog {
   receivedAt     DateTime?
   createdAt      DateTime         @default(now())
 
-  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
-  patient        Patient?       @relation(fields: [patientId], references: [id], onDelete: SetNull)
-  appointment    Appointment?   @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  professional Professional  @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  patient      Patient?      @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  appointment  Appointment?  @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
 
   @@index([professionalId, createdAt])
   @@index([professionalId, messageType])
   @@index([professionalId, patientId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([organizationId, patientId, createdAt])
 }
 
 model WebhookEventLog {
   id             String   @id @default(cuid())
   professionalId String?
+  organizationId String?
   source         String
   eventType      String
   payload        Json
   processedAt    DateTime?
   createdAt      DateTime @default(now())
 
-  professional Professional? @relation(fields: [professionalId], references: [id], onDelete: SetNull)
+  professional Professional?  @relation(fields: [professionalId], references: [id], onDelete: SetNull)
+  organization Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   @@index([professionalId, createdAt])
+  @@index([organizationId, createdAt])
   @@index([source, eventType])
 }
 
 model Notification {
   id             String    @id @default(cuid())
-  professionalId String
+  professionalId String?
+  organizationId String?
   type           String
   title          String
   body           String?
@@ -292,22 +347,28 @@ model Notification {
   readAt         DateTime?
   createdAt      DateTime  @default(now())
 
-  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  professional Professional?  @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  organization Organization?  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([professionalId, readAt, createdAt])
+  @@index([organizationId, readAt, createdAt])
 }
 
 model MessageTemplate {
   id             String      @id @default(cuid())
-  professionalId String
+  professionalId String?
+  organizationId String?
   messageType    MessageType
   isEnabled      Boolean     @default(true)
   body           String      @db.Text
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  professional Professional?  @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  organization Organization?  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([professionalId, messageType])
+  @@unique([organizationId, messageType])
   @@index([professionalId])
+  @@index([organizationId])
 }

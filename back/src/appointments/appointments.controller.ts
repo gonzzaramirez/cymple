@@ -12,7 +12,7 @@ import {
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../common/auth/jwt-auth.guard';
 import { TenantGuard } from '../common/tenant/tenant.guard';
-import { CurrentProfessionalId } from '../common/tenant/current-professional-id.decorator';
+import { buildAccessContext } from '../common/tenant/access-context';
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { CalendarQueryDto } from './dto/calendar-query.dto';
@@ -31,16 +31,12 @@ export class AppointmentsController {
   ) {}
 
   @Post()
-  async create(
-    @CurrentProfessionalId() professionalId: string,
-    @Body() dto: CreateAppointmentDto,
-    @Req() req: Request,
-  ) {
-    const created = await this.appointmentsService.create(professionalId, dto);
+  async create(@Req() req: Request, @Body() dto: CreateAppointmentDto) {
+    const ctx = buildAccessContext(req);
+    const created = await this.appointmentsService.create(ctx, dto);
     this.audit.info(
       'appointment.created',
       {
-        professionalId,
         appointmentId: created.id,
         patientId: created.patientId,
         startAt: created.startAt,
@@ -51,48 +47,31 @@ export class AppointmentsController {
   }
 
   @Get()
-  list(
-    @CurrentProfessionalId() professionalId: string,
-    @Query() query: ListAppointmentsDto,
-  ) {
-    return this.appointmentsService.list(professionalId, query);
+  list(@Req() req: Request, @Query() query: ListAppointmentsDto) {
+    return this.appointmentsService.list(buildAccessContext(req), query);
   }
 
   @Get('calendar')
-  calendar(
-    @CurrentProfessionalId() professionalId: string,
-    @Query() query: CalendarQueryDto,
-  ) {
-    return this.appointmentsService.calendar(professionalId, query);
+  calendar(@Req() req: Request, @Query() query: CalendarQueryDto) {
+    return this.appointmentsService.calendar(buildAccessContext(req), query);
   }
 
   @Get(':id')
-  getOne(
-    @CurrentProfessionalId() professionalId: string,
-    @Param('id') appointmentId: string,
-  ) {
-    return this.appointmentsService.getOne(professionalId, appointmentId);
+  getOne(@Req() req: Request, @Param('id') appointmentId: string) {
+    return this.appointmentsService.getOne(buildAccessContext(req), appointmentId);
   }
 
   @Patch(':id/status')
   async changeStatus(
-    @CurrentProfessionalId() professionalId: string,
+    @Req() req: Request,
     @Param('id') appointmentId: string,
     @Body() dto: ChangeAppointmentStatusDto,
-    @Req() req: Request,
   ) {
-    const updated = await this.appointmentsService.changeStatus(
-      professionalId,
-      appointmentId,
-      dto,
-    );
+    const ctx = buildAccessContext(req);
+    const updated = await this.appointmentsService.changeStatus(ctx, appointmentId, dto);
     this.audit.info(
       'appointment.status_changed',
-      {
-        professionalId,
-        appointmentId,
-        status: dto.status,
-      },
+      { appointmentId, status: dto.status },
       req,
     );
     return updated;
@@ -100,23 +79,15 @@ export class AppointmentsController {
 
   @Patch(':id/reschedule')
   async reschedule(
-    @CurrentProfessionalId() professionalId: string,
+    @Req() req: Request,
     @Param('id') appointmentId: string,
     @Body() dto: RescheduleAppointmentDto,
-    @Req() req: Request,
   ) {
-    const updated = await this.appointmentsService.reschedule(
-      professionalId,
-      appointmentId,
-      dto,
-    );
+    const ctx = buildAccessContext(req);
+    const updated = await this.appointmentsService.reschedule(ctx, appointmentId, dto);
     this.audit.info(
       'appointment.rescheduled',
-      {
-        professionalId,
-        appointmentId,
-        newStartAt: updated.startAt,
-      },
+      { appointmentId, newStartAt: updated.startAt },
       req,
     );
     return updated;
@@ -124,23 +95,15 @@ export class AppointmentsController {
 
   @Patch(':id/cancel')
   async cancel(
-    @CurrentProfessionalId() professionalId: string,
+    @Req() req: Request,
     @Param('id') appointmentId: string,
     @Body() dto: CancelAppointmentDto,
-    @Req() req: Request,
   ) {
-    const updated = await this.appointmentsService.cancel(
-      professionalId,
-      appointmentId,
-      dto,
-    );
+    const ctx = buildAccessContext(req);
+    const updated = await this.appointmentsService.cancel(ctx, appointmentId, dto);
     this.audit.info(
       'appointment.cancelled',
-      {
-        professionalId,
-        appointmentId,
-        reason: dto.reason ?? null,
-      },
+      { appointmentId, reason: dto.reason ?? null },
       req,
     );
     return updated;

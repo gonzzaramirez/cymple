@@ -14,6 +14,11 @@ export class CreateAppointmentDto {
   @IsString()
   patientId!: string;
 
+  // Required when CENTER_ADMIN creates an appointment on behalf of a professional
+  @IsOptional()
+  @IsString()
+  professionalId?: string;
+
   @IsDateString()
   startAt!: string;
 

@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AccountRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 const TENANT_HEADER = 'x-tenant-slug';
@@ -10,7 +11,9 @@ const RESERVED_INFRA_SUBDOMAINS = new Set(['api', 'www']);
 
 export interface ResolvedTenant {
   slug: string;
-  professionalId: string;
+  professionalId: string | null;
+  organizationId: string | null;
+  role: AccountRole;
 }
 
 @Injectable()
@@ -22,22 +25,47 @@ export class TenantResolverService {
 
   async resolveFromRequest(req: any): Promise<ResolvedTenant> {
     const slug = this.extractSlugFromRequest(req);
+
+    // Check if slug belongs to an Organization
+    const org = await this.prisma.organization.findFirst({
+      where: { slug, isActive: true },
+      select: { id: true, slug: true },
+    });
+
+    if (org) {
+      return {
+        slug: org.slug,
+        professionalId: null,
+        organizationId: org.id,
+        role: AccountRole.CENTER_ADMIN,
+      };
+    }
+
+    // Check Professional
     const professional = await this.prisma.professional.findFirst({
-      where: {
-        slug,
-        isActive: true,
-      },
-      select: {
-        id: true,
-        slug: true,
-      },
+      where: { slug, isActive: true },
+      select: { id: true, slug: true, organizationId: true },
     });
 
     if (!professional) {
       throw new UnauthorizedException('Tenant inválido o inactivo');
     }
 
-    return { slug: professional.slug, professionalId: professional.id };
+    if (professional.organizationId) {
+      return {
+        slug: professional.slug,
+        professionalId: professional.id,
+        organizationId: professional.organizationId,
+        role: AccountRole.CENTER_MEMBER,
+      };
+    }
+
+    return {
+      slug: professional.slug,
+      professionalId: professional.id,
+      organizationId: null,
+      role: AccountRole.INDEPENDENT,
+    };
   }
 
   extractSlugFromRequest(req: any): string {

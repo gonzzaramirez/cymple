@@ -1,10 +1,11 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { AccountRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { JwtPayload } from '../common/auth/jwt-payload.interface';
 import { LoginDto } from './dto/login.dto';
-import { TenantResolverService } from '../common/tenant/tenant-resolver.service';
 
 @Injectable()
 export class AuthService {
@@ -12,20 +13,56 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    private readonly tenantResolver: TenantResolverService,
   ) {}
 
-  async login(dto: LoginDto, req?: unknown) {
-    const tenantSlug = req
-      ? this.tenantResolver.extractSlugFromRequest(req as any)
-      : (dto.tenantSlug?.trim().toLowerCase() ?? '');
+  async login(dto: LoginDto) {
+    const email = dto.email.toLowerCase().trim();
 
-    if (!tenantSlug) {
-      throw new UnauthorizedException('Tenant requerido');
+    // 1. Check if email belongs to an Organization (CENTER_ADMIN)
+    const org = await this.prisma.organization.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        slug: true,
+        email: true,
+        name: true,
+        passwordHash: true,
+        isActive: true,
+      },
+    });
+
+    if (org) {
+      if (!org.isActive) {
+        throw new UnauthorizedException('Credenciales inválidas');
+      }
+      const passwordOk = await bcrypt.compare(dto.password, org.passwordHash);
+      if (!passwordOk) {
+        throw new UnauthorizedException('Credenciales inválidas');
+      }
+
+      const payload: JwtPayload = {
+        sub: org.id,
+        email: org.email,
+        tenantSlug: org.slug,
+        role: AccountRole.CENTER_ADMIN,
+      };
+
+      const token = await this.signToken(payload);
+      return {
+        accessToken: token,
+        user: {
+          id: org.id,
+          email: org.email,
+          fullName: org.name,
+          role: AccountRole.CENTER_ADMIN,
+          tenantSlug: org.slug,
+        },
+      };
     }
 
+    // 2. Check Professional (CENTER_MEMBER or INDEPENDENT)
     const professional = await this.prisma.professional.findUnique({
-      where: { email: dto.email.toLowerCase().trim() },
+      where: { email },
       select: {
         id: true,
         slug: true,
@@ -33,48 +70,67 @@ export class AuthService {
         fullName: true,
         passwordHash: true,
         isActive: true,
+        organizationId: true,
+        organization: {
+          select: { slug: true },
+        },
       },
     });
 
-    if (!professional?.isActive || professional.slug !== tenantSlug) {
+    if (!professional?.isActive) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    const passwordOk = await bcrypt.compare(
-      dto.password,
-      professional.passwordHash,
-    );
+    const passwordOk = await bcrypt.compare(dto.password, professional.passwordHash);
     if (!passwordOk) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    const token = await this.jwtService.signAsync(
-      {
-        sub: professional.id,
-        tenantSlug: professional.slug,
-        email: professional.email,
-      } as any,
-      {
-        expiresIn: this.configService.get<string>(
-          'JWT_EXPIRES_IN',
-          '12h',
-        ) as any,
-      },
-    );
+    const isMember = !!professional.organizationId;
+    const tenantSlug = isMember
+      ? (professional.organization?.slug ?? professional.slug)
+      : professional.slug;
 
+    const payload: JwtPayload = {
+      sub: professional.id,
+      email: professional.email,
+      tenantSlug,
+      role: isMember ? AccountRole.CENTER_MEMBER : AccountRole.INDEPENDENT,
+      ...(isMember ? { organizationId: professional.organizationId! } : {}),
+    };
+
+    const token = await this.signToken(payload);
     return {
       accessToken: token,
       user: {
         id: professional.id,
         email: professional.email,
         fullName: professional.fullName,
+        role: payload.role,
+        tenantSlug,
+        ...(isMember ? { organizationId: professional.organizationId } : {}),
       },
     };
   }
 
-  async me(professionalId: string) {
-    return this.prisma.professional.findUniqueOrThrow({
-      where: { id: professionalId },
+  async me(sub: string, role: AccountRole) {
+    if (role === AccountRole.CENTER_ADMIN) {
+      const org = await this.prisma.organization.findUniqueOrThrow({
+        where: { id: sub },
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          email: true,
+          timezone: true,
+          phone: true,
+        },
+      });
+      return { ...org, role: AccountRole.CENTER_ADMIN };
+    }
+
+    const professional = await this.prisma.professional.findUniqueOrThrow({
+      where: { id: sub },
       select: {
         id: true,
         slug: true,
@@ -86,7 +142,18 @@ export class AuthService {
         minRescheduleHours: true,
         standardFee: true,
         reminderHours: true,
+        organizationId: true,
+        organization: {
+          select: { id: true, name: true, slug: true },
+        },
       },
+    });
+    return { ...professional, role };
+  }
+
+  private signToken(payload: JwtPayload) {
+    return this.jwtService.signAsync(payload as any, {
+      expiresIn: this.configService.get<string>('JWT_EXPIRES_IN', '12h') as any,
     });
   }
 }

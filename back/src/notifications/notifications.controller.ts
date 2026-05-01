@@ -1,7 +1,8 @@
-import { Controller, Get, Patch, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Req, UseGuards } from '@nestjs/common';
+import type { Request } from 'express';
 import { JwtAuthGuard } from '../common/auth/jwt-auth.guard';
 import { TenantGuard } from '../common/tenant/tenant.guard';
-import { CurrentProfessionalId } from '../common/tenant/current-professional-id.decorator';
+import { buildAccessContext } from '../common/tenant/access-context';
 import { NotificationsService } from './notifications.service';
 
 @Controller('notifications')
@@ -10,12 +11,18 @@ export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
   @Get()
-  findRecent(@CurrentProfessionalId() professionalId: string) {
-    return this.notificationsService.findRecent(professionalId);
+  findRecent(@Req() req: Request) {
+    const ctx = buildAccessContext(req);
+    const isOrg = ctx.role === 'CENTER_ADMIN';
+    const id = isOrg ? ctx.organizationId : ctx.professionalId!;
+    return this.notificationsService.findRecent(id, isOrg);
   }
 
   @Patch('mark-read')
-  markAllRead(@CurrentProfessionalId() professionalId: string) {
-    return this.notificationsService.markAllRead(professionalId);
+  markAllRead(@Req() req: Request) {
+    const ctx = buildAccessContext(req);
+    const isOrg = ctx.role === 'CENTER_ADMIN';
+    const id = isOrg ? ctx.organizationId : ctx.professionalId!;
+    return this.notificationsService.markAllRead(id, isOrg);
   }
 }

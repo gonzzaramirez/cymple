@@ -57,10 +57,11 @@ export interface ResolvedTemplate {
 export class MessageTemplatesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(professionalId: string): Promise<ResolvedTemplate[]> {
-    const saved = await this.prisma.messageTemplate.findMany({
-      where: { professionalId },
-    });
+  async findAll(professionalId: string, organizationId?: string): Promise<ResolvedTemplate[]> {
+    const where = organizationId
+      ? { organizationId }
+      : { professionalId };
+    const saved = await this.prisma.messageTemplate.findMany({ where });
 
     const savedMap = new Map(saved.map((t) => [t.messageType, t]));
 
@@ -79,21 +80,20 @@ export class MessageTemplatesService {
     professionalId: string,
     messageType: TemplatableType,
     dto: UpsertTemplateDto,
+    organizationId?: string,
   ): Promise<ResolvedTemplate> {
+    const uniqueWhere = organizationId
+      ? { organizationId_messageType: { organizationId, messageType } }
+      : { professionalId_messageType: { professionalId, messageType } };
+
+    const createData = organizationId
+      ? { organizationId, messageType, body: dto.body, isEnabled: dto.isEnabled ?? true }
+      : { professionalId, messageType, body: dto.body, isEnabled: dto.isEnabled ?? true };
+
     const record = await this.prisma.messageTemplate.upsert({
-      where: {
-        professionalId_messageType: { professionalId, messageType },
-      },
-      create: {
-        professionalId,
-        messageType,
-        body: dto.body,
-        isEnabled: dto.isEnabled ?? true,
-      },
-      update: {
-        body: dto.body,
-        isEnabled: dto.isEnabled ?? true,
-      },
+      where: uniqueWhere,
+      create: createData,
+      update: { body: dto.body, isEnabled: dto.isEnabled ?? true },
     });
 
     return {
@@ -107,10 +107,12 @@ export class MessageTemplatesService {
   async resetToDefault(
     professionalId: string,
     messageType: TemplatableType,
+    organizationId?: string,
   ): Promise<ResolvedTemplate> {
-    await this.prisma.messageTemplate.deleteMany({
-      where: { professionalId, messageType },
-    });
+    const where = organizationId
+      ? { organizationId, messageType }
+      : { professionalId, messageType };
+    await this.prisma.messageTemplate.deleteMany({ where });
 
     return {
       messageType,
@@ -123,7 +125,21 @@ export class MessageTemplatesService {
   async getOne(
     professionalId: string,
     messageType: TemplatableType,
+    organizationId?: string,
   ): Promise<ResolvedTemplate> {
+    // For center professionals: check org-level template first, then fall back to default
+    if (organizationId) {
+      const orgRecord = await this.prisma.messageTemplate.findUnique({
+        where: { organizationId_messageType: { organizationId, messageType } },
+      });
+      return {
+        messageType,
+        body: orgRecord?.body ?? DEFAULT_TEMPLATES[messageType],
+        isEnabled: orgRecord?.isEnabled ?? true,
+        isDefault: !orgRecord,
+      };
+    }
+
     const record = await this.prisma.messageTemplate.findUnique({
       where: { professionalId_messageType: { professionalId, messageType } },
     });

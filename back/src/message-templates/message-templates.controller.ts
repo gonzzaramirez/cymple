@@ -1,22 +1,24 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
   Param,
   Put,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { JwtAuthGuard } from '../common/auth/jwt-auth.guard';
 import { TenantGuard } from '../common/tenant/tenant.guard';
-import { CurrentProfessionalId } from '../common/tenant/current-professional-id.decorator';
+import { buildAccessContext } from '../common/tenant/access-context';
 import {
   MessageTemplatesService,
   TEMPLATABLE_TYPES,
   TemplatableType,
 } from './message-templates.service';
 import { UpsertTemplateDto } from './dto/upsert-template.dto';
-import { BadRequestException } from '@nestjs/common';
 
 @UseGuards(JwtAuthGuard, TenantGuard)
 @Controller('message-templates')
@@ -24,27 +26,33 @@ export class MessageTemplatesController {
   constructor(private readonly service: MessageTemplatesService) {}
 
   @Get()
-  findAll(@CurrentProfessionalId() professionalId: string) {
-    return this.service.findAll(professionalId);
+  findAll(@Req() req: Request) {
+    const ctx = buildAccessContext(req);
+    const proId = ctx.role !== 'CENTER_ADMIN' ? ctx.professionalId! : '';
+    const orgId = ctx.organizationId ?? undefined;
+    return this.service.findAll(proId, orgId);
   }
 
   @Put(':type')
   upsert(
-    @CurrentProfessionalId() professionalId: string,
+    @Req() req: Request,
     @Param('type') type: string,
     @Body() dto: UpsertTemplateDto,
   ) {
     this.validateType(type);
-    return this.service.upsert(professionalId, type as TemplatableType, dto);
+    const ctx = buildAccessContext(req);
+    const proId = ctx.role !== 'CENTER_ADMIN' ? ctx.professionalId! : '';
+    const orgId = ctx.organizationId ?? undefined;
+    return this.service.upsert(proId, type as TemplatableType, dto, orgId);
   }
 
   @Delete(':type/reset')
-  reset(
-    @CurrentProfessionalId() professionalId: string,
-    @Param('type') type: string,
-  ) {
+  reset(@Req() req: Request, @Param('type') type: string) {
     this.validateType(type);
-    return this.service.resetToDefault(professionalId, type as TemplatableType);
+    const ctx = buildAccessContext(req);
+    const proId = ctx.role !== 'CENTER_ADMIN' ? ctx.professionalId! : '';
+    const orgId = ctx.organizationId ?? undefined;
+    return this.service.resetToDefault(proId, type as TemplatableType, orgId);
   }
 
   private validateType(type: string): void {

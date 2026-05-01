@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { DateTime } from 'luxon';
 import { AppointmentStatus } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { AccessContext } from '../common/tenant/access-context';
 import {
   calendarDateKeyInTimeZone,
   resolveCalendarRangeInTimeZone,
@@ -11,7 +12,90 @@ import {
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async stats(professionalId: string) {
+  async stats(ctx: AccessContext) {
+    if (ctx.role === 'CENTER_ADMIN') {
+      return this.centerStats(ctx.organizationId);
+    }
+    return this.professionalStats(ctx.professionalId);
+  }
+
+  private async centerStats(organizationId: string) {
+    const org = await this.prisma.organization.findUniqueOrThrow({
+      where: { id: organizationId },
+      select: { timezone: true },
+    });
+    const tz = org.timezone;
+    const now = new Date();
+    const { start: monthStart, end: monthEnd } = resolveCalendarRangeInTimeZone('month', now, tz);
+    const { start: weekStart, end: weekEnd } = resolveCalendarRangeInTimeZone('week', now, tz);
+
+    const [
+      totalProfessionals,
+      totalPatients,
+      appointmentsThisWeek,
+      appointmentsThisMonth,
+      revenues,
+      professionals,
+    ] = await Promise.all([
+      this.prisma.professional.count({ where: { organizationId, isActive: true } }),
+      this.prisma.patient.count({ where: { organizationId, deletedAt: null } }),
+      this.prisma.appointment.count({
+        where: {
+          organizationId,
+          startAt: { gte: weekStart, lte: weekEnd },
+          status: { not: AppointmentStatus.CANCELLED },
+        },
+      }),
+      this.prisma.appointment.count({
+        where: {
+          organizationId,
+          startAt: { gte: monthStart, lte: monthEnd },
+          status: { not: AppointmentStatus.CANCELLED },
+        },
+      }),
+      this.prisma.revenue.aggregate({
+        where: {
+          professional: { organizationId },
+          occurredAt: { gte: monthStart, lte: monthEnd },
+        },
+        _sum: { amount: true },
+      }),
+      this.prisma.professional.findMany({
+        where: { organizationId, isActive: true },
+        select: {
+          id: true,
+          fullName: true,
+          specialty: true,
+          _count: {
+            select: {
+              appointments: {
+                where: {
+                  startAt: { gte: monthStart, lte: monthEnd },
+                  status: { not: AppointmentStatus.CANCELLED },
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      totalProfessionals,
+      totalPatients,
+      appointmentsThisWeek,
+      appointmentsThisMonth,
+      revenueThisMonth: Number(revenues._sum.amount ?? 0),
+      professionals: professionals.map((p) => ({
+        id: p.id,
+        fullName: p.fullName,
+        specialty: p.specialty,
+        appointmentsThisMonth: p._count.appointments,
+      })),
+    };
+  }
+
+  private async professionalStats(professionalId: string) {
     const professional = await this.prisma.professional.findUniqueOrThrow({
       where: { id: professionalId },
       select: { timezone: true },
@@ -210,3 +294,4 @@ export class DashboardService {
     };
   }
 }
+

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { AppointmentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { AccessContext } from '../common/tenant/access-context';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { SearchPatientsDto } from './dto/search-patients.dto';
@@ -14,11 +15,33 @@ import { SearchPatientsDto } from './dto/search-patients.dto';
 export class PatientsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(professionalId: string, dto: CreatePatientDto) {
+  async create(ctx: AccessContext, dto: CreatePatientDto) {
+    if (ctx.role === 'CENTER_ADMIN') {
+      throw new BadRequestException(
+        'El administrador del centro no puede crear pacientes directamente. Use la cuenta de un profesional.',
+      );
+    }
+    const professionalId = ctx.professionalId;
+    const organizationId = ctx.organizationId ?? null;
+
+    // For center patients, check for duplicates at org level
+    if (organizationId && dto.phone) {
+      const existing = await this.prisma.patient.findFirst({
+        where: { organizationId, phone: dto.phone.trim(), deletedAt: null },
+        select: { id: true },
+      });
+      if (existing) {
+        throw new ConflictException(
+          'Ya existe un paciente con ese teléfono en el centro',
+        );
+      }
+    }
+
     try {
       return await this.prisma.patient.create({
         data: {
           professionalId,
+          organizationId,
           firstName: dto.firstName.trim(),
           lastName: dto.lastName.trim(),
           phone: dto.phone?.trim() || null,
@@ -33,24 +56,23 @@ export class PatientsService {
     }
   }
 
-  async list(professionalId: string, query: SearchPatientsDto) {
+  async list(ctx: AccessContext, query: SearchPatientsDto) {
     const skip = (query.page - 1) * query.limit;
     const term = query.query?.trim();
-    const where: Prisma.PatientWhereInput = {
-      professionalId,
-      deletedAt: null,
-      ...(term
-        ? {
-            OR: [
-              { firstName: { contains: term, mode: 'insensitive' } },
-              { lastName: { contains: term, mode: 'insensitive' } },
-              { phone: { contains: term } },
-              { dni: { contains: term, mode: 'insensitive' } },
-              { email: { contains: term, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
-    };
+
+    const searchFilter = term
+      ? {
+          OR: [
+            { firstName: { contains: term, mode: 'insensitive' as const } },
+            { lastName: { contains: term, mode: 'insensitive' as const } },
+            { phone: { contains: term } },
+            { dni: { contains: term, mode: 'insensitive' as const } },
+            { email: { contains: term, mode: 'insensitive' as const } },
+          ],
+        }
+      : {};
+
+    const where = this.buildWhereClause(ctx, searchFilter);
 
     const [items, total] = await this.prisma.$transaction([
       this.prisma.patient.findMany({
@@ -62,9 +84,11 @@ export class PatientsService {
       this.prisma.patient.count({ where }),
     ]);
 
+    const scopedProfessionalId =
+      ctx.role !== 'CENTER_ADMIN' ? ctx.professionalId : undefined;
     const patientSummaries = await this.buildPatientSummaries(
-      professionalId,
       items.map((item) => item.id),
+      scopedProfessionalId,
     );
 
     return {
@@ -83,24 +107,18 @@ export class PatientsService {
     };
   }
 
-  async getOne(professionalId: string, patientId: string) {
-    const patient = await this.prisma.patient.findFirst({
-      where: {
-        id: patientId,
-        professionalId,
-        deletedAt: null,
-      },
-    });
+  async getOne(ctx: AccessContext, patientId: string) {
+    const where = {
+      ...this.buildWhereClause(ctx, {}),
+      id: patientId,
+    };
+    const patient = await this.prisma.patient.findFirst({ where });
     if (!patient) throw new NotFoundException('Paciente no encontrado');
     return patient;
   }
 
-  async update(
-    professionalId: string,
-    patientId: string,
-    dto: UpdatePatientDto,
-  ) {
-    await this.getOne(professionalId, patientId);
+  async update(ctx: AccessContext, patientId: string, dto: UpdatePatientDto) {
+    await this.getOne(ctx, patientId);
 
     try {
       return await this.prisma.patient.update({
@@ -116,13 +134,12 @@ export class PatientsService {
     }
   }
 
-  async remove(professionalId: string, patientId: string) {
-    await this.getOne(professionalId, patientId);
+  async remove(ctx: AccessContext, patientId: string) {
+    const patient = await this.getOne(ctx, patientId);
 
     const now = new Date();
     const futureAppointments = await this.prisma.appointment.count({
       where: {
-        professionalId,
         patientId,
         startAt: { gt: now },
         status: { not: AppointmentStatus.CANCELLED },
@@ -136,19 +153,21 @@ export class PatientsService {
     }
 
     return this.prisma.patient.update({
-      where: { id: patientId },
+      where: { id: patient.id },
       data: { deletedAt: now },
     });
   }
 
-  async history(professionalId: string, patientId: string) {
-    const patient = await this.getOne(professionalId, patientId);
+  async history(ctx: AccessContext, patientId: string) {
+    const patient = await this.getOne(ctx, patientId);
+
+    const appointmentWhere: Prisma.AppointmentWhereInput = {
+      patientId,
+      ...(ctx.role !== 'CENTER_ADMIN' ? { professionalId: ctx.professionalId } : {}),
+    };
 
     const appointments = await this.prisma.appointment.findMany({
-      where: {
-        professionalId,
-        patientId,
-      },
+      where: appointmentWhere,
       orderBy: { startAt: 'desc' },
       select: {
         id: true,
@@ -156,6 +175,9 @@ export class PatientsService {
         endAt: true,
         status: true,
         fee: true,
+        professional: {
+          select: { id: true, fullName: true, specialty: true },
+        },
       },
     });
 
@@ -170,8 +192,15 @@ export class PatientsService {
       { totalSessions: 0, totalBilled: 0 },
     );
 
+    const messageWhere: Prisma.MessageLogWhereInput = {
+      patientId,
+      ...(ctx.role === 'CENTER_ADMIN'
+        ? { organizationId: ctx.organizationId }
+        : { professionalId: ctx.professionalId }),
+    };
+
     const messages = await this.prisma.messageLog.findMany({
-      where: { professionalId, patientId },
+      where: messageWhere,
       orderBy: { createdAt: 'desc' },
       take: 200,
       select: {
@@ -188,17 +217,33 @@ export class PatientsService {
       },
     });
 
-    return {
-      patient,
-      appointments,
-      summary: totals,
-      messages,
-    };
+    return { patient, appointments, summary: totals, messages };
+  }
+
+  private buildWhereClause(
+    ctx: AccessContext,
+    extra: Prisma.PatientWhereInput,
+  ): Prisma.PatientWhereInput {
+    const base: Prisma.PatientWhereInput = { deletedAt: null, ...extra };
+
+    if (ctx.role === 'CENTER_ADMIN') {
+      return { ...base, organizationId: ctx.organizationId };
+    }
+
+    if (ctx.role === 'CENTER_MEMBER') {
+      return {
+        ...base,
+        organizationId: ctx.organizationId,
+        appointments: { some: { professionalId: ctx.professionalId } },
+      };
+    }
+
+    return { ...base, professionalId: ctx.professionalId };
   }
 
   private async buildPatientSummaries(
-    professionalId: string,
     patientIds: string[],
+    professionalId?: string,
   ) {
     const now = new Date();
     const emptySummary = {
@@ -222,12 +267,14 @@ export class PatientsService {
       return summaries;
     }
 
+    const proFilter: Prisma.AppointmentWhereInput = professionalId ? { professionalId } : {};
+
     const [attendedCounts, upcomingAppointments, pastAppointments] =
       await this.prisma.$transaction([
         this.prisma.appointment.groupBy({
           by: ['patientId'],
           where: {
-            professionalId,
+            ...proFilter,
             patientId: { in: patientIds },
             status: AppointmentStatus.ATTENDED,
           },
@@ -236,10 +283,12 @@ export class PatientsService {
         }),
         this.prisma.appointment.findMany({
           where: {
-            professionalId,
+            ...proFilter,
             patientId: { in: patientIds },
             startAt: { gte: now },
-            status: { in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED] },
+            status: {
+              in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
+            },
           },
           orderBy: { startAt: 'asc' },
           select: {
@@ -251,7 +300,7 @@ export class PatientsService {
         }),
         this.prisma.appointment.findMany({
           where: {
-            professionalId,
+            ...proFilter,
             patientId: { in: patientIds },
             startAt: { lt: now },
           },
@@ -305,7 +354,7 @@ export class PatientsService {
       error.code === 'P2002'
     ) {
       throw new ConflictException(
-        'Teléfono o DNI ya existe para este profesional',
+        'Teléfono o DNI ya existe para este profesional o centro',
       );
     }
     throw error;

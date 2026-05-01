@@ -53,9 +53,11 @@ describe('AppointmentsService', () => {
       notificationsMock as any,
     );
 
-    await service.changeStatus('prof-1', 'app-1', {
-      status: AppointmentStatus.ATTENDED,
-    });
+    await service.changeStatus(
+      { role: 'INDEPENDENT', professionalId: 'prof-1', organizationId: null },
+      'app-1',
+      { status: AppointmentStatus.ATTENDED },
+    );
 
     expect(prismaMock.revenue.upsert).toHaveBeenCalledTimes(1);
   });

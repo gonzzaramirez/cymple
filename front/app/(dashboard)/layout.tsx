@@ -8,6 +8,8 @@ import { Separator } from "@/components/ui/separator";
 
 type MeResponse = {
   fullName: string;
+  role: string;
+  organization?: { name: string; slug: string } | null;
 };
 
 export default async function DashboardLayout({
@@ -19,10 +21,14 @@ export default async function DashboardLayout({
   if (!me) {
     redirect("/login");
   }
+  // Center admins should use the center layout
+  if (me.role === "CENTER_ADMIN") {
+    redirect("/center/home");
+  }
 
   return (
     <SidebarProvider>
-      <AppSidebar professionalName={me.fullName} />
+      <AppSidebar professionalName={me.fullName} centerName={me.organization?.name} />
       <SidebarInset>
         <header className="sticky top-0 z-30 flex h-12 items-center gap-3 border-b border-[var(--border-light)] bg-[var(--col-bg13)]/95 px-5 backdrop-blur-md supports-[backdrop-filter]:bg-[var(--col-bg13)]/80">
           <SidebarTrigger className="-ml-1" />

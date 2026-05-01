@@ -1,3 +1,19 @@
+export type MemberProfessional = {
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string | null;
+  specialty?: string | null;
+  timezone: string;
+  consultationMinutes: number;
+  bufferMinutes: number;
+  standardFee: string;
+  isActive: boolean;
+  createdAt: string;
+  totalAppointments: number;
+  totalPatients: number;
+};
+
 export type ApiList<T> = {
   items: T[];
   page: number;

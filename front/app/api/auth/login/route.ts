@@ -24,10 +24,7 @@ export async function POST(request: Request) {
       "Content-Type": "application/json",
       ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}),
     },
-    body: JSON.stringify({
-      ...body,
-      ...(tenantSlug ? { tenantSlug } : {}),
-    }),
+    body: JSON.stringify(body),
     cache: "no-store",
   });
 

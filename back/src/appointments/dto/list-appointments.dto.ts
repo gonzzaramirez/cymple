@@ -34,4 +34,9 @@ export class ListAppointmentsDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  // Filter by professional (CENTER_ADMIN only)
+  @IsOptional()
+  @IsString()
+  professionalId?: string;
 }

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { MessageType, Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { AccessContext } from '../common/tenant/access-context';
 import { ListMessagesDto } from './dto/list-messages.dto';
 import { GroupedMessagesDto } from './dto/grouped-messages.dto';
 
@@ -29,9 +30,9 @@ export type MessageLogListItem = Prisma.MessageLogGetPayload<{
 export class MessagesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(professionalId: string, query: ListMessagesDto) {
+  async list(ctx: AccessContext, query: ListMessagesDto) {
     const skip = (query.page - 1) * query.limit;
-    const where = this.buildWhere(professionalId, {
+    const where = this.buildWhere(ctx, {
       patientId: query.patientId,
       messageTypes: query.messageTypes,
       dateFrom: query.dateFrom,
@@ -58,7 +59,7 @@ export class MessagesService {
     };
   }
 
-  async groupedByPatient(professionalId: string, query: GroupedMessagesDto) {
+  async groupedByPatient(ctx: AccessContext, query: GroupedMessagesDto) {
     const skip = (query.page - 1) * query.limit;
 
     const createdAtFilter: Prisma.DateTimeFilter = {};
@@ -70,9 +71,19 @@ export class MessagesService {
       dateFilter.createdAt = createdAtFilter;
     }
 
+    const patientBaseWhere: Prisma.PatientWhereInput =
+      ctx.role === 'CENTER_ADMIN'
+        ? { organizationId: ctx.organizationId, deletedAt: null }
+        : ctx.role === 'CENTER_MEMBER'
+          ? {
+              organizationId: ctx.organizationId,
+              deletedAt: null,
+              appointments: { some: { professionalId: ctx.professionalId } },
+            }
+          : { professionalId: ctx.professionalId, deletedAt: null };
+
     const patientWhere: Prisma.PatientWhereInput = {
-      professionalId,
-      deletedAt: null,
+      ...patientBaseWhere,
       ...(query.search
         ? {
             OR: [
@@ -155,25 +166,31 @@ export class MessagesService {
     };
   }
 
-  async countsByType(professionalId: string) {
+  async countsByType(ctx: AccessContext) {
     const since = new Date();
     since.setDate(since.getDate() - 90);
 
+    const baseWhere: Prisma.MessageLogWhereInput =
+      ctx.role === 'CENTER_ADMIN'
+        ? { organizationId: ctx.organizationId }
+        : { professionalId: ctx.professionalId };
+
     const rows = await this.prisma.messageLog.groupBy({
       by: ['messageType'],
-      where: { professionalId, createdAt: { gte: since } },
+      where: { ...baseWhere, createdAt: { gte: since } },
       _count: { id: true },
     });
 
     const byType: Partial<Record<MessageType, number>> = {};
     for (const r of rows) {
-      byType[r.messageType] = r._count.id;
+      const cnt = r._count;
+      byType[r.messageType] = typeof cnt === 'object' && cnt ? (cnt as any).id ?? 0 : 0;
     }
     return { since: since.toISOString(), byType };
   }
 
   private buildWhere(
-    professionalId: string,
+    ctx: AccessContext,
     opts: {
       patientId?: string;
       messageTypes?: MessageType[];
@@ -181,7 +198,10 @@ export class MessagesService {
       dateTo?: string;
     },
   ): Prisma.MessageLogWhereInput {
-    const where: Prisma.MessageLogWhereInput = { professionalId };
+    const where: Prisma.MessageLogWhereInput =
+      ctx.role === 'CENTER_ADMIN'
+        ? { organizationId: ctx.organizationId }
+        : { professionalId: ctx.professionalId };
 
     if (opts.patientId) where.patientId = opts.patientId;
     if (opts.messageTypes?.length) {

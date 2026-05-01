@@ -23,6 +23,10 @@ export function defaultWaInstanceName(professionalId: string): string {
   return `cymple-prof-${professionalId}`;
 }
 
+export function defaultOrgWaInstanceName(organizationId: string): string {
+  return `cymple-org-${organizationId}`;
+}
+
 @Injectable()
 export class WhatsappConnectionService {
   constructor(
@@ -233,6 +237,137 @@ export class WhatsappConnectionService {
     }
     await this.prisma.professional.update({
       where: { id: professionalId },
+      data: { waStatus: WaStatus.DISCONNECTED },
+    });
+  }
+
+  // ── Org-level WhatsApp methods ──────────────────────────────────────────
+
+  async resolveOrgInstanceName(organizationId: string): Promise<string> {
+    const org = await this.prisma.organization.findUniqueOrThrow({
+      where: { id: organizationId },
+      select: { waInstanceName: true },
+    });
+    const name = org.waInstanceName ?? defaultOrgWaInstanceName(organizationId);
+    if (!org.waInstanceName) {
+      await this.prisma.organization.update({
+        where: { id: organizationId },
+        data: { waInstanceName: name },
+      });
+    }
+    return name;
+  }
+
+  async startOrg(organizationId: string) {
+    this.ensureEvolution();
+    const instanceName = await this.resolveOrgInstanceName(organizationId);
+    const webhook = this.webhookUrl();
+
+    let state: string | undefined;
+    try {
+      state = await this.evolution.getConnectionState(instanceName);
+    } catch (e) {
+      if (e instanceof EvolutionApiError && e.status === 404) {
+        state = undefined;
+      } else {
+        throw e;
+      }
+    }
+
+    if (state === 'open') {
+      await this.prisma.organization.update({
+        where: { id: organizationId },
+        data: { waStatus: WaStatus.CONNECTED },
+      });
+      throw new BadRequestException('WhatsApp ya está conectado');
+    }
+
+    let createOrConnectResponse: Record<string, unknown> | undefined;
+    try {
+      createOrConnectResponse = await this.evolution.createInstance(instanceName, webhook);
+    } catch (e) {
+      if (e instanceof EvolutionApiError) {
+        const msg = JSON.stringify(e.body).toLowerCase();
+        const conflict = e.status === 409 || msg.includes('already') || msg.includes('exist');
+        if (conflict) {
+          createOrConnectResponse = await this.evolution.connect(instanceName);
+        } else {
+          throw e;
+        }
+      } else {
+        throw e;
+      }
+    }
+
+    await this.prisma.organization.update({
+      where: { id: organizationId },
+      data: { waStatus: WaStatus.CONNECTING },
+    });
+
+    let qr = extractQrBase64(createOrConnectResponse);
+    if (!qr) {
+      state = await this.evolution.getConnectionState(instanceName);
+      if (state === 'open') {
+        await this.prisma.organization.update({
+          where: { id: organizationId },
+          data: { waStatus: WaStatus.CONNECTED },
+        });
+        return { uiStatus: 'ready' as const, qr: null, message: 'Sesión ya activa' };
+      }
+      try {
+        const connectRes = await this.evolution.connect(instanceName);
+        qr = extractQrBase64(connectRes) ?? qr;
+      } catch { /* ignore */ }
+    }
+
+    return {
+      uiStatus: (qr ? 'qr' : 'connecting') as WhatsappUiStatus,
+      qr: qr ?? null,
+      message: qr
+        ? 'Escaneá el código QR con WhatsApp'
+        : 'Iniciando conexión; consultá el estado en unos segundos',
+    };
+  }
+
+  async getStatusOrg(organizationId: string) {
+    if (!this.evolution.isConfigured()) {
+      return { uiStatus: 'disconnected' as const, qr: null, dbStatus: WaStatus.DISCONNECTED };
+    }
+    const instanceName = await this.resolveOrgInstanceName(organizationId);
+    let state: string | undefined;
+    try {
+      state = await this.evolution.getConnectionState(instanceName);
+    } catch {
+      await this.prisma.organization.update({
+        where: { id: organizationId },
+        data: { waStatus: WaStatus.DISCONNECTED },
+      });
+      return { uiStatus: 'error' as const, qr: null, dbStatus: WaStatus.DISCONNECTED };
+    }
+
+    if (state === 'open') {
+      await this.prisma.organization.update({
+        where: { id: organizationId },
+        data: { waStatus: WaStatus.CONNECTED },
+      });
+      return { uiStatus: 'ready' as const, qr: null, dbStatus: WaStatus.CONNECTED };
+    }
+
+    await this.prisma.organization.update({
+      where: { id: organizationId },
+      data: { waStatus: WaStatus.DISCONNECTED },
+    });
+    return { uiStatus: 'disconnected' as const, qr: null, dbStatus: WaStatus.DISCONNECTED };
+  }
+
+  async logoutOrg(organizationId: string): Promise<void> {
+    this.ensureEvolution();
+    const instanceName = await this.resolveOrgInstanceName(organizationId);
+    try {
+      await this.evolution.logout(instanceName);
+    } catch { /* sesión ya cerrada */ }
+    await this.prisma.organization.update({
+      where: { id: organizationId },
       data: { waStatus: WaStatus.DISCONNECTED },
     });
   }

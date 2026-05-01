@@ -1,11 +1,12 @@
 import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import { AccountRole } from '@prisma/client';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from '../common/auth/jwt-auth.guard';
 import { TenantGuard } from '../common/tenant/tenant.guard';
-import { CurrentProfessionalId } from '../common/tenant/current-professional-id.decorator';
+import { JwtPayload } from '../common/auth/jwt-payload.interface';
 import { AuditLoggerService } from '../common/audit/audit-logger.service';
 
 @Controller('auth')
@@ -24,13 +25,10 @@ export class AuthController {
       req,
     );
     try {
-      const result = await this.authService.login(dto, req);
+      const result = await this.authService.login(dto);
       this.audit.info(
         'auth.login.success',
-        {
-          professionalId: result.user.id,
-          email: result.user.email,
-        },
+        { id: result.user.id, email: result.user.email },
         req,
       );
       return result;
@@ -49,7 +47,10 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard, TenantGuard)
-  me(@CurrentProfessionalId() professionalId: string) {
-    return this.authService.me(professionalId);
+  me(@Req() req: Request & { user: JwtPayload }) {
+    return this.authService.me(
+      req.user.sub,
+      req.user.role ?? AccountRole.INDEPENDENT,
+    );
   }
 }
