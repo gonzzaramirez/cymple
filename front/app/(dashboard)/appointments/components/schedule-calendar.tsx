@@ -136,9 +136,19 @@ type ScheduleCalendarProps = {
   items: AppointmentType[];
   /** ISO date string recibido del servidor para anclar la vista inicial. */
   selectedDate: string;
+  hideWeekends: boolean;
 };
 
-export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps) {
+function isWeekendInBuenosAires(dateInput: string | Date): boolean {
+  const date = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: TIMEZONE,
+    weekday: "short",
+  }).format(date);
+  return weekday === "Sat" || weekday === "Sun";
+}
+
+export function ScheduleCalendar({ items, selectedDate, hideWeekends }: ScheduleCalendarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isMobile = useIsMobile();
@@ -151,9 +161,20 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
     useState<AppointmentType | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  const events = useMemo(() => appointmentsToEvents(items), [items]);
+  const visibleItems = useMemo(() => {
+    if (!hideWeekends) return items;
+    return items.filter((item) => !isWeekendInBuenosAires(item.startAt));
+  }, [items, hideWeekends]);
+
+  const events = useMemo(() => appointmentsToEvents(visibleItems), [visibleItems]);
   const eventModal = useMemo(() => createEventModalPlugin(), []);
   const currentTime = useMemo(() => createCurrentTimePlugin(), []);
+  const queryView = searchParams.get("view");
+  const resolvedView = queryView === "day" || queryView === "month" || queryView === "week"
+    ? queryView
+    : isMobile
+      ? "day"
+      : "week";
 
   // Convierte el string ISO del servidor a Temporal.PlainDate para anclar la vista inicial
   const selectedPlainDate = useMemo(() => {
@@ -174,10 +195,18 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
     routerRef.current = router;
   }, [router]);
 
+  useEffect(() => {
+    if (queryView) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("view", resolvedView);
+    params.set("ui", "calendar");
+    router.replace(`/appointments?${params.toString()}`);
+  }, [queryView, resolvedView, router, searchParams]);
+
   const calendarApp = useNextCalendarApp(
     {
       views: [createViewWeek(), createViewDay(), createViewMonthAgenda()],
-      defaultView: isMobile ? "day" : "week",
+      defaultView: resolvedView,
       // Ancla la vista inicial a la semana/día que el servidor fetcheó
       ...(selectedPlainDate ? { selectedDate: selectedPlainDate } : {}),
       locale: "es-AR",
@@ -188,8 +217,9 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
         end: "21:00",
       },
       weekOptions: {
-        gridHeight: isMobile ? 560 : 680,
-        eventWidth: 100,
+        gridHeight: isMobile ? 620 : 860,
+        nDays: hideWeekends ? 5 : 7,
+        eventWidth: isMobile ? 100 : 130,
         gridStep: 30,
       },
       calendars: STATUS_CALENDARS,
@@ -210,10 +240,20 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
         onRangeUpdate: (range) => {
           // Cuando el usuario navega a otra semana/día/mes, refetcheamos desde el servidor
           const epochMs = range.start.toInstant().epochMilliseconds;
-          const dateParam = new Date(epochMs).toISOString();
+          let targetDate = new Date(epochMs);
+          if (hideWeekends) {
+            const safetyWindowMs = 14 * 24 * 60 * 60 * 1000;
+            let elapsed = 0;
+            while (isWeekendInBuenosAires(targetDate) && elapsed < safetyWindowMs) {
+              targetDate = new Date(targetDate.getTime() + 24 * 60 * 60 * 1000);
+              elapsed += 24 * 60 * 60 * 1000;
+            }
+          }
+          const dateParam = targetDate.toISOString();
           const params = new URLSearchParams(searchParamsRef.current.toString());
           params.set("date", dateParam);
           params.set("ui", "calendar");
+          params.set("view", resolvedView);
           routerRef.current.push(`/appointments?${params.toString()}`);
         },
       },
@@ -242,9 +282,9 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
 
   useEffect(() => {
     if (calendarApp) {
-      calendarApp.events.set(appointmentsToEvents(items));
+      calendarApp.events.set(appointmentsToEvents(visibleItems));
     }
-  }, [items, calendarApp]);
+  }, [visibleItems, calendarApp]);
 
   const handleModalClose = () => {
     setModalOpen(false);
@@ -258,7 +298,7 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
 
   return (
     <div>
-      <div className="overflow-hidden rounded-2xl bg-card shadow-card">
+      <div className="overflow-hidden rounded-2xl bg-card shadow-card ring-border">
         <div className="sx-calendar-wrapper" data-mobile={isMobile ? "true" : "false"}>
           {calendarApp && <ScheduleXCalendar calendarApp={calendarApp} />}
         </div>

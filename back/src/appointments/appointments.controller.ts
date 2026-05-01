@@ -6,8 +6,10 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { JwtAuthGuard } from '../common/auth/jwt-auth.guard';
 import { TenantGuard } from '../common/tenant/tenant.guard';
 import { CurrentProfessionalId } from '../common/tenant/current-professional-id.decorator';
@@ -18,18 +20,34 @@ import { ListAppointmentsDto } from './dto/list-appointments.dto';
 import { ChangeAppointmentStatusDto } from './dto/change-status.dto';
 import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto';
 import { CancelAppointmentDto } from './dto/cancel-appointment.dto';
+import { AuditLoggerService } from '../common/audit/audit-logger.service';
 
 @Controller('appointments')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class AppointmentsController {
-  constructor(private readonly appointmentsService: AppointmentsService) {}
+  constructor(
+    private readonly appointmentsService: AppointmentsService,
+    private readonly audit: AuditLoggerService,
+  ) {}
 
   @Post()
-  create(
+  async create(
     @CurrentProfessionalId() professionalId: string,
     @Body() dto: CreateAppointmentDto,
+    @Req() req: Request,
   ) {
-    return this.appointmentsService.create(professionalId, dto);
+    const created = await this.appointmentsService.create(professionalId, dto);
+    this.audit.info(
+      'appointment.created',
+      {
+        professionalId,
+        appointmentId: created.id,
+        patientId: created.patientId,
+        startAt: created.startAt,
+      },
+      req,
+    );
+    return created;
   }
 
   @Get()
@@ -57,37 +75,74 @@ export class AppointmentsController {
   }
 
   @Patch(':id/status')
-  changeStatus(
+  async changeStatus(
     @CurrentProfessionalId() professionalId: string,
     @Param('id') appointmentId: string,
     @Body() dto: ChangeAppointmentStatusDto,
+    @Req() req: Request,
   ) {
-    return this.appointmentsService.changeStatus(
+    const updated = await this.appointmentsService.changeStatus(
       professionalId,
       appointmentId,
       dto,
     );
+    this.audit.info(
+      'appointment.status_changed',
+      {
+        professionalId,
+        appointmentId,
+        status: dto.status,
+      },
+      req,
+    );
+    return updated;
   }
 
   @Patch(':id/reschedule')
-  reschedule(
+  async reschedule(
     @CurrentProfessionalId() professionalId: string,
     @Param('id') appointmentId: string,
     @Body() dto: RescheduleAppointmentDto,
+    @Req() req: Request,
   ) {
-    return this.appointmentsService.reschedule(
+    const updated = await this.appointmentsService.reschedule(
       professionalId,
       appointmentId,
       dto,
     );
+    this.audit.info(
+      'appointment.rescheduled',
+      {
+        professionalId,
+        appointmentId,
+        newStartAt: updated.startAt,
+      },
+      req,
+    );
+    return updated;
   }
 
   @Patch(':id/cancel')
-  cancel(
+  async cancel(
     @CurrentProfessionalId() professionalId: string,
     @Param('id') appointmentId: string,
     @Body() dto: CancelAppointmentDto,
+    @Req() req: Request,
   ) {
-    return this.appointmentsService.cancel(professionalId, appointmentId, dto);
+    const updated = await this.appointmentsService.cancel(
+      professionalId,
+      appointmentId,
+      dto,
+    );
+    this.audit.info(
+      'appointment.cancelled',
+      {
+        professionalId,
+        appointmentId,
+        reason: dto.reason ?? null,
+      },
+      req,
+    );
+    return updated;
   }
 }

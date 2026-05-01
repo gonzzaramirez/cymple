@@ -21,6 +21,7 @@ import { MessagesModule } from './messages/messages.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MessageTemplatesModule } from './message-templates/message-templates.module';
 import { TenantModule } from './common/tenant/tenant.module';
+import { AuditModule } from './common/audit/audit.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { TenantModule } from './common/tenant/tenant.module';
     }),
     LoggerModule.forRoot({
       pinoHttp: {
+        autoLogging: process.env.NODE_ENV !== 'production',
         transport:
           process.env.NODE_ENV === 'production'
             ? undefined
@@ -56,6 +58,7 @@ import { TenantModule } from './common/tenant/tenant.module';
     ScheduleModule.forRoot(),
     PrismaModule,
     TenantModule,
+    AuditModule,
     AuthModule,
     ProfessionalModule,
     AvailabilityModule,

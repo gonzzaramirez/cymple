@@ -15,6 +15,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import type { DateRange } from "react-day-picker";
 import { PatientSearchPreview } from "./patient-search-preview";
+import { Switch } from "@/components/ui/switch";
 
 const STATUS_OPTIONS = [
   { value: "PENDING", label: "Pendiente", variant: "warning" as const },
@@ -27,11 +28,17 @@ const STATUS_OPTIONS = [
 type AppointmentFiltersProps = {
   view: "calendar" | "table";
   onCreateAppointment: (patientId: string, patientName: string) => void;
+  hideWeekends: boolean;
   /** Vista calendario/lista, nuevo turno, etc. (sin contenedor tipo card) */
   endActions?: ReactNode;
 };
 
-export function AppointmentFilters({ view, onCreateAppointment, endActions }: AppointmentFiltersProps) {
+export function AppointmentFilters({
+  view,
+  onCreateAppointment,
+  hideWeekends,
+  endActions,
+}: AppointmentFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -146,6 +153,19 @@ export function AppointmentFilters({ view, onCreateAppointment, endActions }: Ap
           )}
 
           <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch sm:gap-2 lg:ml-auto lg:w-auto lg:flex-nowrap lg:justify-end">
+            {isCalendar && (
+              <label className="flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-border/70 bg-background/60 px-3 text-sm sm:h-9 sm:w-auto sm:min-w-[12rem] sm:justify-start">
+                <Switch
+                  checked={hideWeekends}
+                  onCheckedChange={(checked) =>
+                    updateFilters({ weekends: checked ? "off" : "on" })
+                  }
+                  aria-label="Ocultar sábados y domingos"
+                  size="sm"
+                />
+                <span className="text-muted-foreground">Ocultar sábados y domingos</span>
+              </label>
+            )}
             <Popover open={filterOpen} onOpenChange={setFilterOpen}>
               <PopoverTrigger
                 render={

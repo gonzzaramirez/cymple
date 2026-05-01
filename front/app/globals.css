@@ -277,15 +277,15 @@
   }
 
   .sx-calendar-wrapper .sx__calendar-header {
-    padding: 12px 16px;
+    padding: 14px 18px;
     border-bottom: 1px solid var(--border);
   }
 
   .sx-calendar-wrapper .sx__time-grid-event {
     border-radius: 8px;
-    font-size: 12px;
-    font-weight: 500;
-    padding: 2px 6px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 3px 7px;
     border: none;
   }
 
@@ -313,8 +313,9 @@
   }
 
   .sx-calendar-wrapper .sx__week-grid__hour .sx__week-grid__hour-text {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--muted-foreground);
+    font-weight: 500;
   }
 
   .sx-calendar-wrapper {
@@ -323,7 +324,11 @@
   }
 
   .sx-calendar-wrapper .sx__calendar-wrapper {
-    min-width: min(720px, 100%);
+    min-width: min(1024px, 100%);
+  }
+
+  .sx-calendar-wrapper .sx__week-grid {
+    min-height: 820px;
   }
 
   .sx-calendar-wrapper[data-mobile="true"] {
@@ -364,6 +369,11 @@
 
     .sx-calendar-wrapper .sx__week-grid__hour .sx__week-grid__hour-text {
       font-size: 10px;
+      font-weight: 400;
+    }
+
+    .sx-calendar-wrapper .sx__week-grid {
+      min-height: 560px;
     }
   }
 

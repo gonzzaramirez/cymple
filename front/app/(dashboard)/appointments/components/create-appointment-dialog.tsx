@@ -48,7 +48,7 @@ import {
   Banknote,
   ArrowLeftRight,
 } from "lucide-react";
-import { AppointmentModality, Patient, PaymentMethod } from "@/lib/types";
+import { Appointment, AppointmentModality, Patient, PaymentMethod } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type SlotItem = {
@@ -64,8 +64,8 @@ export type CreateAppointmentDialogHandle = {
 };
 
 type CreateAppointmentDialogProps = {
-  /** Se llama con el startAt ISO del turno creado. Si no se provee, navega a la semana correspondiente. */
-  onSuccess?: (startAt: string) => void;
+  /** Se llama con el turno creado para actualizar UI de forma inmediata. */
+  onSuccess?: (createdAppointment: Appointment) => void;
   /** Oculta el botón trigger interno (cuando se controla externamente via ref). */
   hideTrigger?: boolean;
 };
@@ -291,12 +291,13 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
     setOpen(false);
     resetForm();
     sileo.success({ title: "Turno creado" });
+    const createdAppointment = (await response.json()) as Appointment;
     if (onSuccess) {
-      onSuccess(selectedSlotStartAt);
+      onSuccess(createdAppointment);
     } else {
       // Sin callback externo: navegar a la semana del turno recién creado
       router.push(
-        `/appointments?date=${encodeURIComponent(selectedSlotStartAt)}&ui=calendar`,
+        `/appointments?date=${encodeURIComponent(createdAppointment.startAt)}&ui=calendar`,
       );
     }
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Calendar, List } from "lucide-react";
 import { AppointmentFilters } from "./appointment-filters";
@@ -33,6 +33,20 @@ export function AppointmentsView({
   const createDialogRef = useRef<CreateAppointmentDialogHandle>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const hideWeekends = searchParams.get("weekends") !== "on";
+  const [optimisticCreated, setOptimisticCreated] = useState<Appointment[]>([]);
+  const optimisticItems = useMemo(() => {
+    const map = new Map<string, Appointment>();
+    for (const item of calendarItems) {
+      map.set(item.id, item);
+    }
+    for (const item of optimisticCreated) {
+      map.set(item.id, item);
+    }
+    return [...map.values()].sort(
+      (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
+    );
+  }, [calendarItems, optimisticCreated]);
 
   const setUi = useCallback(
     (ui: "calendar" | "list") => {
@@ -48,11 +62,19 @@ export function AppointmentsView({
   );
 
   const handleAppointmentCreated = useCallback(
-    (startAt: string) => {
+    (createdAppointment: Appointment) => {
+      setOptimisticCreated((prev) => {
+        if (prev.some((item) => item.id === createdAppointment.id)) {
+          return prev;
+        }
+        return [...prev, createdAppointment];
+      });
+
       const p = new URLSearchParams(searchParams.toString());
-      p.set("date", startAt);
+      p.set("date", createdAppointment.startAt);
       p.set("ui", "calendar");
       router.push(`/appointments?${p.toString()}`);
+      router.refresh();
     },
     [router, searchParams],
   );
@@ -69,6 +91,7 @@ export function AppointmentsView({
       <AppointmentFilters
         view={mode === "list" ? "table" : "calendar"}
         onCreateAppointment={handleCreateFromPreview}
+        hideWeekends={hideWeekends}
         endActions={
           <>
             <div
@@ -109,7 +132,11 @@ export function AppointmentsView({
       />
 
       {mode === "calendar" ? (
-        <ScheduleCalendar items={calendarItems} selectedDate={initialDate} />
+        <ScheduleCalendar
+          items={optimisticItems}
+          selectedDate={initialDate}
+          hideWeekends={hideWeekends}
+        />
       ) : listData ? (
         <AppointmentsList
           items={listData.items}

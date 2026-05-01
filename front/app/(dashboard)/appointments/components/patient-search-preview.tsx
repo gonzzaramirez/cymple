@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Patient, Appointment } from "@/lib/types";
 import {
   Search,
@@ -138,8 +137,7 @@ export function PatientSearchPreview({
     const name = `${selected.lastName}, ${selected.firstName}`;
 
     return (
-      <Card className="shadow-card animate-in fade-in-0 slide-in-from-top-2 duration-200">
-        <CardContent className="p-4">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm animate-in fade-in-0 slide-in-from-top-2 duration-200">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
@@ -258,8 +256,7 @@ export function PatientSearchPreview({
               <ChevronRight className="size-3" />
             </Button>
           </div>
-        </CardContent>
-      </Card>
+      </div>
     );
   }
 
@@ -267,7 +264,7 @@ export function PatientSearchPreview({
     <div className="relative">
       {/* shouldFilter=false: el API ya filtra server-side; sin esto cmdk re-filtra
           los resultados en el cliente y descarta coincidencias válidas (acentos, etc.) */}
-      <Command shouldFilter={false} className="rounded-xl border border-border shadow-sm bg-card">
+      <Command shouldFilter={false} className="rounded-xl border border-border bg-card shadow-sm">
         <div className="flex items-center border-b border-border px-3">
           <Search className="size-4 shrink-0 text-muted-foreground" />
           <CommandInput
