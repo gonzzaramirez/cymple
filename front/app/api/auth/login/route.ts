@@ -1,14 +1,23 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { API_BASE_URL, AUTH_COOKIE } from "@/lib/env";
+import { resolveTenantSlugFromHostname } from "@/lib/tenant";
 
 export async function POST(request: Request) {
   const body = await request.json();
+  const url = new URL(request.url);
+  const tenantSlug = resolveTenantSlugFromHostname(url.hostname);
 
   const response = await fetch(`${API_BASE_URL}/auth/login`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    headers: {
+      "Content-Type": "application/json",
+      ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}),
+    },
+    body: JSON.stringify({
+      ...body,
+      ...(tenantSlug ? { tenantSlug } : {}),
+    }),
     cache: "no-store",
   });
 

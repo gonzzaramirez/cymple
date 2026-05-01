@@ -20,6 +20,7 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { MessagesModule } from './messages/messages.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MessageTemplatesModule } from './message-templates/message-templates.module';
+import { TenantModule } from './common/tenant/tenant.module';
 
 @Module({
   imports: [
@@ -33,6 +34,8 @@ import { MessageTemplatesModule } from './message-templates/message-templates.mo
         EVOLUTION_API_URL: Joi.string().optional().allow(''),
         EVOLUTION_API_KEY: Joi.string().optional().allow(''),
         APP_PUBLIC_URL: Joi.string().optional().allow(''),
+        BASE_DOMAIN: Joi.string().optional().allow(''),
+        TRUST_PROXY: Joi.boolean().truthy('true').falsy('false').default(false),
         PORT: Joi.number().default(3080),
       }),
     }),
@@ -52,6 +55,7 @@ import { MessageTemplatesModule } from './message-templates/message-templates.mo
     ]),
     ScheduleModule.forRoot(),
     PrismaModule,
+    TenantModule,
     AuthModule,
     ProfessionalModule,
     AvailabilityModule,

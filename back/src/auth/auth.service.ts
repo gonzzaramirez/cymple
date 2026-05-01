@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
+import { TenantResolverService } from '../common/tenant/tenant-resolver.service';
 
 @Injectable()
 export class AuthService {
@@ -11,13 +12,23 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly tenantResolver: TenantResolverService,
   ) {}
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, req?: unknown) {
+    const tenantSlug = req
+      ? this.tenantResolver.extractSlugFromRequest(req as any)
+      : (dto.tenantSlug?.trim().toLowerCase() ?? '');
+
+    if (!tenantSlug) {
+      throw new UnauthorizedException('Tenant requerido');
+    }
+
     const professional = await this.prisma.professional.findUnique({
       where: { email: dto.email.toLowerCase().trim() },
       select: {
         id: true,
+        slug: true,
         email: true,
         fullName: true,
         passwordHash: true,
@@ -25,7 +36,7 @@ export class AuthService {
       },
     });
 
-    if (!professional?.isActive) {
+    if (!professional?.isActive || professional.slug !== tenantSlug) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
@@ -40,6 +51,7 @@ export class AuthService {
     const token = await this.jwtService.signAsync(
       {
         sub: professional.id,
+        tenantSlug: professional.slug,
         email: professional.email,
       } as any,
       {

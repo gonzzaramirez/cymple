@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { API_BASE_URL, AUTH_COOKIE } from "@/lib/env";
+import { resolveTenantSlugFromHostname } from "@/lib/tenant";
 
 async function proxy(
   request: Request,
@@ -11,6 +12,11 @@ async function proxy(
   const url = new URL(request.url);
   const target = `${API_BASE_URL}/${pathname}${url.search}`;
   const token = (await cookies()).get(AUTH_COOKIE)?.value;
+  const originalHost =
+    request.headers.get("x-forwarded-host") ??
+    request.headers.get("host") ??
+    url.host;
+  const tenantSlug = resolveTenantSlugFromHostname(originalHost);
 
   if (!token) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -22,6 +28,14 @@ async function proxy(
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
+      ...(originalHost ? { "X-Forwarded-Host": originalHost } : {}),
+      ...(request.headers.get("x-forwarded-proto")
+        ? { "X-Forwarded-Proto": request.headers.get("x-forwarded-proto")! }
+        : {}),
+      ...(request.headers.get("x-forwarded-for")
+        ? { "X-Forwarded-For": request.headers.get("x-forwarded-for")! }
+        : {}),
+      ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}),
     },
     body: bodyAllowed ? await request.text() : undefined,
     cache: "no-store",
