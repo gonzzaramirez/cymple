@@ -1,6 +1,9 @@
-import { IsDateString } from 'class-validator';
+import { IsString, Matches } from 'class-validator';
 
 export class SlotsQueryDto {
-  @IsDateString()
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}(T.*)?$/, {
+    message: 'date must be a valid date string (yyyy-MM-dd or ISO 8601)',
+  })
   date!: string;
 }

@@ -298,7 +298,7 @@ export function CenterPatientsManager({
                     setAppointmentForm((prev) => ({ ...prev, selectedSlotStartAt: "", slots: [] }));
                   }}>
                     <SelectTrigger><SelectValue placeholder={professionals.length === 0 ? "Sin profesionales" : "Seleccionar profesional"} /></SelectTrigger>
-                    <SelectContent className="z-[200] max-h-60" style={{ pointerEvents: 'auto' }}>
+                    <SelectContent className="max-h-60">
                       {professionals.map((pro) => (
                         <SelectItem key={pro.id} value={pro.id}>{professionalLabel(pro)}</SelectItem>
                       ))}

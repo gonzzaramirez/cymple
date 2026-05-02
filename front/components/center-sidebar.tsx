@@ -12,6 +12,7 @@ import {
   DollarSign,
   Settings,
   Stethoscope,
+  Clock,
 } from "lucide-react";
 import {
   Sidebar,
@@ -33,6 +34,7 @@ const centerNavItems = [
   { href: "/center/professionals", label: "Profesionales", icon: Stethoscope },
   { href: "/center/patients", label: "Pacientes", icon: Users },
   { href: "/center/appointments", label: "Agenda", icon: Calendar },
+  { href: "/center/availability", label: "Disponibilidad", icon: Clock },
   { href: "/center/finance", label: "Finanzas", icon: DollarSign },
   { href: "/center/messages", label: "Mensajes", icon: MessageSquareText },
   { href: "/center/settings", label: "Configuración", icon: Settings },
