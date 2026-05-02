@@ -161,20 +161,9 @@ export function CenterCreateAppointmentDialog({ professionals }: { professionals
   }, [open, step, form.professionalId, form.date]);
 
   // Reload slots when date changes in step 2
-  async function handleDateChange(date: Date | undefined) {
+  function handleDateChange(date: Date | undefined) {
     if (!date) return;
     setForm((prev) => ({ ...prev, date, startAt: "" }));
-    if (step === 2) {
-      setSlotsLoading(true);
-      setSlots([]);
-      const dateStr = format(date, "yyyy-MM-dd");
-      const res = await fetch(`/api/backend/availability/slots?date=${dateStr}&professionalId=${form.professionalId}`).catch(() => null);
-      if (res?.ok) {
-        const payload = await res.json();
-        setSlots(payload.slots ?? []);
-      }
-      setSlotsLoading(false);
-    }
   }
 
   async function createInlinePatient() {
