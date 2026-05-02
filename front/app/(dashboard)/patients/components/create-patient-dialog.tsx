@@ -30,16 +30,17 @@ import { AppointmentModality, PaymentMethod } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const patientSchema = z.object({
-  firstName: z.string().min(1, "El nombre es requerido"),
-  lastName: z.string().min(1, "El apellido es requerido"),
+  firstName: z.string().trim().min(1, "El nombre es requerido").max(100),
+  lastName: z.string().trim().min(1, "El apellido es requerido").max(100),
   phone: z
     .string()
     .regex(/^\+?\d{8,20}$/, "Formato inválido (ej: +5491123456789)")
     .or(z.literal(""))
     .optional(),
   email: z.string().email("Email inválido").or(z.literal("")).optional(),
-  dni: z.string().optional(),
-  notes: z.string().optional(),
+  dni: z.string().max(20, "Máximo 20 caracteres").optional(),
+  birthDate: z.string().optional(),
+  notes: z.string().max(1000, "Máximo 1000 caracteres").optional(),
 });
 
 type PatientFormErrors = Partial<Record<keyof z.infer<typeof patientSchema>, string>>;
@@ -74,6 +75,7 @@ export function CreatePatientDialog({ onSuccess }: CreatePatientDialogProps) {
     phone: "",
     email: "",
     dni: "",
+    birthDate: "",
     notes: "",
   });
   const [appointmentForm, setAppointmentForm] = useState({
@@ -99,7 +101,7 @@ export function CreatePatientDialog({ onSuccess }: CreatePatientDialogProps) {
     setLoading(false);
     setFieldErrors({});
     setCreatedPatient(null);
-    setPatientForm({ firstName: "", lastName: "", phone: "", email: "", dni: "", notes: "" });
+    setPatientForm({ firstName: "", lastName: "", phone: "", email: "", dni: "", birthDate: "", notes: "" });
     setAppointmentForm({
       selectedDate: new Date(),
       selectedSlotStartAt: "",
@@ -134,6 +136,7 @@ export function CreatePatientDialog({ onSuccess }: CreatePatientDialogProps) {
       phone: data.phone?.trim() || undefined,
       email: data.email?.trim() || undefined,
       dni: data.dni?.trim() || undefined,
+      birthDate: data.birthDate?.trim() || undefined,
       notes: data.notes?.trim() || undefined,
     };
 
@@ -332,19 +335,33 @@ export function CreatePatientDialog({ onSuccess }: CreatePatientDialogProps) {
                 )}
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="create-dni">
-                DNI{" "}
-                <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
-              </Label>
-              <Input
-                id="create-dni"
-                value={patientForm.dni}
-                onChange={(e) =>
-                  setPatientForm((prev) => ({ ...prev, dni: e.target.value }))
-                }
-              />
-            </div>
+<div className="space-y-1.5">
+                <Label htmlFor="create-dni">
+                  DNI{" "}
+                  <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+                </Label>
+                <Input
+                  id="create-dni"
+                  value={patientForm.dni}
+                  onChange={(e) =>
+                    setPatientForm((prev) => ({ ...prev, dni: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="create-birthDate">
+                  Fecha de nacimiento{" "}
+                  <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+                </Label>
+                <Input
+                  id="create-birthDate"
+                  type="date"
+                  value={patientForm.birthDate}
+                  onChange={(e) =>
+                    setPatientForm((prev) => ({ ...prev, birthDate: e.target.value }))
+                  }
+                />
+              </div>
             <div className="space-y-1.5">
               <Label htmlFor="create-notes">
                 Notas{" "}

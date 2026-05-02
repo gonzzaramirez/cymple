@@ -101,10 +101,7 @@ export class WhatsappMessagingService {
     return this.messageTemplates.getOne(professionalId, type);
   }
 
-  private interpolate(
-    template: string,
-    vars: Record<string, string>,
-  ): string {
+  private interpolate(template: string, vars: Record<string, string>): string {
     return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => {
       return vars[key] !== undefined ? vars[key] : `{{${key}}}`;
     });
@@ -148,7 +145,10 @@ export class WhatsappMessagingService {
       professional.timezone,
     );
 
-    const tpl = await this.getTemplate(professional.id, MessageType.APPOINTMENT_CREATED);
+    const tpl = await this.getTemplate(
+      professional.id,
+      MessageType.APPOINTMENT_CREATED,
+    );
     if (!tpl.isEnabled) return;
 
     const text = this.interpolate(tpl.body, {
@@ -216,7 +216,10 @@ export class WhatsappMessagingService {
     );
     const dayPhrase = rel || `${weekday} ${dayMonth}`;
 
-    const tpl = await this.getTemplate(professional.id, MessageType.APPOINTMENT_REMINDER);
+    const tpl = await this.getTemplate(
+      professional.id,
+      MessageType.APPOINTMENT_REMINDER,
+    );
     if (!tpl.isEnabled) return false;
 
     const text = this.interpolate(tpl.body, {
@@ -311,7 +314,10 @@ export class WhatsappMessagingService {
       professional.timezone,
     );
 
-    const tpl = await this.getTemplate(professional.id, MessageType.APPOINTMENT_RESCHEDULED);
+    const tpl = await this.getTemplate(
+      professional.id,
+      MessageType.APPOINTMENT_RESCHEDULED,
+    );
     if (!tpl.isEnabled) return;
 
     const text = this.interpolate(tpl.body, {
@@ -372,7 +378,10 @@ export class WhatsappMessagingService {
       professional.timezone,
     );
 
-    const tpl = await this.getTemplate(professional.id, MessageType.APPOINTMENT_CANCELLED);
+    const tpl = await this.getTemplate(
+      professional.id,
+      MessageType.APPOINTMENT_CANCELLED,
+    );
     if (!tpl.isEnabled) return;
 
     const text = this.interpolate(tpl.body, {
@@ -556,7 +565,10 @@ export class WhatsappMessagingService {
     const fee = row.revenue?.amount ?? row.fee;
     const feeFormatted = Number(fee).toLocaleString('es-AR');
 
-    const tpl = await this.getTemplate(professional.id, MessageType.PAYMENT_REMINDER);
+    const tpl = await this.getTemplate(
+      professional.id,
+      MessageType.PAYMENT_REMINDER,
+    );
     if (!tpl.isEnabled) return;
 
     const text = this.interpolate(tpl.body, {

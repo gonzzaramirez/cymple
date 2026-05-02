@@ -19,7 +19,7 @@ export class AvailabilityService {
     queryProfessionalId?: string,
   ): Promise<string> {
     if (ctx.role !== 'CENTER_ADMIN') {
-      return ctx.professionalId!;
+      return ctx.professionalId;
     }
 
     if (!queryProfessionalId) {

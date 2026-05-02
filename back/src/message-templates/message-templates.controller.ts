@@ -28,7 +28,7 @@ export class MessageTemplatesController {
   @Get()
   findAll(@Req() req: Request) {
     const ctx = buildAccessContext(req);
-    const proId = ctx.role !== 'CENTER_ADMIN' ? ctx.professionalId! : '';
+    const proId = ctx.role !== 'CENTER_ADMIN' ? ctx.professionalId : '';
     const orgId = ctx.organizationId ?? undefined;
     return this.service.findAll(proId, orgId);
   }
@@ -41,7 +41,7 @@ export class MessageTemplatesController {
   ) {
     this.validateType(type);
     const ctx = buildAccessContext(req);
-    const proId = ctx.role !== 'CENTER_ADMIN' ? ctx.professionalId! : '';
+    const proId = ctx.role !== 'CENTER_ADMIN' ? ctx.professionalId : '';
     const orgId = ctx.organizationId ?? undefined;
     return this.service.upsert(proId, type as TemplatableType, dto, orgId);
   }
@@ -50,7 +50,7 @@ export class MessageTemplatesController {
   reset(@Req() req: Request, @Param('type') type: string) {
     this.validateType(type);
     const ctx = buildAccessContext(req);
-    const proId = ctx.role !== 'CENTER_ADMIN' ? ctx.professionalId! : '';
+    const proId = ctx.role !== 'CENTER_ADMIN' ? ctx.professionalId : '';
     const orgId = ctx.organizationId ?? undefined;
     return this.service.resetToDefault(proId, type as TemplatableType, orgId);
   }

@@ -140,8 +140,12 @@ export class OrganizationService {
       return await this.prisma.professional.update({
         where: { id: professionalId },
         data: {
-          ...(dto.fullName !== undefined ? { fullName: dto.fullName.trim() } : {}),
-          ...(dto.phone !== undefined ? { phone: dto.phone?.trim() || null } : {}),
+          ...(dto.fullName !== undefined
+            ? { fullName: dto.fullName.trim() }
+            : {}),
+          ...(dto.phone !== undefined
+            ? { phone: dto.phone?.trim() || null }
+            : {}),
           ...(dto.specialty !== undefined
             ? { specialty: dto.specialty?.trim() || null }
             : {}),
@@ -195,7 +199,14 @@ export class OrganizationService {
   async getOrgStats(organizationId: string) {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    const monthEnd = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+    );
 
     const [
       totalProfessionals,

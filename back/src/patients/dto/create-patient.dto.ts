@@ -1,6 +1,7 @@
 import {
   IsDateString,
   IsEmail,
+  IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
@@ -10,10 +11,12 @@ import {
 
 export class CreatePatientDto {
   @IsString()
+  @IsNotEmpty()
   @MaxLength(100)
   firstName!: string;
 
   @IsString()
+  @IsNotEmpty()
   @MaxLength(100)
   lastName!: string;
 
@@ -41,6 +44,6 @@ export class CreatePatientDto {
   notes?: string;
 
   @IsOptional()
-  @IsString()
+  @IsUUID()
   professionalId?: string;
 }

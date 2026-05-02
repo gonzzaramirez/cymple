@@ -5,7 +5,6 @@ import { AppointmentStatus } from '@prisma/client';
 
 export class ListAppointmentsDto extends PaginationQueryDto {
   @IsOptional()
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   @Transform(({ value }) => {
     if (value == null) return undefined;
     const raw = Array.isArray(value) ? value : [value];

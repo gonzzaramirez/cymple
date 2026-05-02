@@ -210,8 +210,8 @@ model Patient {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  professional Professional? @relation(fields: [professionalId], references: [id], onDelete: Cascade)
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  professional Professional? @relation(fields: [professionalId], references: [id], onDelete: SetNull)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   appointments Appointment[]
   messageLogs  MessageLog[]
 

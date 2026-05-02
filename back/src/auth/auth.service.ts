@@ -81,7 +81,10 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    const passwordOk = await bcrypt.compare(dto.password, professional.passwordHash);
+    const passwordOk = await bcrypt.compare(
+      dto.password,
+      professional.passwordHash,
+    );
     if (!passwordOk) {
       throw new UnauthorizedException('Credenciales inválidas');
     }

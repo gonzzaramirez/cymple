@@ -20,16 +20,17 @@ import { Calendar } from "@/components/ui/calendar";
 import { sileo } from "sileo";
 
 const newPatientSchema = z.object({
-  firstName: z.string().min(1, "El nombre es requerido"),
-  lastName: z.string().min(1, "El apellido es requerido"),
+  firstName: z.string().trim().min(1, "El nombre es requerido").max(100),
+  lastName: z.string().trim().min(1, "El apellido es requerido").max(100),
   phone: z
     .string()
     .regex(/^\+?\d{8,20}$/, "Formato inválido (ej: +5491123456789)")
     .or(z.literal(""))
     .optional(),
   email: z.string().email("Email inválido").or(z.literal("")).optional(),
-  dni: z.string().optional(),
-  notes: z.string().optional(),
+  dni: z.string().max(20, "Máximo 20 caracteres").optional(),
+  birthDate: z.string().optional(),
+  notes: z.string().max(1000, "Máximo 1000 caracteres").optional(),
 });
 
 type NewPatientErrors = Partial<Record<keyof z.infer<typeof newPatientSchema>, string>>;
@@ -90,6 +91,7 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
   const [newPhone, setNewPhone] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newDni, setNewDni] = useState("");
+  const [newBirthDate, setNewBirthDate] = useState("");
   const [newNotes, setNewNotes] = useState("");
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -171,6 +173,7 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
     setNewPhone("");
     setNewEmail("");
     setNewDni("");
+    setNewBirthDate("");
     setNewNotes("");
     setSelectedSlotStartAt("");
     setDurationMinutes("");
@@ -203,6 +206,7 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
       phone: newPhone,
       email: newEmail,
       dni: newDni,
+      birthDate: newBirthDate,
       notes: newNotes,
     });
     if (!parsed.success) {
@@ -226,6 +230,7 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
         phone: data.phone?.trim() || undefined,
         email: data.email?.trim() || undefined,
         dni: data.dni?.trim() || undefined,
+        birthDate: data.birthDate?.trim() || undefined,
         notes: data.notes?.trim() || undefined,
       }),
     });
@@ -498,6 +503,18 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
                     id="np-dni"
                     value={newDni}
                     onChange={(e) => setNewDni(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="np-birthDate" className="text-xs">
+                    Fecha de nacimiento{" "}
+                    <span className="font-normal text-muted-foreground">(opcional)</span>
+                  </Label>
+                  <Input
+                    id="np-birthDate"
+                    type="date"
+                    value={newBirthDate}
+                    onChange={(e) => setNewBirthDate(e.target.value)}
                   />
                 </div>
                 <div className="space-y-1.5">

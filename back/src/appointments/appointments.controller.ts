@@ -58,7 +58,10 @@ export class AppointmentsController {
 
   @Get(':id')
   getOne(@Req() req: Request, @Param('id') appointmentId: string) {
-    return this.appointmentsService.getOne(buildAccessContext(req), appointmentId);
+    return this.appointmentsService.getOne(
+      buildAccessContext(req),
+      appointmentId,
+    );
   }
 
   @Patch(':id/status')
@@ -68,7 +71,11 @@ export class AppointmentsController {
     @Body() dto: ChangeAppointmentStatusDto,
   ) {
     const ctx = buildAccessContext(req);
-    const updated = await this.appointmentsService.changeStatus(ctx, appointmentId, dto);
+    const updated = await this.appointmentsService.changeStatus(
+      ctx,
+      appointmentId,
+      dto,
+    );
     this.audit.info(
       'appointment.status_changed',
       { appointmentId, status: dto.status },
@@ -84,7 +91,11 @@ export class AppointmentsController {
     @Body() dto: RescheduleAppointmentDto,
   ) {
     const ctx = buildAccessContext(req);
-    const updated = await this.appointmentsService.reschedule(ctx, appointmentId, dto);
+    const updated = await this.appointmentsService.reschedule(
+      ctx,
+      appointmentId,
+      dto,
+    );
     this.audit.info(
       'appointment.rescheduled',
       { appointmentId, newStartAt: updated.startAt },
@@ -100,7 +111,11 @@ export class AppointmentsController {
     @Body() dto: CancelAppointmentDto,
   ) {
     const ctx = buildAccessContext(req);
-    const updated = await this.appointmentsService.cancel(ctx, appointmentId, dto);
+    const updated = await this.appointmentsService.cancel(
+      ctx,
+      appointmentId,
+      dto,
+    );
     this.audit.info(
       'appointment.cancelled',
       { appointmentId, reason: dto.reason ?? null },

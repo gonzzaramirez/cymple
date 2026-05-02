@@ -25,6 +25,7 @@ export class UpdatePatientDto {
 
   @IsOptional()
   @IsEmail()
+  @MaxLength(255)
   email?: string;
 
   @IsOptional()

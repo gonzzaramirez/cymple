@@ -46,9 +46,10 @@ async function proxy(
   });
 
   const responseText = await forwarded.text();
+  const contentType = forwarded.headers.get("content-type") ?? "application/json";
   return new NextResponse(responseText, {
     status: forwarded.status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": contentType },
   });
 }
 

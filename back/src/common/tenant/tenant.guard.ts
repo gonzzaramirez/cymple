@@ -1,4 +1,9 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AccountRole } from '@prisma/client';
 import { JwtPayload } from '../auth/jwt-payload.interface';
 import { TenantResolverService } from './tenant-resolver.service';
@@ -54,7 +59,9 @@ export class TenantGuard implements CanActivate {
           throw new UnauthorizedException('Token no pertenece a este tenant');
         }
         if (user.tenantSlug && user.tenantSlug !== tenant.slug) {
-          throw new UnauthorizedException('Token no pertenece a este subdominio');
+          throw new UnauthorizedException(
+            'Token no pertenece a este subdominio',
+          );
         }
         req.professionalId = tenant.professionalId;
         req.organizationId = null;

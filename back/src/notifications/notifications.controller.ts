@@ -14,7 +14,7 @@ export class NotificationsController {
   findRecent(@Req() req: Request) {
     const ctx = buildAccessContext(req);
     const isOrg = ctx.role === 'CENTER_ADMIN';
-    const id = isOrg ? ctx.organizationId : ctx.professionalId!;
+    const id = isOrg ? ctx.organizationId : ctx.professionalId;
     return this.notificationsService.findRecent(id, isOrg);
   }
 
@@ -22,7 +22,7 @@ export class NotificationsController {
   markAllRead(@Req() req: Request) {
     const ctx = buildAccessContext(req);
     const isOrg = ctx.role === 'CENTER_ADMIN';
-    const id = isOrg ? ctx.organizationId : ctx.professionalId!;
+    const id = isOrg ? ctx.organizationId : ctx.professionalId;
     return this.notificationsService.markAllRead(id, isOrg);
   }
 }

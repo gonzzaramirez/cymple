@@ -57,10 +57,11 @@ export interface ResolvedTemplate {
 export class MessageTemplatesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(professionalId: string, organizationId?: string): Promise<ResolvedTemplate[]> {
-    const where = organizationId
-      ? { organizationId }
-      : { professionalId };
+  async findAll(
+    professionalId: string,
+    organizationId?: string,
+  ): Promise<ResolvedTemplate[]> {
+    const where = organizationId ? { organizationId } : { professionalId };
     const saved = await this.prisma.messageTemplate.findMany({ where });
 
     const savedMap = new Map(saved.map((t) => [t.messageType, t]));
@@ -87,8 +88,18 @@ export class MessageTemplatesService {
       : { professionalId_messageType: { professionalId, messageType } };
 
     const createData = organizationId
-      ? { organizationId, messageType, body: dto.body, isEnabled: dto.isEnabled ?? true }
-      : { professionalId, messageType, body: dto.body, isEnabled: dto.isEnabled ?? true };
+      ? {
+          organizationId,
+          messageType,
+          body: dto.body,
+          isEnabled: dto.isEnabled ?? true,
+        }
+      : {
+          professionalId,
+          messageType,
+          body: dto.body,
+          isEnabled: dto.isEnabled ?? true,
+        };
 
     const record = await this.prisma.messageTemplate.upsert({
       where: uniqueWhere,

@@ -29,12 +29,12 @@ export class FinanceService {
     const apptFilter =
       isOrgAdmin && query.professionalId
         ? {
-            organizationId: ctx.organizationId as string,
+            organizationId: ctx.organizationId,
             professionalId: query.professionalId,
           }
         : isOrgAdmin
-          ? { organizationId: ctx.organizationId as string }
-          : { professionalId: ctx.professionalId as string };
+          ? { organizationId: ctx.organizationId }
+          : { professionalId: ctx.professionalId };
 
     const [revenues, expenses, attendedCount, absentCount, totalAppointments] =
       await Promise.all([

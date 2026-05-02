@@ -18,7 +18,9 @@ export class PatientsService {
   async create(ctx: AccessContext, dto: CreatePatientDto) {
     const organizationId = ctx.organizationId ?? null;
     const professionalId =
-      ctx.role === 'CENTER_ADMIN' ? (dto.professionalId ?? null) : ctx.professionalId;
+      ctx.role === 'CENTER_ADMIN'
+        ? (dto.professionalId ?? null)
+        : ctx.professionalId;
 
     if (ctx.role === 'CENTER_ADMIN' && dto.professionalId) {
       const professional = await this.prisma.professional.findFirst({
@@ -133,14 +135,22 @@ export class PatientsService {
   async update(ctx: AccessContext, patientId: string, dto: UpdatePatientDto) {
     await this.getOne(ctx, patientId);
 
+    const data: Prisma.PatientUpdateInput = {};
+    if (dto.firstName !== undefined) data.firstName = dto.firstName.trim();
+    if (dto.lastName !== undefined) data.lastName = dto.lastName.trim();
+    if (dto.phone !== undefined) data.phone = dto.phone?.trim() || null;
+    if (dto.email !== undefined)
+      data.email = dto.email?.trim().toLowerCase() || null;
+    if (dto.dni !== undefined) data.dni = dto.dni?.trim() || null;
+    if (dto.birthDate !== undefined) {
+      data.birthDate = dto.birthDate ? new Date(dto.birthDate) : null;
+    }
+    if (dto.notes !== undefined) data.notes = dto.notes?.trim() || null;
+
     try {
       return await this.prisma.patient.update({
         where: { id: patientId },
-        data: {
-          ...dto,
-          email: dto.email?.trim().toLowerCase(),
-          birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
-        },
+        data,
       });
     } catch (error) {
       this.handlePatientConstraintError(error);
@@ -176,7 +186,9 @@ export class PatientsService {
 
     const appointmentWhere: Prisma.AppointmentWhereInput = {
       patientId,
-      ...(ctx.role !== 'CENTER_ADMIN' ? { professionalId: ctx.professionalId } : {}),
+      ...(ctx.role !== 'CENTER_ADMIN'
+        ? { professionalId: ctx.professionalId }
+        : {}),
     };
 
     const appointments = await this.prisma.appointment.findMany({
@@ -280,7 +292,9 @@ export class PatientsService {
       return summaries;
     }
 
-    const proFilter: Prisma.AppointmentWhereInput = professionalId ? { professionalId } : {};
+    const proFilter: Prisma.AppointmentWhereInput = professionalId
+      ? { professionalId }
+      : {};
 
     const [attendedCounts, upcomingAppointments, pastAppointments] =
       await this.prisma.$transaction([

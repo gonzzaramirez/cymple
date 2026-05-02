@@ -18,7 +18,7 @@ export class WhatsappController {
     if (ctx.role === 'CENTER_ADMIN') {
       return this.connection.startOrg(ctx.organizationId);
     }
-    return this.connection.start(ctx.professionalId!);
+    return this.connection.start(ctx.professionalId);
   }
 
   @Get('status')
@@ -27,15 +27,19 @@ export class WhatsappController {
     if (ctx.role === 'CENTER_ADMIN') {
       return this.connection.getStatusOrg(ctx.organizationId);
     }
-    return this.connection.getStatus(ctx.professionalId!);
+    return this.connection.getStatus(ctx.professionalId);
   }
 
   @Post('logout')
   logout(@Req() req: Request) {
     const ctx = buildAccessContext(req);
     if (ctx.role === 'CENTER_ADMIN') {
-      return this.connection.logoutOrg(ctx.organizationId).then(() => ({ ok: true }));
+      return this.connection
+        .logoutOrg(ctx.organizationId)
+        .then(() => ({ ok: true }));
     }
-    return this.connection.logout(ctx.professionalId!).then(() => ({ ok: true }));
+    return this.connection
+      .logout(ctx.professionalId)
+      .then(() => ({ ok: true }));
   }
 }

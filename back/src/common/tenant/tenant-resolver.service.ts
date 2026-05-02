@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AccountRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -75,9 +79,12 @@ export class TenantResolverService {
     );
     const host = this.resolveHostname(req);
     const originHost = this.resolveOriginHostname(req);
-    const baseDomain = this.configService.get<string>('BASE_DOMAIN')?.toLowerCase();
+    const baseDomain = this.configService
+      .get<string>('BASE_DOMAIN')
+      ?.toLowerCase();
     const isProd =
-      (this.configService.get<string>('NODE_ENV') ?? '').toLowerCase() === 'production';
+      (this.configService.get<string>('NODE_ENV') ?? '').toLowerCase() ===
+      'production';
 
     const hostSlug = this.extractSlugFromHostname(host, baseDomain);
     const originSlug = this.extractSlugFromHostname(originHost, baseDomain);
@@ -97,7 +104,12 @@ export class TenantResolverService {
       throw new BadRequestException('Subdominio requerido');
     }
 
-    if (baseDomain && host && !host.endsWith(`.${baseDomain}`) && host !== 'localhost') {
+    if (
+      baseDomain &&
+      host &&
+      !host.endsWith(`.${baseDomain}`) &&
+      host !== 'localhost'
+    ) {
       throw new BadRequestException('Host inválido para tenant');
     }
 
@@ -119,7 +131,10 @@ export class TenantResolverService {
       .at(-1)
       ?.trim()
       .toLowerCase();
-    const validatedSlug = this.validateSlug(slug ?? null, 'No se pudo resolver tenant');
+    const validatedSlug = this.validateSlug(
+      slug ?? null,
+      'No se pudo resolver tenant',
+    );
     if (validatedSlug && RESERVED_INFRA_SUBDOMAINS.has(validatedSlug)) {
       return null;
     }
@@ -127,7 +142,9 @@ export class TenantResolverService {
   }
 
   private resolveHostname(req: any): string | null {
-    const forwardedHost = this.readSingleHeader(req?.headers?.[FORWARDED_HOST_HEADER]);
+    const forwardedHost = this.readSingleHeader(
+      req?.headers?.[FORWARDED_HOST_HEADER],
+    );
     const hostHeader = this.readSingleHeader(req?.headers?.host);
     const rawHost = (forwardedHost || hostHeader || '').trim().toLowerCase();
     if (!rawHost) return null;

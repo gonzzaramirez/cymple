@@ -16,7 +16,10 @@ async function bootstrap() {
   const isProduction =
     (config.get<string>('NODE_ENV') ?? '').toLowerCase() === 'production';
   const allowedBaseDomainRegex = baseDomain
-    ? new RegExp(`^https:\\/\\/(?:[a-z0-9-]+\\.)*${escapeRegExp(baseDomain)}$`, 'i')
+    ? new RegExp(
+        `^https:\\/\\/(?:[a-z0-9-]+\\.)*${escapeRegExp(baseDomain)}$`,
+        'i',
+      )
     : null;
   const localhostRegex = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i;
 
@@ -29,7 +32,8 @@ async function bootstrap() {
       if (
         typeof cfConnectingIp === 'string' &&
         cfConnectingIp.trim() &&
-        (!xForwardedFor || (typeof xForwardedFor === 'string' && !xForwardedFor.trim()))
+        (!xForwardedFor ||
+          (typeof xForwardedFor === 'string' && !xForwardedFor.trim()))
       ) {
         req.headers['x-forwarded-for'] = cfConnectingIp.trim();
       }
@@ -76,7 +80,10 @@ async function bootstrap() {
 
       try {
         const originUrl = new URL(origin);
-        if (originUrl.protocol === 'https:' && allowedBaseDomainRegex?.test(origin)) {
+        if (
+          originUrl.protocol === 'https:' &&
+          allowedBaseDomainRegex?.test(origin)
+        ) {
           callback(null, true);
           return;
         }

@@ -19,16 +19,17 @@ import { Patient } from "@/lib/types";
 import { Pencil } from "lucide-react";
 
 const patientSchema = z.object({
-  firstName: z.string().min(1, "El nombre es requerido"),
-  lastName: z.string().min(1, "El apellido es requerido"),
+  firstName: z.string().trim().min(1, "El nombre es requerido").max(100),
+  lastName: z.string().trim().min(1, "El apellido es requerido").max(100),
   phone: z
     .string()
     .regex(/^\+?\d{8,20}$/, "Formato inválido (ej: +5491123456789)")
     .or(z.literal(""))
     .optional(),
   email: z.string().email("Email inválido").or(z.literal("")).optional(),
-  dni: z.string().optional(),
-  notes: z.string().optional(),
+  dni: z.string().max(20, "Máximo 20 caracteres").optional(),
+  birthDate: z.string().optional(),
+  notes: z.string().max(1000, "Máximo 1000 caracteres").optional(),
 });
 
 type PatientFormErrors = Partial<Record<keyof z.infer<typeof patientSchema>, string>>;
@@ -44,6 +45,9 @@ export function EditPatientDialog({ patient }: { patient: Patient }) {
     phone: patient.phone ?? "",
     email: patient.email ?? "",
     dni: patient.dni ?? "",
+    birthDate: patient.birthDate
+      ? new Date(patient.birthDate).toISOString().split("T")[0]
+      : "",
     notes: patient.notes ?? "",
   });
 
@@ -61,6 +65,9 @@ export function EditPatientDialog({ patient }: { patient: Patient }) {
         phone: patient.phone ?? "",
         email: patient.email ?? "",
         dni: patient.dni ?? "",
+        birthDate: patient.birthDate
+          ? new Date(patient.birthDate).toISOString().split("T")[0]
+          : "",
         notes: patient.notes ?? "",
       });
     }
@@ -83,13 +90,14 @@ export function EditPatientDialog({ patient }: { patient: Patient }) {
     setLoading(true);
 
     const data = result.data;
-    const payload = {
+    const payload: Record<string, unknown> = {
       firstName: data.firstName.trim(),
       lastName: data.lastName.trim(),
-      phone: data.phone?.trim() || undefined,
-      email: data.email?.trim() || undefined,
-      dni: data.dni?.trim() || undefined,
-      notes: data.notes?.trim() || undefined,
+      phone: data.phone?.trim() || "",
+      email: data.email?.trim() || "",
+      dni: data.dni?.trim() || "",
+      birthDate: data.birthDate?.trim() || "",
+      notes: data.notes?.trim() || "",
     };
 
     const response = await fetch(`/api/backend/patients/${patient.id}`, {
@@ -100,7 +108,8 @@ export function EditPatientDialog({ patient }: { patient: Patient }) {
     setLoading(false);
 
     if (!response.ok) {
-      sileo.error({ title: "No se pudo actualizar el paciente" });
+      const detail = await response.text().catch(() => "");
+      sileo.error({ title: detail || "No se pudo actualizar el paciente" });
       return;
     }
 
@@ -184,16 +193,32 @@ export function EditPatientDialog({ patient }: { patient: Patient }) {
               )}
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="edit-dni">
-              DNI{" "}
-              <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
-            </Label>
-            <Input
-              id="edit-dni"
-              value={form.dni}
-              onChange={(e) => setForm((prev) => ({ ...prev, dni: e.target.value }))}
-            />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-dni">
+                DNI{" "}
+                <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+              </Label>
+              <Input
+                id="edit-dni"
+                value={form.dni}
+                onChange={(e) => setForm((prev) => ({ ...prev, dni: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-birthDate">
+                Fecha de nacimiento{" "}
+                <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+              </Label>
+              <Input
+                id="edit-birthDate"
+                type="date"
+                value={form.birthDate}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, birthDate: e.target.value }))
+                }
+              />
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="edit-notes">

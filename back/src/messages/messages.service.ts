@@ -184,7 +184,8 @@ export class MessagesService {
     const byType: Partial<Record<MessageType, number>> = {};
     for (const r of rows) {
       const cnt = r._count;
-      byType[r.messageType] = typeof cnt === 'object' && cnt ? (cnt as any).id ?? 0 : 0;
+      byType[r.messageType] =
+        typeof cnt === 'object' && cnt ? ((cnt as any).id ?? 0) : 0;
     }
     return { since: since.toISOString(), byType };
   }

@@ -64,8 +64,8 @@ type FlowStep = 1 | 2;
 /* ------------------------------------------------------------------ */
 
 const patientSchema = z.object({
-  firstName: z.string().trim().min(1, "El nombre es requerido"),
-  lastName: z.string().trim().min(1, "El apellido es requerido"),
+  firstName: z.string().trim().min(1, "El nombre es requerido").max(100),
+  lastName: z.string().trim().min(1, "El apellido es requerido").max(100),
   phone: z
     .string()
     .regex(/^\+?\d{8,20}$/, "Formato inválido (ej: +5491123456789)")
@@ -73,6 +73,7 @@ const patientSchema = z.object({
     .optional(),
   email: z.string().email("Email inválido").or(z.literal("")).optional(),
   dni: z.string().max(20, "Máximo 20 caracteres").optional(),
+  birthDate: z.string().optional(),
   notes: z.string().max(1000, "Máximo 1000 caracteres").optional(),
 });
 
@@ -164,6 +165,7 @@ export function CenterPatientsManager({
       phone: "",
       email: "",
       dni: "",
+      birthDate: "",
       notes: "",
     },
   });
@@ -181,6 +183,7 @@ export function CenterPatientsManager({
       phone: "",
       email: "",
       dni: "",
+      birthDate: "",
       notes: "",
     });
     setAppointmentForm({
@@ -244,6 +247,7 @@ export function CenterPatientsManager({
         phone: values.phone?.trim() || undefined,
         email: values.email?.trim() || undefined,
         dni: values.dni?.trim() || undefined,
+        birthDate: values.birthDate?.trim() || undefined,
         notes: values.notes?.trim() || undefined,
       }),
     });
@@ -448,6 +452,17 @@ export function CenterPatientsManager({
                       {errors.dni.message}
                     </p>
                   )}
+                </div>
+
+                {/* Birth date */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="center-birthDate">
+                    Fecha de nacimiento{" "}
+                    <span className="text-xs font-normal text-muted-foreground">
+                      (opcional)
+                    </span>
+                  </Label>
+                  <Input id="center-birthDate" type="date" {...register("birthDate")} />
                 </div>
 
                 {/* Notes */}

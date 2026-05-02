@@ -1,4 +1,9 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { AccountRole } from '@prisma/client';
 import { JwtPayload } from './jwt-payload.interface';
 
@@ -9,7 +14,9 @@ export class CenterAdminGuard implements CanActivate {
     const user = req.user as JwtPayload | undefined;
 
     if (user?.role !== AccountRole.CENTER_ADMIN) {
-      throw new ForbiddenException('Acceso exclusivo para administradores de centro');
+      throw new ForbiddenException(
+        'Acceso exclusivo para administradores de centro',
+      );
     }
 
     return true;

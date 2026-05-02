@@ -14,7 +14,10 @@ export class MessagesController {
 
   @Get('grouped')
   grouped(@Req() req: Request, @Query() query: GroupedMessagesDto) {
-    return this.messagesService.groupedByPatient(buildAccessContext(req), query);
+    return this.messagesService.groupedByPatient(
+      buildAccessContext(req),
+      query,
+    );
   }
 
   @Get()

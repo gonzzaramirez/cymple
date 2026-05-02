@@ -15,15 +15,13 @@ import {
   MessageSquareText,
   Phone,
   Plus,
-  User,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
-  messageTypeLabel,
   MESSAGE_DIRECTION_LABELS,
 } from "@/lib/message-log-labels";
 import { cn } from "@/lib/utils";
+import type { PatientFull, HistoryAppointment, PatientMessage } from "@/lib/types";
 import { EditPatientDialog } from "../../components/edit-patient-dialog";
 import { DeletePatientButton } from "../../components/delete-patient-button";
 import {
@@ -31,66 +29,13 @@ import {
   CreateAppointmentDialogHandle,
 } from "../../../appointments/components/create-appointment-dialog";
 
-type PatientFull = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  phone: string;
-  email?: string | null;
-  dni?: string | null;
-  birthDate?: string | null;
-  notes?: string | null;
-  createdAt: string;
-};
-
-type HistoryAppointment = {
-  id: string;
-  startAt: string;
-  endAt: string;
-  status: "PENDING" | "CONFIRMED" | "ATTENDED" | "ABSENT" | "CANCELLED";
-  fee: string;
-};
-
-type PatientMessage = {
-  id: string;
-  direction: "OUTBOUND" | "INBOUND";
-  messageType: string;
-  content: string;
-  toPhone?: string | null;
-  fromPhone?: string | null;
-  sentAt?: string | null;
-  receivedAt?: string | null;
-  createdAt: string;
-  appointmentId?: string | null;
-};
-
-const statusConfig: Record<
-  string,
-  { label: string; dot: string }
-> = {
+const statusConfig: Record<string, { label: string; dot: string }> = {
   PENDING: { label: "Pendiente", dot: "bg-amber-400" },
   CONFIRMED: { label: "Confirmado", dot: "bg-blue-500" },
   ATTENDED: { label: "Atendido", dot: "bg-emerald-500" },
   ABSENT: { label: "Ausente", dot: "bg-red-400" },
   CANCELLED: { label: "Cancelado", dot: "bg-slate-300" },
 };
-
-function messageBadgeVariant(
-  messageType: string,
-): "default" | "secondary" | "success" | "warning" | "info" {
-  switch (messageType) {
-    case "APPOINTMENT_CREATED":
-      return "info";
-    case "APPOINTMENT_REMINDER":
-      return "warning";
-    case "PATIENT_REPLY":
-      return "secondary";
-    case "SYSTEM":
-      return "success";
-    default:
-      return "secondary";
-  }
-}
 
 type PatientDetailProps = {
   patient: PatientFull;

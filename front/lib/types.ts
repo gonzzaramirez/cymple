@@ -51,6 +51,54 @@ export type Patient = {
   };
 };
 
+export type PatientFull = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phone?: string | null;
+  email?: string | null;
+  dni?: string | null;
+  birthDate?: string | null;
+  notes?: string | null;
+  createdAt: string;
+};
+
+export type HistoryAppointment = {
+  id: string;
+  startAt: string;
+  endAt: string;
+  status: "PENDING" | "CONFIRMED" | "ATTENDED" | "ABSENT" | "CANCELLED";
+  fee: string;
+  professional?: {
+    id: string;
+    fullName: string;
+    specialty?: string | null;
+  } | null;
+};
+
+export type PatientMessage = {
+  id: string;
+  direction: "OUTBOUND" | "INBOUND";
+  messageType: string;
+  content: string;
+  toPhone?: string | null;
+  fromPhone?: string | null;
+  sentAt?: string | null;
+  receivedAt?: string | null;
+  createdAt: string;
+  appointmentId?: string | null;
+};
+
+export type PatientHistory = {
+  patient: PatientFull;
+  appointments: HistoryAppointment[];
+  summary: {
+    totalSessions: number;
+    totalBilled: number;
+  };
+  messages: PatientMessage[];
+};
+
 export type AppointmentModality = "PRESENCIAL" | "VIRTUAL";
 export type PaymentMethod = "CASH" | "TRANSFER";
 
