@@ -87,7 +87,7 @@ export default async function CenterAppointmentsPage({
 
   const professionals = await serverApiFetch<MemberProfessional[]>(
     "organization/professionals",
-  );
+  ).catch(() => [] as MemberProfessional[]);
 
   const allProfessionalIds = professionals.map((p) => p.id);
   const initialLayout: CalendarLayout =
@@ -110,10 +110,10 @@ export default async function CenterAppointmentsPage({
       : null;
 
   const calendarWithAll =
-    mode === "calendar"
+    mode === "calendar" && allProfessionalIds.length > 0
       ? await serverApiFetch<{ items: Appointment[] }>(
           `appointments/calendar?professionalIds=${allProfessionalIds.join(",")}&${buildCalendarQuery(sp)}`,
-        )
+        ).catch(() => ({ items: [] }))
       : { items: [] };
 
   return (
