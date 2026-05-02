@@ -111,11 +111,13 @@ function formatDateISO(dateStr: string): string {
 type AvailabilityConfigProps = {
   weekly: WeeklyDay[];
   specificDates: SpecificDate[];
+  professionalId?: string;
 };
 
 export function AvailabilityConfig({
   weekly,
   specificDates,
+  professionalId,
 }: AvailabilityConfigProps) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -377,7 +379,9 @@ export function AvailabilityConfig({
       ranges: [],
     }));
 
-    const weeklyRes = await fetch("/api/backend/availability/weekly", {
+    const qs = professionalId ? `?professionalId=${professionalId}` : "";
+
+    const weeklyRes = await fetch(`/api/backend/availability/weekly${qs}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ items: [...weeklyItems, ...disabledItems] }),
@@ -390,7 +394,7 @@ export function AvailabilityConfig({
       slotCapacities: sd.slotCapacities,
     }));
 
-    const specRes = await fetch("/api/backend/availability/specific-dates", {
+    const specRes = await fetch(`/api/backend/availability/specific-dates${qs}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ items: specItems }),

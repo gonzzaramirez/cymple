@@ -76,7 +76,7 @@ const emptyPatientForm = (professionalId = ""): PatientForm => ({
 });
 
 function professionalLabel(professional: ProfessionalOption): string {
-  return professional.fullName?.trim() || professional.email?.trim() || professional.id;
+  return professional.fullName?.trim() || professional.email?.trim() || "Profesional sin nombre";
 }
 
 function patientName(patient: Patient): string {
@@ -297,8 +297,8 @@ export function CenterPatientsManager({
                     setPatientForm((prev) => ({ ...prev, professionalId: value ?? "" }));
                     setAppointmentForm((prev) => ({ ...prev, selectedSlotStartAt: "", slots: [] }));
                   }}>
-                    <SelectTrigger><SelectValue placeholder="Seleccionar profesional" /></SelectTrigger>
-                    <SelectContent>
+                    <SelectTrigger><SelectValue placeholder={professionals.length === 0 ? "Sin profesionales" : "Seleccionar profesional"} /></SelectTrigger>
+                    <SelectContent className="z-[200] max-h-60" style={{ pointerEvents: 'auto' }}>
                       {professionals.map((pro) => (
                         <SelectItem key={pro.id} value={pro.id}>{professionalLabel(pro)}</SelectItem>
                       ))}
@@ -306,7 +306,7 @@ export function CenterPatientsManager({
                   </Select>
                   {fieldErrors.professionalId && <p className="text-xs text-destructive">{fieldErrors.professionalId}</p>}
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-4 sm:grid sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="center-firstName">Nombre</Label>
                     <Input id="center-firstName" value={patientForm.firstName} onChange={(e) => setPatientForm((p) => ({ ...p, firstName: e.target.value }))} />
@@ -318,7 +318,7 @@ export function CenterPatientsManager({
                     {fieldErrors.lastName && <p className="text-xs text-destructive">{fieldErrors.lastName}</p>}
                   </div>
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-4 sm:grid sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="center-phone">Teléfono <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
                     <Input id="center-phone" type="tel" placeholder="+5491123456789" value={patientForm.phone} onChange={(e) => setPatientForm((p) => ({ ...p, phone: e.target.value }))} />
@@ -360,7 +360,7 @@ export function CenterPatientsManager({
                 </div>
                 <div className="space-y-2">
                   <Label>Fecha y hora</Label>
-                  <div className="grid gap-3 md:grid-cols-[1fr_1.1fr]">
+                  <div className="flex flex-col gap-3 md:grid md:grid-cols-[1fr_1.1fr]">
                     <div className="rounded-xl border border-border p-2">
                       <Calendar mode="single" selected={appointmentForm.selectedDate} onSelect={(date) => {
                         if (!date) return;
@@ -396,7 +396,7 @@ export function CenterPatientsManager({
                     ))}
                   </div>
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-4 sm:grid sm:grid-cols-2">
                   <div className="space-y-2"><Label htmlFor="center-appt-duration">Duración (min)</Label><Input id="center-appt-duration" type="number" value={appointmentForm.durationMinutes} onChange={(e) => setAppointmentForm((p) => ({ ...p, durationMinutes: e.target.value }))} /></div>
                   <div className="space-y-2"><Label htmlFor="center-appt-fee">Honorario</Label><Input id="center-appt-fee" type="number" value={appointmentForm.fee} onChange={(e) => setAppointmentForm((p) => ({ ...p, fee: e.target.value }))} /></div>
                 </div>

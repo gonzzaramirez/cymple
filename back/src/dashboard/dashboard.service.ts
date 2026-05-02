@@ -54,6 +54,7 @@ export class DashboardService {
       pendingNext24h,
       upcomingToday,
       professionals,
+      attendedThisMonth,
     ] = await Promise.all([
       this.prisma.professional.count({
         where: { organizationId, isActive: true },
@@ -142,6 +143,13 @@ export class DashboardService {
           },
         },
       }),
+      this.prisma.appointment.count({
+        where: {
+          organizationId,
+          status: AppointmentStatus.ATTENDED,
+          startAt: { gte: monthStart, lte: monthEnd },
+        },
+      }),
     ]);
 
     const revenue = Number(revenues._sum.amount ?? 0);
@@ -170,6 +178,11 @@ export class DashboardService {
       appointmentsThisMonth: p._count.appointments,
     }));
 
+    const occupancyPercent =
+      appointmentsThisMonth > 0
+        ? Number(((attendedThisMonth / appointmentsThisMonth) * 100).toFixed(1))
+        : 0;
+
     return {
       totalProfessionals,
       totalPatients,
@@ -183,9 +196,11 @@ export class DashboardService {
       upcomingToday,
       weeklyChart,
       financeThisMonth: {
-        revenue,
-        expenses: expense,
+        income: revenue,
+        expense,
         net: revenue - expense,
+        occupancyPercent,
+        attendedCount: attendedThisMonth,
       },
       revenueThisMonth: revenue,
       professionals: professionalBreakdown,

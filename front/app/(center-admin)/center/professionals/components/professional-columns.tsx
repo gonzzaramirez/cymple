@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { MemberProfessional } from "@/lib/types";
 import { ProfessionalEditDialog } from "./professional-edit-dialog";
 import { ProfessionalToggleButton } from "./professional-toggle-button";
+import Link from "next/link";
+import { CalendarClock } from "lucide-react";
 
 export function getProfessionalColumns(): ColumnDef<MemberProfessional>[] {
   return [
@@ -71,6 +73,14 @@ export function getProfessionalColumns(): ColumnDef<MemberProfessional>[] {
       header: "",
       cell: ({ row }) => (
         <div className="flex items-center justify-end gap-2">
+          <Link
+            href={`/center/professionals/${row.original.id}/availability`}
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+            title="Configurar Disponibilidad"
+          >
+            <CalendarClock className="size-3.5" />
+            <span className="hidden lg:inline">Horarios</span>
+          </Link>
           <ProfessionalEditDialog professional={row.original} />
           <ProfessionalToggleButton professional={row.original} />
         </div>

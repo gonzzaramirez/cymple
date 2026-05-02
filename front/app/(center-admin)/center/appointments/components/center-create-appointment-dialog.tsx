@@ -335,7 +335,7 @@ export function CenterCreateAppointmentDialog({ professionals }: { professionals
 
           <div className="space-y-2">
             <Label>Fecha y hora</Label>
-            <div className="grid gap-3 md:grid-cols-[1fr_1.1fr]">
+            <div className="flex flex-col gap-3 md:grid md:grid-cols-[1fr_1.1fr]">
               <div className="rounded-xl border border-border p-2">
                 <Calendar mode="single" selected={form.date} onSelect={(date) => date && setForm((prev) => ({ ...prev, date, startAt: "" }))} locale={es} className="w-full" />
               </div>
@@ -367,7 +367,7 @@ export function CenterCreateAppointmentDialog({ professionals }: { professionals
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-4 sm:grid sm:grid-cols-2">
             <div className="space-y-2"><Label htmlFor="center-duration">Duración (min)</Label><Input id="center-duration" type="number" value={form.durationMinutes} onChange={(e) => setForm((prev) => ({ ...prev, durationMinutes: e.target.value }))} /></div>
             <div className="space-y-2"><Label htmlFor="center-fee">Honorario</Label><Input id="center-fee" type="number" value={form.fee} onChange={(e) => setForm((prev) => ({ ...prev, fee: e.target.value }))} /></div>
           </div>
