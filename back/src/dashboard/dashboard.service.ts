@@ -84,14 +84,14 @@ export class DashboardService {
       }),
       this.prisma.revenue.aggregate({
         where: {
-          OR: [{ organizationId }, { professional: { organizationId } }],
+          organizationId,
           occurredAt: { gte: monthStart, lte: monthEnd },
         } as any,
         _sum: { amount: true },
       }),
       this.prisma.expense.aggregate({
         where: {
-          OR: [{ organizationId }, { professional: { organizationId } }],
+          organizationId,
           occurredAt: { gte: monthStart, lte: monthEnd },
         } as any,
         _sum: { amount: true },
@@ -152,8 +152,8 @@ export class DashboardService {
       }),
     ]);
 
-    const revenue = Number(revenues._sum.amount ?? 0);
-    const expense = Number(expenses._sum.amount ?? 0);
+    const revenue = Number(revenues._sum?.amount ?? 0);
+    const expense = Number(expenses._sum?.amount ?? 0);
     const DAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
     const weekStartLocal = DateTime.fromJSDate(weekStart).setZone(tz);
     const weeklyChart = Array.from({ length: 7 }, (_, i) => {
@@ -188,9 +188,6 @@ export class DashboardService {
       totalPatients,
       appointmentsToday,
       appointmentsThisWeek: appointmentsThisWeekAll.length,
-      appointmentsTodayCount: appointmentsToday,
-      appointmentsWeek: appointmentsThisWeekAll.length,
-      appointmentsMonth: appointmentsThisMonth,
       appointmentsThisMonth,
       pendingNext24h,
       upcomingToday,
@@ -204,7 +201,6 @@ export class DashboardService {
       },
       revenueThisMonth: revenue,
       professionals: professionalBreakdown,
-      breakdown: professionalBreakdown,
     };
   }
 
