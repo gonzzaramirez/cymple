@@ -34,7 +34,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -266,7 +265,11 @@ export function CenterCreateAppointmentDialog({ professionals }: { professionals
                 onValueChange={(v) => setForm((prev) => ({ ...prev, professionalId: v ?? "", startAt: "" }))}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder={professionals.length === 0 ? "Sin profesionales cargados" : "Seleccioná un profesional"} />
+                  {selectedProfessional
+                    ? professionalLabel(selectedProfessional)
+                    : professionals.length === 0
+                      ? "Sin profesionales cargados"
+                      : "Seleccioná un profesional"}
                 </SelectTrigger>
                 <SelectContent>
                   {professionals.map((p) => (
@@ -290,7 +293,11 @@ export function CenterCreateAppointmentDialog({ professionals }: { professionals
               </div>
               <Select value={form.patientId} onValueChange={(v) => setForm((prev) => ({ ...prev, patientId: v ?? "" }))}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder={patientsLoading ? "Buscando..." : "Seleccioná un paciente"} />
+                  {selectedPatient
+                    ? patientLabel(selectedPatient)
+                    : patientsLoading
+                      ? "Buscando..."
+                      : "Seleccioná un paciente"}
                 </SelectTrigger>
                 <SelectContent>
                   {patients.map((p) => (

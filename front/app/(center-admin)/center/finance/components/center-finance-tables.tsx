@@ -14,7 +14,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 
 type FinanceScope = "CENTER" | "PROFESSIONAL";
@@ -160,7 +159,11 @@ export function CenterFinanceTables({
           <Label>Filtrar por alcance</Label>
           <Select value={filter} onValueChange={(value) => setFilter(value ?? "ALL")}>
             <SelectTrigger className="w-full">
-              <SelectValue />
+              {filter === "ALL"
+                ? "Todos"
+                : filter === "CENTER"
+                  ? "Centro"
+                  : professionals.find((p) => p.id === filter)?.fullName ?? "Filtrar"}
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">Todos</SelectItem>

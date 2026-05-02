@@ -34,7 +34,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -394,13 +393,11 @@ export function CenterPatientsManager({
                     }}
                   >
                     <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          professionals.length === 0
-                            ? "Sin profesionales"
-                            : "Seleccionar profesional"
-                        }
-                      />
+                      {selectedProfessional
+                        ? professionalLabel(selectedProfessional)
+                        : professionals.length === 0
+                          ? "Sin profesionales"
+                          : "Seleccionar profesional"}
                     </SelectTrigger>
                     <SelectContent className="max-h-60">
                       {professionals.map((pro) => (

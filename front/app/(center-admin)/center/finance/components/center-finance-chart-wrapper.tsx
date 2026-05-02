@@ -3,11 +3,12 @@
 import React, { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-type WeekDay = { day: string; total: number; attended: number };
+type Revenue = { id: string; amount: string; occurredAt: string };
+type Expense = { id: string; amount: string; occurredAt: string };
 
 function ChartErrorFallback() {
   return (
-    <div className="flex h-[300px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-muted-foreground/25 bg-muted/30 text-center">
+    <div className="flex h-[320px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-muted-foreground/25 bg-muted/30 text-center">
       <p className="text-sm font-medium text-muted-foreground">No se pudo cargar el gráfico</p>
       <p className="text-xs text-muted-foreground">Actualizá la página para reintentar</p>
     </div>
@@ -25,19 +26,25 @@ class ChartErrorBoundary extends React.Component<{ children: React.ReactNode }> 
   }
 }
 
-export function CenterWeeklyChartWrapper({ data }: { data: WeekDay[] }) {
+export function CenterFinanceChartWrapper({
+  revenues,
+  expenses,
+}: {
+  revenues: Revenue[];
+  expenses: Expense[];
+}) {
   const [ChartComponent, setChartComponent] = useState<
-    React.ComponentType<{ data: WeekDay[] }> | null
+    React.ComponentType<{ revenues: Revenue[]; expenses: Expense[] }> | null
   >(null);
 
   useEffect(() => {
     let cancelled = false;
-    import("./center-weekly-chart")
+    import("./center-finance-chart")
       .then((m) => {
-        if (!cancelled) setChartComponent(() => m.CenterWeeklyChart);
+        if (!cancelled) setChartComponent(() => m.CenterFinanceChart);
       })
       .catch(() => {
-        // silently fail — error boundary will show fallback if needed
+        // silently fail
       });
     return () => {
       cancelled = true;
@@ -45,12 +52,12 @@ export function CenterWeeklyChartWrapper({ data }: { data: WeekDay[] }) {
   }, []);
 
   if (!ChartComponent) {
-    return <Skeleton className="h-[300px] rounded-2xl" />;
+    return <Skeleton className="h-[320px] rounded-2xl" />;
   }
 
   return (
     <ChartErrorBoundary>
-      <ChartComponent data={data} />
+      <ChartComponent revenues={revenues} expenses={expenses} />
     </ChartErrorBoundary>
   );
 }

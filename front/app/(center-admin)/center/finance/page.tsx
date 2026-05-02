@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import dynamic from "next/dynamic";
 import type { Metadata } from "next";
 import { Skeleton } from "@/components/ui/skeleton";
 import { serverApiFetch } from "@/lib/server-api";
@@ -9,6 +8,7 @@ import { CenterCreateRevenueDialog } from "./components/center-create-revenue-di
 import { CenterFinanceScopeControls } from "./components/center-finance-scope-controls";
 import { CenterFinanceSummaryCards } from "./components/center-finance-summary-cards";
 import { CenterFinanceTables } from "./components/center-finance-tables";
+import { CenterFinanceChartWrapper } from "./components/center-finance-chart-wrapper";
 
 export const metadata: Metadata = {
   title: "Finanzas | Centro Medico | Cymple",
@@ -54,15 +54,7 @@ type ExpenseList = Array<{
   professional?: ScopedProfessional | null;
 }>;
 
-const CenterFinanceChart = dynamic(
-  () =>
-    import("./components/center-finance-chart").then((m) => ({
-      default: m.CenterFinanceChart,
-    })),
-  {
-    loading: () => <Skeleton className="h-[320px] rounded-2xl" />,
-  },
-);
+
 
 function getScope(value?: string): FinanceScope {
   return value === "PROFESSIONAL" ? "PROFESSIONAL" : "CENTER";
@@ -152,7 +144,7 @@ export default async function CenterFinancePage({
         <Skeleton className="h-28 rounded-2xl" />
       )}
 
-      <CenterFinanceChart revenues={revenues} expenses={expenses} />
+      <CenterFinanceChartWrapper revenues={revenues} expenses={expenses} />
       <Suspense fallback={<Skeleton className="h-48 rounded-2xl" />}>
         <CenterFinanceTables
           revenues={revenues}

@@ -8,7 +8,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 
 type FinanceScope = "CENTER" | "PROFESSIONAL";
@@ -45,7 +44,7 @@ export function CenterFinanceScopeControls({
             }}
           >
             <SelectTrigger className="w-full">
-              <SelectValue />
+              {scope === "CENTER" ? "Centro" : "Profesional"}
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="CENTER">Centro</SelectItem>
@@ -62,7 +61,7 @@ export function CenterFinanceScopeControls({
               onValueChange={(value) => navigate("PROFESSIONAL", value ?? undefined)}
             >
               <SelectTrigger className="w-full" disabled={professionals.length === 0}>
-                <SelectValue placeholder="Seleccionar profesional" />
+                {professionals.find((p) => p.id === (professionalId ?? professionals[0]?.id))?.fullName ?? "Seleccionar profesional"}
               </SelectTrigger>
               <SelectContent>
                 {professionals.map((professional) => (

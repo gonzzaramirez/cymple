@@ -20,7 +20,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 
 type FinanceScope = "CENTER" | "PROFESSIONAL";
@@ -93,7 +92,7 @@ export function CenterCreateRevenueDialog({
               <Label>Alcance</Label>
               <Select value={scope} onValueChange={(value) => setScope(value === "PROFESSIONAL" ? "PROFESSIONAL" : "CENTER")}>
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  {scope === "CENTER" ? "Centro" : "Profesional"}
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="CENTER">Centro</SelectItem>
@@ -106,7 +105,7 @@ export function CenterCreateRevenueDialog({
                 <Label>Profesional</Label>
                 <Select value={professionalId} onValueChange={(value) => setProfessionalId(value ?? "")}>
                   <SelectTrigger className="w-full" disabled={professionals.length === 0}>
-                    <SelectValue placeholder="Seleccionar" />
+                    {professionals.find((p) => p.id === professionalId)?.fullName ?? "Seleccionar"}
                   </SelectTrigger>
                   <SelectContent>
                     {professionals.map((professional) => (
