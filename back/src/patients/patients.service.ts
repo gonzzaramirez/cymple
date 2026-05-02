@@ -94,6 +94,11 @@ export class PatientsService {
         skip,
         take: query.limit,
         orderBy: { createdAt: 'desc' },
+        include: {
+          professional: {
+            select: { id: true, fullName: true },
+          },
+        },
       }),
       this.prisma.patient.count({ where }),
     ]);

@@ -1,6 +1,5 @@
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import dynamic from "next/dynamic";
 import type { Metadata } from "next";
 import { AlertTriangle, ArrowRight } from "lucide-react";
 import Link from "next/link";
@@ -10,6 +9,7 @@ import { CenterFinanceMonthCards } from "./components/center-finance-month-cards
 import { CenterHomeStatsCards } from "./components/center-home-stats-cards";
 import { CenterProfessionalBreakdown } from "./components/center-professional-breakdown";
 import { CenterUpcomingToday } from "./components/center-upcoming-today";
+import { CenterWeeklyChartWrapper } from "./components/center-weekly-chart-wrapper";
 
 export const metadata: Metadata = {
   title: "Inicio | Centro Medico | Cymple",
@@ -51,16 +51,6 @@ type OrgStats = {
     revenueThisMonth?: number;
   }>;
 };
-
-const CenterWeeklyChart = dynamic(
-  () =>
-    import("./components/center-weekly-chart").then((m) => ({
-      default: m.CenterWeeklyChart,
-    })),
-  {
-    loading: () => <Skeleton className="h-[300px] rounded-2xl" />,
-  },
-);
 
 function getFinance(stats: OrgStats) {
   return (
@@ -131,7 +121,7 @@ export default async function CenterHomePage() {
       <CenterFinanceMonthCards finance={finance} />
 
       <div className="grid gap-6 xl:grid-cols-[1.3fr_0.9fr]">
-        <CenterWeeklyChart data={weeklyChart} />
+        <CenterWeeklyChartWrapper data={weeklyChart} />
         <CenterUpcomingToday appointments={upcomingToday} />
       </div>
 
