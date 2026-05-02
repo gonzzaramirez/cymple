@@ -601,7 +601,8 @@ export class AppointmentsService {
     startAt: Date,
     endAt: Date,
   ): Promise<{ capacity: number | null }> {
-    const targetDate = new Date(startAt);
+    // Convert UTC startAt back to local (UTC-3) to find the correct local date
+    const targetDate = new Date(startAt.getTime() - 3 * 3600000);
     targetDate.setUTCHours(0, 0, 0, 0);
 
     const specificDate = await this.prisma.specificDateAvailability.findUnique({
@@ -711,6 +712,8 @@ export class AppointmentsService {
       5: Weekday.FRIDAY,
       6: Weekday.SATURDAY,
     };
-    return map[date.getUTCDay()] ?? Weekday.MONDAY;
+    // Adjust to local time (UTC-3) to get the correct weekday
+    const localDate = new Date(date.getTime() - 3 * 3600000);
+    return map[localDate.getUTCDay()] ?? Weekday.MONDAY;
   }
 }
