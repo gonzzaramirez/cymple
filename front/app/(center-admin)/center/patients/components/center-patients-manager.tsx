@@ -66,7 +66,6 @@ type FlowStep = 1 | 2;
 const patientSchema = z.object({
   firstName: z.string().trim().min(1, "El nombre es requerido"),
   lastName: z.string().trim().min(1, "El apellido es requerido"),
-  professionalId: z.string().min(1, "Seleccioná un profesional"),
   phone: z
     .string()
     .regex(/^\+?\d{8,20}$/, "Formato inválido (ej: +5491123456789)")
@@ -147,6 +146,7 @@ export function CenterPatientsManager({
     durationMinutes: "",
     fee: "",
     reason: "",
+    professionalId: professionals[0]?.id ?? "",
   });
 
   /* ---------- react-hook-form ---------- */
@@ -154,7 +154,6 @@ export function CenterPatientsManager({
     register,
     handleSubmit,
     setValue,
-    watch,
     reset,
     formState: { errors },
   } = useForm<PatientFormValues>({
@@ -162,20 +161,12 @@ export function CenterPatientsManager({
     defaultValues: {
       firstName: "",
       lastName: "",
-      professionalId: professionals[0]?.id ?? "",
       phone: "",
       email: "",
       dni: "",
       notes: "",
     },
   });
-
-  const watchedProfessionalId = watch("professionalId");
-
-  const selectedProfessional = useMemo(
-    () => professionals.find((p) => p.id === watchedProfessionalId),
-    [professionals, watchedProfessionalId],
-  );
 
   /* ---------- reset ---------- */
   function resetFlow(nextOpen = false) {
@@ -187,7 +178,6 @@ export function CenterPatientsManager({
     reset({
       firstName: "",
       lastName: "",
-      professionalId: professionals[0]?.id ?? "",
       phone: "",
       email: "",
       dni: "",
@@ -202,6 +192,7 @@ export function CenterPatientsManager({
       durationMinutes: "",
       fee: "",
       reason: "",
+      professionalId: professionals[0]?.id ?? "",
     });
   }
 
@@ -254,7 +245,6 @@ export function CenterPatientsManager({
         email: values.email?.trim() || undefined,
         dni: values.dni?.trim() || undefined,
         notes: values.notes?.trim() || undefined,
-        professionalId: values.professionalId,
       }),
     });
 
@@ -267,7 +257,6 @@ export function CenterPatientsManager({
     const patient = result.data;
     const fullName = patientName(patient);
     setCreatedPatient({ id: patient.id, fullName });
-    await loadSlots(appointmentForm.selectedDate, values.professionalId);
     setStep(2);
     setSaving(false);
     sileo.success({ title: "Paciente creado. Ahora podés asignar el turno." });
@@ -279,7 +268,7 @@ export function CenterPatientsManager({
     e.preventDefault();
     if (
       !createdPatient?.id ||
-      !watchedProfessionalId ||
+      !appointmentForm.professionalId ||
       !appointmentForm.selectedSlotStartAt
     ) {
       sileo.error({ title: "Completá profesional, paciente y horario" });
@@ -287,7 +276,7 @@ export function CenterPatientsManager({
     }
 
     const payload: Record<string, unknown> = {
-      professionalId: watchedProfessionalId,
+      professionalId: appointmentForm.professionalId,
       patientId: createdPatient.id,
       startAt: appointmentForm.selectedSlotStartAt,
       modality: appointmentForm.modality,
@@ -313,7 +302,7 @@ export function CenterPatientsManager({
 
     if (!result.ok) {
       sileo.error({ title: result.error || "No se pudo crear el turno" });
-      await loadSlots(appointmentForm.selectedDate, watchedProfessionalId, true);
+      await loadSlots(appointmentForm.selectedDate, appointmentForm.professionalId, true);
       return;
     }
 
@@ -376,44 +365,6 @@ export function CenterPatientsManager({
 
             {step === 1 ? (
               <form onSubmit={handleSubmit(onCreatePatient)} className="space-y-4">
-                {/* Professional */}
-                <div className="space-y-1.5">
-                  <Label>Profesional responsable</Label>
-                  <Select
-                    value={watchedProfessionalId}
-                    onValueChange={(value) => {
-                      setValue("professionalId", value ?? "", {
-                        shouldValidate: true,
-                      });
-                      setAppointmentForm((prev) => ({
-                        ...prev,
-                        selectedSlotStartAt: "",
-                        slots: [],
-                      }));
-                    }}
-                  >
-                    <SelectTrigger>
-                      {selectedProfessional
-                        ? professionalLabel(selectedProfessional)
-                        : professionals.length === 0
-                          ? "Sin profesionales"
-                          : "Seleccionar profesional"}
-                    </SelectTrigger>
-                    <SelectContent className="max-h-60">
-                      {professionals.map((pro) => (
-                        <SelectItem key={pro.id} value={pro.id}>
-                          {professionalLabel(pro)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.professionalId && (
-                    <p className="text-xs text-destructive">
-                      {errors.professionalId.message}
-                    </p>
-                  )}
-                </div>
-
                 {/* Names */}
                 <div className="flex flex-col gap-4 sm:grid sm:grid-cols-2">
                   <div className="space-y-1.5">
@@ -534,13 +485,37 @@ export function CenterPatientsManager({
                   <span className="font-medium">
                     {createdPatient?.fullName}
                   </span>
-                  <br />
-                  Profesional:{" "}
-                  <span className="font-medium">
-                    {selectedProfessional
-                      ? professionalLabel(selectedProfessional)
-                      : "—"}
-                  </span>
+                </div>
+
+                {/* Professional */}
+                <div className="space-y-1.5">
+                  <Label>Profesional</Label>
+                  <Select
+                    value={appointmentForm.professionalId}
+                    onValueChange={(value) => {
+                      setAppointmentForm((prev) => ({
+                        ...prev,
+                        professionalId: value ?? "",
+                        selectedSlotStartAt: "",
+                        slots: [],
+                      }));
+                    }}
+                  >
+                    <SelectTrigger>
+                      {professionals.find((p) => p.id === appointmentForm.professionalId)
+                        ? professionalLabel(professionals.find((p) => p.id === appointmentForm.professionalId)!)
+                        : professionals.length === 0
+                          ? "Sin profesionales"
+                          : "Seleccionar profesional"}
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60">
+                      {professionals.map((pro) => (
+                        <SelectItem key={pro.id} value={pro.id}>
+                          {professionalLabel(pro)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Modality */}
@@ -590,7 +565,7 @@ export function CenterPatientsManager({
                             selectedDate: date,
                             selectedSlotStartAt: "",
                           }));
-                          void loadSlots(date, watchedProfessionalId);
+                          void loadSlots(date, appointmentForm.professionalId);
                         }}
                         locale={es}
                         className="w-full"

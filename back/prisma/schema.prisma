@@ -197,7 +197,7 @@ model AvailabilitySlotCapacity {
 
 model Patient {
   id             String    @id @default(cuid())
-  professionalId String
+  professionalId String?
   organizationId String?
   firstName      String
   lastName       String
@@ -210,7 +210,7 @@ model Patient {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  professional Professional  @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  professional Professional? @relation(fields: [professionalId], references: [id], onDelete: Cascade)
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   appointments Appointment[]
   messageLogs  MessageLog[]

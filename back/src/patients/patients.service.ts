@@ -18,17 +18,11 @@ export class PatientsService {
   async create(ctx: AccessContext, dto: CreatePatientDto) {
     const organizationId = ctx.organizationId ?? null;
     const professionalId =
-      ctx.role === 'CENTER_ADMIN' ? dto.professionalId : ctx.professionalId;
+      ctx.role === 'CENTER_ADMIN' ? (dto.professionalId ?? null) : ctx.professionalId;
 
-    if (!professionalId) {
-      throw new BadRequestException(
-        'professionalId es obligatorio para crear pacientes desde el centro',
-      );
-    }
-
-    if (ctx.role === 'CENTER_ADMIN') {
+    if (ctx.role === 'CENTER_ADMIN' && dto.professionalId) {
       const professional = await this.prisma.professional.findFirst({
-        where: { id: professionalId, organizationId: ctx.organizationId },
+        where: { id: dto.professionalId, organizationId: ctx.organizationId },
         select: { id: true },
       });
       if (!professional) {

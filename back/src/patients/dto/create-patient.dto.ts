@@ -41,6 +41,6 @@ export class CreatePatientDto {
   notes?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   professionalId?: string;
 }
