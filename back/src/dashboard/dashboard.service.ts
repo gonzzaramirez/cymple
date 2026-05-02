@@ -43,23 +43,38 @@ export class DashboardService {
       tz,
     );
 
-    const [
-      totalProfessionals,
-      totalPatients,
-      appointmentsThisWeekAll,
-      appointmentsToday,
-      appointmentsThisMonth,
-      revenues,
-      expenses,
-      pendingNext24h,
-      upcomingToday,
-      professionals,
-      attendedThisMonth,
-    ] = await Promise.all([
-      this.prisma.professional.count({
-        where: { organizationId, isActive: true },
-      }),
-      this.prisma.patient.count({ where: { organizationId, deletedAt: null } }),
+    // Batch 1: lightweight counts + monthly appointments (combined)
+    const [totalProfessionals, totalPatients, monthlyAppointments, revenues, expenses] =
+      await Promise.all([
+        this.prisma.professional.count({
+          where: { organizationId, isActive: true },
+        }),
+        this.prisma.patient.count({ where: { organizationId, deletedAt: null } }),
+        this.prisma.appointment.findMany({
+          where: {
+            organizationId,
+            startAt: { gte: monthStart, lte: monthEnd },
+            status: { not: AppointmentStatus.CANCELLED },
+          },
+          select: { status: true },
+        }),
+        this.prisma.revenue.aggregate({
+          where: { organizationId, occurredAt: { gte: monthStart, lte: monthEnd } } as any,
+          _sum: { amount: true },
+        }),
+        this.prisma.expense.aggregate({
+          where: { organizationId, occurredAt: { gte: monthStart, lte: monthEnd } } as any,
+          _sum: { amount: true },
+        }),
+      ]);
+
+    const appointmentsThisMonth = monthlyAppointments.length;
+    const attendedThisMonth = monthlyAppointments.filter(
+      (a) => a.status === AppointmentStatus.ATTENDED,
+    ).length;
+
+    // Batch 2: weekly chart data + today counts + pending
+    const [appointmentsThisWeekAll, appointmentsToday, pendingNext24h] = await Promise.all([
       this.prisma.appointment.findMany({
         where: {
           organizationId,
@@ -78,31 +93,14 @@ export class DashboardService {
       this.prisma.appointment.count({
         where: {
           organizationId,
-          startAt: { gte: monthStart, lte: monthEnd },
-          status: { not: AppointmentStatus.CANCELLED },
-        },
-      }),
-      this.prisma.revenue.aggregate({
-        where: {
-          organizationId,
-          occurredAt: { gte: monthStart, lte: monthEnd },
-        } as any,
-        _sum: { amount: true },
-      }),
-      this.prisma.expense.aggregate({
-        where: {
-          organizationId,
-          occurredAt: { gte: monthStart, lte: monthEnd },
-        } as any,
-        _sum: { amount: true },
-      }),
-      this.prisma.appointment.count({
-        where: {
-          organizationId,
           status: AppointmentStatus.PENDING,
           startAt: { gte: now, lte: next24h },
         },
       }),
+    ]);
+
+    // Batch 3: upcoming + professional breakdown
+    const [upcomingToday, professionals] = await Promise.all([
       this.prisma.appointment.findMany({
         where: {
           organizationId,
@@ -141,13 +139,6 @@ export class DashboardService {
               },
             },
           },
-        },
-      }),
-      this.prisma.appointment.count({
-        where: {
-          organizationId,
-          status: AppointmentStatus.ATTENDED,
-          startAt: { gte: monthStart, lte: monthEnd },
         },
       }),
     ]);
@@ -230,18 +221,14 @@ export class DashboardService {
       tz,
     );
 
+    // Batch 1: patient counts + monthly appointment statuses + finance
     const [
       patientsTotal,
       patientsThisWeek,
-      appointmentsThisWeekAll,
-      appointmentsToday,
-      upcomingToday,
+      monthlyAppointments,
       revenues,
       expenses,
-      attendedThisMonth,
-      totalThisMonth,
       pendingNext24h,
-      nextAppointmentRaw,
     ] = await Promise.all([
       this.prisma.patient.count({
         where: { professionalId, deletedAt: null },
@@ -253,6 +240,43 @@ export class DashboardService {
           createdAt: { gte: weekStart, lte: weekEnd },
         },
       }),
+      this.prisma.appointment.findMany({
+        where: {
+          professionalId,
+          startAt: { gte: monthStart, lte: monthEnd },
+          status: { not: AppointmentStatus.CANCELLED },
+        },
+        select: { status: true },
+      }),
+      this.prisma.revenue.aggregate({
+        where: { professionalId, occurredAt: { gte: monthStart, lte: monthEnd } },
+        _sum: { amount: true },
+      }),
+      this.prisma.expense.aggregate({
+        where: { professionalId, occurredAt: { gte: monthStart, lte: monthEnd } },
+        _sum: { amount: true },
+      }),
+      this.prisma.appointment.count({
+        where: {
+          professionalId,
+          status: AppointmentStatus.PENDING,
+          startAt: { gte: now, lte: next24h },
+        },
+      }),
+    ]);
+
+    const totalThisMonth = monthlyAppointments.length;
+    const attendedThisMonth = monthlyAppointments.filter(
+      (a) => a.status === AppointmentStatus.ATTENDED,
+    ).length;
+
+    // Batch 2: weekly + today + upcoming + next appointment
+    const [
+      appointmentsThisWeekAll,
+      appointmentsToday,
+      upcomingToday,
+      nextAppointmentRaw,
+    ] = await Promise.all([
       this.prisma.appointment.findMany({
         where: {
           professionalId,
@@ -287,43 +311,6 @@ export class DashboardService {
           },
         },
       }),
-      this.prisma.revenue.aggregate({
-        where: {
-          professionalId,
-          occurredAt: { gte: monthStart, lte: monthEnd },
-        },
-        _sum: { amount: true },
-      }),
-      this.prisma.expense.aggregate({
-        where: {
-          professionalId,
-          occurredAt: { gte: monthStart, lte: monthEnd },
-        },
-        _sum: { amount: true },
-      }),
-      this.prisma.appointment.count({
-        where: {
-          professionalId,
-          status: AppointmentStatus.ATTENDED,
-          startAt: { gte: monthStart, lte: monthEnd },
-        },
-      }),
-      this.prisma.appointment.count({
-        where: {
-          professionalId,
-          startAt: { gte: monthStart, lte: monthEnd },
-          status: { not: AppointmentStatus.CANCELLED },
-        },
-      }),
-      // Feature 2: citas PENDING en las próximas 24h
-      this.prisma.appointment.count({
-        where: {
-          professionalId,
-          status: AppointmentStatus.PENDING,
-          startAt: { gte: now, lte: next24h },
-        },
-      }),
-      // Feature 3: próxima cita inmediata
       this.prisma.appointment.findFirst({
         where: {
           professionalId,
@@ -347,8 +334,8 @@ export class DashboardService {
       }),
     ]);
 
-    const income = Number(revenues._sum.amount ?? 0);
-    const expense = Number(expenses._sum.amount ?? 0);
+    const income = Number(revenues._sum?.amount ?? 0);
+    const expense = Number(expenses._sum?.amount ?? 0);
     const occupancyPercent =
       totalThisMonth > 0
         ? Number(((attendedThisMonth / totalThisMonth) * 100).toFixed(1))
