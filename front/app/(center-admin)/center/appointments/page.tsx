@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   title: "Agenda | Centro Médico | Cymple",
 };
 
-type CalendarLayout = "resource" | "compact";
+type CalendarLayout = "resource" | "week";
 const DEFAULT_LIST_LIMIT = 20;
 
 function buildCalendarQuery(sp: {
@@ -91,7 +91,7 @@ export default async function CenterAppointmentsPage({
 
   const allProfessionalIds = professionals.map((p) => p.id);
   const initialLayout: CalendarLayout =
-    sp.layout === "compact" || sp.layout === "resource" ? sp.layout : "resource";
+    sp.layout === "week" || sp.layout === "resource" ? sp.layout : "resource";
 
   const initialProfessionalIds = (sp.professionalIds ?? "")
     .split(",")
@@ -124,7 +124,7 @@ export default async function CenterAppointmentsPage({
             Agenda del Centro
           </h1>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Todos los turnos del centro. Usá recursos, compacta o lista para operar sin perder contexto.
+            Todos los turnos del centro. Usá recursos, semanal o lista para operar sin perder contexto.
           </p>
         </div>
         <CenterCreateAppointmentDialog professionals={professionalOptions} />

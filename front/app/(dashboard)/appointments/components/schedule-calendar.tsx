@@ -30,12 +30,18 @@ const DAY_END_HOUR = 21;
 const HOUR_HEIGHT = 64; // px per hour
 
 const PROFESSIONAL_COLORS = [
-  { bg: "#ede9fe", text: "#5b21b6", border: "#c4b5fd", dot: "#7c3aed" },
-  { bg: "#cffafe", text: "#0e7490", border: "#67e8f9", dot: "#0891b2" },
-  { bg: "#fef3c7", text: "#92400e", border: "#fcd34d", dot: "#d97706" },
-  { bg: "#dcfce7", text: "#166534", border: "#86efac", dot: "#22c55e" },
-  { bg: "#fee2e2", text: "#991b1b", border: "#fca5a5", dot: "#ef4444" },
-  { bg: "#fce7f3", text: "#9d174d", border: "#f9a8d4", dot: "#ec4899" },
+  { bg: "#ede9fe", text: "#5b21b6", border: "#c4b5fd", dot: "#7c3aed" }, // Purple
+  { bg: "#dbeafe", text: "#1e40af", border: "#93c5fd", dot: "#3b82f6" }, // Blue
+  { bg: "#cffafe", text: "#0e7490", border: "#67e8f9", dot: "#0891b2" }, // Cyan
+  { bg: "#ccfbf1", text: "#0f766e", border: "#5eead4", dot: "#14b8a6" }, // Teal
+  { bg: "#dcfce7", text: "#166534", border: "#86efac", dot: "#22c55e" }, // Green
+  { bg: "#fef9c3", text: "#854d0e", border: "#fde047", dot: "#ca8a04" }, // Lime
+  { bg: "#fef3c7", text: "#92400e", border: "#fcd34d", dot: "#d97706" }, // Amber
+  { bg: "#ffedd5", text: "#9a3412", border: "#fdba74", dot: "#f97316" }, // Orange
+  { bg: "#fee2e2", text: "#991b1b", border: "#fca5a5", dot: "#ef4444" }, // Red
+  { bg: "#fce7f3", text: "#9d174d", border: "#f9a8d4", dot: "#ec4899" }, // Pink
+  { bg: "#fae8ff", text: "#86198f", border: "#e9d5ff", dot: "#a855f7" }, // Fuchsia
+  { bg: "#f1f5f9", text: "#334155", border: "#cbd5e1", dot: "#64748b" }, // Slate
 ];
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "success" | "warning" | "destructive" | "info" }> = {

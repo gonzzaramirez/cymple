@@ -36,12 +36,18 @@ const DAY_END_HOUR = 21;
 const HOUR_HEIGHT = 64;
 
 const PROFESSIONAL_COLORS = [
-  { bg: "#ede9fe", text: "#5b21b6", border: "#c4b5fd", dot: "#7c3aed" },
-  { bg: "#cffafe", text: "#0e7490", border: "#67e8f9", dot: "#0891b2" },
-  { bg: "#fef3c7", text: "#92400e", border: "#fcd34d", dot: "#d97706" },
-  { bg: "#dcfce7", text: "#166534", border: "#86efac", dot: "#22c55e" },
-  { bg: "#fee2e2", text: "#991b1b", border: "#fca5a5", dot: "#ef4444" },
-  { bg: "#fce7f3", text: "#9d174d", border: "#f9a8d4", dot: "#ec4899" },
+  { bg: "#ede9fe", text: "#5b21b6", border: "#c4b5fd", dot: "#7c3aed" }, // Purple
+  { bg: "#dbeafe", text: "#1e40af", border: "#93c5fd", dot: "#3b82f6" }, // Blue
+  { bg: "#cffafe", text: "#0e7490", border: "#67e8f9", dot: "#0891b2" }, // Cyan
+  { bg: "#ccfbf1", text: "#0f766e", border: "#5eead4", dot: "#14b8a6" }, // Teal
+  { bg: "#dcfce7", text: "#166534", border: "#86efac", dot: "#22c55e" }, // Green
+  { bg: "#fef9c3", text: "#854d0e", border: "#fde047", dot: "#ca8a04" }, // Lime
+  { bg: "#fef3c7", text: "#92400e", border: "#fcd34d", dot: "#d97706" }, // Amber
+  { bg: "#ffedd5", text: "#9a3412", border: "#fdba74", dot: "#f97316" }, // Orange
+  { bg: "#fee2e2", text: "#991b1b", border: "#fca5a5", dot: "#ef4444" }, // Red
+  { bg: "#fce7f3", text: "#9d174d", border: "#f9a8d4", dot: "#ec4899" }, // Pink
+  { bg: "#fae8ff", text: "#86198f", border: "#e9d5ff", dot: "#a855f7" }, // Fuchsia
+  { bg: "#f1f5f9", text: "#334155", border: "#cbd5e1", dot: "#64748b" }, // Slate
 ];
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "success" | "warning" | "destructive" | "info" }> = {
@@ -207,7 +213,7 @@ function buildQueryParams(params: URLSearchParams, next: Record<string, string |
   return cloned.toString();
 }
 
-type CalendarLayout = "resource" | "compact";
+type CalendarLayout = "resource" | "week";
 type AgendaMode = "calendar" | "list";
 
 type Props = {
@@ -305,7 +311,8 @@ export function CenterScheduleCalendar({
   }
 
   function navigateDate(direction: number) {
-    const next = direction > 0 ? addDays(focusedDate, 1) : subDays(focusedDate, 1);
+    const days = layout === "week" ? (direction > 0 ? 7 : -7) : direction;
+    const next = days > 0 ? addDays(focusedDate, days) : subDays(focusedDate, Math.abs(days));
     setFocusedDate(next);
     const qs = buildQueryParams(searchParams, { date: next.toISOString(), ui: mode === "list" ? "list" : "calendar", layout, professionalIds: selectedProfessionals.join(",") || undefined });
     router.push(`/center/appointments?${qs}`);
@@ -500,120 +507,107 @@ export function CenterScheduleCalendar({
     );
   }
 
-  function renderCompactView() {
+  function renderWeekView() {
+    const weekDays = getWeekDays(focusedDate).slice(0, 5); // Mon-Fri
+    const colCount = activeProfessionals.length || 1;
+    const subColW = colCount <= 2 ? 120 : colCount <= 3 ? 100 : 85;
+    const minW = 64 + colCount * 5 * subColW;
+
     return (
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
-        <div className="flex min-w-[700px]">
+        <div className="flex" style={{ minWidth: `${minW}px` }}>
           {/* Time column */}
           <div className="w-16 shrink-0 border-r border-border bg-muted/50">
-            <div className="h-12" />
+            <div className="h-16" /> {/* double header */}
             {hours.map((hour) => (
-              <div key={hour} className="flex items-start justify-end border-t border-border/50 pr-2 pt-1" style={{ height: `${HOUR_HEIGHT}px` }}>
-                <span className="text-[11px] font-medium text-muted-foreground">{String(hour).padStart(2, "0")}:00</span>
+              <div
+                key={hour}
+                className="flex items-start justify-end border-t border-border/50 pr-2 pt-1"
+                style={{ height: `${HOUR_HEIGHT}px` }}
+              >
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  {String(hour).padStart(2, "0")}:00
+                </span>
               </div>
             ))}
           </div>
 
-          {/* Single day column with all professionals */}
-          <div className="flex-1">
-            <div className="h-12 border-b border-border px-3 flex items-center">
-              <span className="text-sm font-semibold">
-                {format(focusedDate, "EEEE d 'de' MMMM", { locale: es })}
-                {isToday(focusedDate) && <Badge variant="info" className="ml-2 text-[10px]">Hoy</Badge>}
-              </span>
-            </div>
-            <div className="relative" style={{ minHeight: `${(DAY_END_HOUR - DAY_START_HOUR) * HOUR_HEIGHT}px` }}>
-              {hours.map((hour) => (
-                <div key={hour} className="border-t border-border/50" style={{ height: `${HOUR_HEIGHT}px` }} />
-              ))}
-              {(() => {
-                const layout = computeHorizontalLayout(dayItems);
-                return dayItems.map((a) => {
-                  const color = getProfessionalColor(a.professionalId);
-                  const hasConflict = conflictMap.get(a.id) ?? false;
-                  const patientName = a.patient ? `${a.patient.lastName}, ${a.patient.firstName}` : "Sin paciente";
-                  const start = new Date(a.startAt);
-                  const end = new Date(a.endAt);
-                  const startHour = getHour(start);
-                  const endHour = getHour(end);
-                  const top = (startHour - DAY_START_HOUR) * HOUR_HEIGHT;
-                  const rawHeight = (endHour - startHour) * HOUR_HEIGHT;
-                  const height = Math.max(22, rawHeight);
-                  const durationMin = Math.round((endHour - startHour) * 60);
-                  const profName = a.professional?.fullName?.split(" ")[0] ?? "";
-                  const slot = layout.get(a.id);
-                  const cols = slot?.totalColumns ?? 1;
-                  const multiColumn = cols > 1;
+          {/* Day groups (Mon-Fri) */}
+          {weekDays.map((day) => {
+            const dayAppointments = filteredItems.filter(
+              (a) => isSameDay(new Date(a.startAt), day),
+            );
+            const layout = computeHorizontalLayout(dayAppointments);
 
-                  const tier = height < 28 ? 0 : height < 44 ? 1 : height < 72 ? 2 : height < 100 ? 3 : 4;
+            return (
+              <div key={day.toISOString()} className="flex-1 flex flex-col border-r border-border last:border-r-0">
+                {/* Day header */}
+                <div
+                  className={cn(
+                    "h-8 flex items-center justify-center border-b border-border text-xs font-semibold",
+                    isToday(day) && "text-primary",
+                  )}
+                >
+                  {format(day, "EEE d", { locale: es })}
+                  {isToday(day) && (
+                    <span className="ml-1 inline-block size-1.5 rounded-full bg-primary" />
+                  )}
+                </div>
 
-                  const nameCls = cn(
-                    "font-semibold truncate leading-tight",
-                    cols >= 4 ? "text-[9px]" : cols >= 3 ? "text-[10px]" : cols >= 2 ? "text-[11px]" : tier <= 0 ? "text-[11px]" : "text-[13px]",
-                  );
-                  const detailCls = cn(
-                    "opacity-80",
-                    cols >= 3 ? "text-[8px]" : "text-[9px]",
-                  );
-                  const iconCls = cn("shrink-0", cols >= 3 ? "size-2" : "size-2.5");
+                {/* Professional sub-columns row */}
+                <div className="flex-1 flex">
+                  {activeProfessionals.map((prof) => {
+                    const color = getProfessionalColor(prof.id);
+                    const profItems = dayAppointments.filter(
+                      (a) => a.professionalId === prof.id,
+                    );
 
-                  const showTime = tier >= 1 || !multiColumn;
-                  const showDuration = tier >= 2 && durationMin > 0;
-                  const showProfName = tier >= 1 && profName;
-
-                  const padCls = cn(
-                    tier <= 0 ? "px-1 py-px" : tier <= 1 ? "px-1.5 py-0.5" : tier <= 2 ? "px-1.5 py-1" : "px-2 py-1.5",
-                  );
-
-                  return (
-                    <button
-                      key={a.id}
-                      onClick={() => handleAppointmentClick(a)}
-                      className={cn(
-                        "absolute rounded-lg border text-left transition-colors hover:shadow-md z-10 overflow-hidden",
-                        padCls,
-                        hasConflict && "ring-2 ring-red-400",
-                      )}
-                      style={{
-                        top: `${top}px`,
-                        height: `${height}px`,
-                        left: multiColumn ? `calc(${slot!.left} + 1px)` : "0.25rem",
-                        width: multiColumn ? `calc(${slot!.width} - 2px)` : "calc(100% - 0.5rem)",
-                        backgroundColor: color.bg,
-                        borderColor: color.border,
-                        color: color.text,
-                      }}
-                    >
-                      <div className="flex items-center justify-between gap-1">
-                        <span className={nameCls}>{patientName}</span>
-                        {showProfName && (
-                          <span className="shrink-0 font-medium opacity-70" style={{ fontSize: cols >= 3 ? "7px" : "8px" }}>
-                            [{profName}]
-                          </span>
+                    return (
+                      <div
+                        key={prof.id}
+                        className={cn(
+                          "flex-1 flex flex-col border-r border-border/50 last:border-r-0",
                         )}
-                      </div>
+                        style={{ minWidth: `${subColW}px` }}
+                      >
+                        {/* Professional sub-header */}
+                        <div className="h-8 flex items-center justify-center gap-1 border-b border-border/50 px-1">
+                          <span
+                            className="inline-flex size-4 items-center justify-center rounded-full text-[9px] font-semibold text-white shrink-0"
+                            style={{ backgroundColor: color.dot }}
+                          >
+                            {professionalInitials(professionalDisplayName(prof))}
+                          </span>
+                          <span className="text-[10px] font-medium text-muted-foreground truncate">
+                            {profItems.length > 0 && profItems.length}
+                          </span>
+                        </div>
 
-                      {showTime && (
-                        <div className={cn("mt-px flex items-center gap-1", detailCls)}>
-                          <Clock className={iconCls} />
-                          <span className="truncate">{formatHm(start)} - {formatHm(end)}</span>
-                          {showDuration && (
-                            <span className="shrink-0 opacity-60 tabular-nums">· {durationMin}m</span>
+                        {/* Time grid + appointments */}
+                        <div
+                          className="flex-1 relative"
+                          style={{
+                            minHeight: `${(DAY_END_HOUR - DAY_START_HOUR) * HOUR_HEIGHT}px`,
+                          }}
+                        >
+                          {hours.map((hour) => (
+                            <div
+                              key={hour}
+                              className="border-t border-border/30"
+                              style={{ height: `${HOUR_HEIGHT}px` }}
+                            />
+                          ))}
+                          {profItems.map((a) =>
+                            renderAppointmentCard(a, layout.get(a.id)),
                           )}
                         </div>
-                      )}
-
-                      {hasConflict && (
-                        <span className="absolute top-0.5 right-0.5 rounded-full bg-red-100 px-1 py-px text-[8px] font-bold text-red-700 leading-none">
-                          !
-                        </span>
-                      )}
-                    </button>
-                  );
-                });
-              })()}
-            </div>
-          </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     );
@@ -633,8 +627,8 @@ export function CenterScheduleCalendar({
         <button onClick={() => switchLayout("resource")} className={cn("rounded-full px-2.5 py-1 text-xs font-medium", mode === "calendar" && layout === "resource" ? "bg-primary text-primary-foreground" : "bg-accent text-foreground")}>
           <LayoutGrid className="mr-1 inline size-3" />Recursos
         </button>
-        <button onClick={() => switchLayout("compact")} className={cn("rounded-full px-2.5 py-1 text-xs font-medium", mode === "calendar" && layout === "compact" ? "bg-primary text-primary-foreground" : "bg-accent text-foreground")}>
-          <Calendar className="mr-1 inline size-3" />Compacta
+        <button onClick={() => switchLayout("week")} className={cn("rounded-full px-2.5 py-1 text-xs font-medium", mode === "calendar" && layout === "week" ? "bg-primary text-primary-foreground" : "bg-accent text-foreground")}>
+          <Calendar className="mr-1 inline size-3" />Semanal
         </button>
         <button onClick={() => switchMode("list")} className={cn("rounded-full px-2.5 py-1 text-xs font-medium", mode === "list" ? "bg-primary text-primary-foreground" : "bg-accent text-foreground")}>
           <List className="mr-1 inline size-3" />Lista
@@ -733,7 +727,7 @@ export function CenterScheduleCalendar({
             No se pudo cargar el listado de turnos.
           </div>
         )
-      ) : layout === "resource" ? renderResourceView() : renderCompactView()}
+      ) : layout === "resource" ? renderResourceView() : renderWeekView()}
 
       {/* Appointment detail modal */}
       {selectedAppointment && (
