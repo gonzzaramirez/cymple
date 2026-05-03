@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   Activity,
@@ -212,6 +212,8 @@ export function PatientDetail({
   messages,
 }: PatientDetailProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const backUrl = pathname.startsWith("/center/") ? "/center/patients" : "/patients";
   const createApptRef = useRef<CreateAppointmentDialogHandle>(null);
 
   const upcoming = appointments
@@ -251,7 +253,7 @@ export function PatientDetail({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => router.push("/patients")}
+                onClick={() => router.push(backUrl)}
                 className="mt-1 shrink-0 text-slate-400 hover:text-slate-600"
               >
                 <ArrowLeft className="size-5" />
@@ -468,7 +470,7 @@ export function PatientDetail({
                   </p>
                 </div>
                 <Link
-                  href={`/messages?patientId=${patient.id}`}
+                  href={`${pathname.startsWith("/center/") ? "/center" : ""}/messages?patientId=${patient.id}`}
                   className={cn(
                     buttonVariants({ variant: "ghost", size: "sm" }),
                     "text-xs text-slate-500"

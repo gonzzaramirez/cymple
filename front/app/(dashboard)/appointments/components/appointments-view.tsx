@@ -147,7 +147,6 @@ export function AppointmentsView({
         <ScheduleCalendar
           items={optimisticItems}
           selectedDate={initialDate}
-          hideWeekends={hideWeekends}
         />
       ) : listData ? (
         <AppointmentsList

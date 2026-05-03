@@ -31,7 +31,6 @@ import { cn } from "@/lib/utils";
 import { sileo } from "sileo";
 import { CenterAppointmentsList } from "./center-appointments-list";
 
-const TIMEZONE = "America/Argentina/Buenos_Aires";
 const DAY_START_HOUR = 7;
 const DAY_END_HOUR = 21;
 const HOUR_HEIGHT = 64;
@@ -159,6 +158,7 @@ export function CenterScheduleCalendar({
 
   useEffect(() => {
     const d = new Date(selectedDate);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync with URL params
     if (!Number.isNaN(d.getTime())) setFocusedDate(d);
   }, [selectedDate]);
 
@@ -173,8 +173,6 @@ export function CenterScheduleCalendar({
     () => filteredItems.filter((a) => isSameDay(new Date(a.startAt), focusedDate)),
     [filteredItems, focusedDate],
   );
-
-  const weekDays = useMemo(() => getWeekDays(focusedDate), [focusedDate]);
 
   const hours = useMemo(
     () => Array.from({ length: DAY_END_HOUR - DAY_START_HOUR }, (_, i) => DAY_START_HOUR + i),

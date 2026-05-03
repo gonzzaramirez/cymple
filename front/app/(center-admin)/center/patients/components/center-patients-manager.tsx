@@ -774,11 +774,11 @@ export function CenterPatientsManager({
             <div
               key={patient.id}
               className="flex items-center justify-between gap-3 py-3 cursor-pointer hover:bg-muted/30 -mx-2 px-2 rounded-lg transition-colors"
-              onClick={() => router.push(`/patients/${patient.id}`)}
+              onClick={() => router.push(`/center/patients/${patient.id}`)}
             >
               <div className="min-w-0">
                 <Link
-                  href={`/patients/${patient.id}`}
+                  href={`/center/patients/${patient.id}`}
                   className="truncate text-sm font-medium transition-colors hover:text-primary"
                   onClick={(e) => e.stopPropagation()}
                 >

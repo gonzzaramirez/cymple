@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { format, addDays, subDays, startOfWeek, endOfWeek, isToday, isSameDay } from "date-fns";
+import { useRouter } from "next/navigation";
+import { format, addDays, subDays, startOfWeek, isToday, isSameDay } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   ChevronLeft,
@@ -25,7 +25,6 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { sileo } from "sileo";
 
-const TIMEZONE = "America/Argentina/Buenos_Aires";
 const DAY_START_HOUR = 7;
 const DAY_END_HOUR = 21;
 const HOUR_HEIGHT = 64; // px per hour
@@ -83,23 +82,22 @@ function formatHm(date: Date): string {
 
 function getWeekDays(date: Date): Date[] {
   const start = startOfWeek(date, { weekStartsOn: 1 });
-  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+  return Array.from({ length: 5 }, (_, i) => addDays(start, i)); // Mon-Fri only
 }
 
 type ScheduleCalendarProps = {
   items: Appointment[];
   selectedDate: string;
-  hideWeekends: boolean;
 };
 
-export function ScheduleCalendar({ items, selectedDate, hideWeekends }: ScheduleCalendarProps) {
+export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [focusedDate, setFocusedDate] = useState(() => {
     const d = new Date(selectedDate);
     return Number.isNaN(d.getTime()) ? new Date() : d;
   });
   const [view, setView] = useState<"day" | "week">("day");
+  const [selectedProfessional, setSelectedProfessional] = useState<string>("all");
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [pendingAttended, setPendingAttended] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null);
@@ -107,19 +105,17 @@ export function ScheduleCalendar({ items, selectedDate, hideWeekends }: Schedule
 
   useEffect(() => {
     const d = new Date(selectedDate);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync with URL params
     if (!Number.isNaN(d.getTime())) setFocusedDate(d);
   }, [selectedDate]);
 
   const visibleItems = useMemo(() => {
     return items.filter((a) => {
       if (a.status === "CANCELLED") return false;
-      if (hideWeekends) {
-        const day = new Date(a.startAt).getDay();
-        if (day === 0 || day === 6) return false;
-      }
+      if (selectedProfessional !== "all" && a.professionalId !== selectedProfessional) return false;
       return true;
     });
-  }, [items, hideWeekends]);
+  }, [items, selectedProfessional]);
 
   const hasProfessional = useMemo(
     () => visibleItems.some((a) => a.professional),
@@ -137,15 +133,21 @@ export function ScheduleCalendar({ items, selectedDate, hideWeekends }: Schedule
     return [...map.values()];
   }, [visibleItems, hasProfessional]);
 
-  const dayItems = useMemo(() => {
-    if (view === "week") return visibleItems;
-    return visibleItems.filter((a) => isSameDay(new Date(a.startAt), focusedDate));
-  }, [visibleItems, focusedDate, view]);
-
   const weekDays = useMemo(() => {
-    const days = getWeekDays(focusedDate);
-    return hideWeekends ? days.filter((d) => d.getDay() !== 0 && d.getDay() !== 6) : days;
-  }, [focusedDate, hideWeekends]);
+    return getWeekDays(focusedDate); // Always Mon-Fri
+  }, [focusedDate]);
+
+  const dayItems = useMemo(() => {
+    if (view === "week") {
+      const weekStart = weekDays[0];
+      const weekEnd = addDays(weekDays[weekDays.length - 1], 1);
+      return visibleItems.filter((a) => {
+        const d = new Date(a.startAt);
+        return d >= weekStart && d < weekEnd;
+      });
+    }
+    return visibleItems.filter((a) => isSameDay(new Date(a.startAt), focusedDate));
+  }, [visibleItems, focusedDate, view, weekDays]);
 
   const hours = useMemo(
     () => Array.from({ length: DAY_END_HOUR - DAY_START_HOUR }, (_, i) => DAY_START_HOUR + i),
@@ -153,7 +155,8 @@ export function ScheduleCalendar({ items, selectedDate, hideWeekends }: Schedule
   );
 
   function navigateDate(direction: number) {
-    const next = direction > 0 ? addDays(focusedDate, 1) : subDays(focusedDate, 1);
+    const days = view === "week" ? 7 : 1;
+    const next = direction > 0 ? addDays(focusedDate, days) : subDays(focusedDate, days);
     setFocusedDate(next);
     router.push(`/appointments?date=${next.toISOString()}&ui=calendar`);
   }
@@ -233,7 +236,6 @@ export function ScheduleCalendar({ items, selectedDate, hideWeekends }: Schedule
   }, [dayItems]);
 
   function renderAppointmentCard(appointment: Appointment, isWeekView = false) {
-    const cfg = STATUS_CONFIG[appointment.status];
     const color = hasProfessional && appointment.professional
       ? getProfessionalColor(appointment.professional.id)
       : { bg: "#f1f5f9", text: "#475569", border: "#cbd5e1", dot: "#94a3b8" };
@@ -346,7 +348,7 @@ export function ScheduleCalendar({ items, selectedDate, hideWeekends }: Schedule
           <h2 className="ml-2 text-sm font-semibold">
             {view === "day"
               ? format(focusedDate, "EEEE d 'de' MMMM", { locale: es })
-              : `Semana del ${format(weekDays[0], "d MMM", { locale: es })}`}
+              : `${format(weekDays[0], "d MMM", { locale: es })} - ${format(weekDays[weekDays.length - 1], "d MMM yyyy", { locale: es })}`}
           </h2>
         </div>
         <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
@@ -372,21 +374,41 @@ export function ScheduleCalendar({ items, selectedDate, hideWeekends }: Schedule
         </div>
       </div>
 
-      {/* Professional legend */}
+      {/* Professional filter */}
       {hasProfessional && professionals.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 shadow-card">
-          <span className="text-xs font-medium text-muted-foreground mr-1">Profesionales:</span>
+          <span className="text-xs font-medium text-muted-foreground mr-1">Profesional:</span>
+          <button
+            onClick={() => setSelectedProfessional("all")}
+            className={cn(
+              "rounded-full px-2.5 py-1 text-xs font-medium transition-all",
+              selectedProfessional === "all"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Todos
+          </button>
           {professionals.map((prof) => {
             const color = getProfessionalColor(prof.id);
+            const isActive = selectedProfessional === prof.id;
             return (
-              <span
+              <button
                 key={prof.id}
-                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
-                style={{ backgroundColor: color.bg, color: color.text }}
+                onClick={() => setSelectedProfessional(isActive ? "all" : prof.id)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all",
+                  isActive ? "text-white" : "opacity-70 hover:opacity-100",
+                )}
+                style={
+                  isActive
+                    ? { backgroundColor: color.dot }
+                    : { backgroundColor: color.bg, color: color.text }
+                }
               >
-                <span className="size-2 rounded-full" style={{ backgroundColor: color.dot }} />
+                <span className="size-2 rounded-full" style={{ backgroundColor: isActive ? "#fff" : color.dot }} />
                 {prof.fullName}
-              </span>
+              </button>
             );
           })}
         </div>
@@ -457,7 +479,7 @@ export function ScheduleCalendar({ items, selectedDate, hideWeekends }: Schedule
                     )}
                   </span>
                 </div>
-                {renderDayColumn(day, visibleItems)}
+                {renderDayColumn(day, dayItems)}
               </div>
             ))}
           </div>
