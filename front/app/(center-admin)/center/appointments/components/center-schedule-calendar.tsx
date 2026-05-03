@@ -377,52 +377,82 @@ export function CenterScheduleCalendar({
     const endHour = getHour(end);
     const top = (startHour - DAY_START_HOUR) * HOUR_HEIGHT;
     const rawHeight = (endHour - startHour) * HOUR_HEIGHT;
-    const height = Math.max(20, rawHeight);
+    const height = Math.max(22, rawHeight);
+    const durationMin = Math.round((endHour - startHour) * 60);
 
-    const multiColumn = layout && layout.totalColumns > 1;
-    const tiny = height < 28;
-    const compact = height >= 28 && height < 44;
-    const sizeText = tiny ? "text-[10px]" : compact && !multiColumn ? "text-xs" : multiColumn ? "text-[10px]" : "text-[13px]";
-    const sizeMuted = tiny ? "text-[9px]" : "text-[10px]";
+    const cols = layout?.totalColumns ?? 1;
+    const multiColumn = cols > 1;
+
+    const tier = height < 28 ? 0 : height < 44 ? 1 : height < 72 ? 2 : height < 100 ? 3 : 4;
+
+    const nameCls = cn(
+      "font-semibold truncate block leading-tight",
+      cols >= 4 ? "text-[9px]" : cols >= 3 ? "text-[10px]" : cols >= 2 ? "text-[11px]" : tier <= 0 ? "text-[11px]" : "text-[13px]",
+    );
+    const detailCls = cn(
+      "opacity-80",
+      cols >= 3 ? "text-[8px]" : "text-[9px]",
+    );
+    const iconCls = cn("shrink-0", cols >= 3 ? "size-2" : "size-2.5");
+
+    const showTime = tier >= 1 || !multiColumn;
+    const showDuration = tier >= 2 && durationMin > 0;
+    const showProfessional = tier >= 3 && appointment.professional;
+    const showFee = tier >= 3 && appointment.fee && !multiColumn;
+
+    const padCls = cn(
+      tier <= 0 ? "px-1 py-px" : tier <= 1 ? "px-1.5 py-0.5" : tier <= 2 ? "px-1.5 py-1" : "px-2 py-1.5",
+    );
 
     return (
       <button
         key={appointment.id}
         onClick={() => handleAppointmentClick(appointment)}
         className={cn(
-          "absolute rounded-lg border text-left transition-all hover:shadow-md z-10 overflow-hidden",
-          tiny ? "px-1 py-0.5" : compact ? "px-1.5 py-1" : "px-2 py-1.5",
+          "absolute rounded-lg border text-left transition-colors hover:shadow-md z-10 overflow-hidden",
+          padCls,
           hasConflict && "ring-2 ring-red-400",
         )}
         style={{
           top: `${top}px`,
           height: `${height}px`,
-          left: multiColumn ? `calc(${layout!.left} + 2px)` : "0.25rem",
-          width: multiColumn ? `calc(${layout!.width} - 4px)` : "calc(100% - 0.5rem)",
+          left: multiColumn ? `calc(${layout!.left} + 1px)` : "0.25rem",
+          width: multiColumn ? `calc(${layout!.width} - 2px)` : "calc(100% - 0.5rem)",
           backgroundColor: color.bg,
           borderColor: color.border,
           color: color.text,
         }}
       >
-        <div className="flex items-center justify-between gap-1">
-          <span className={cn("font-semibold truncate leading-tight", sizeText)}>
-            {patientName}
-          </span>
-          {hasConflict && (
-            <span className="shrink-0 rounded-full bg-red-100 px-1 py-px text-[9px] font-bold text-red-700 leading-none">!</span>
-          )}
-        </div>
-        {!tiny && (
-          <div className={cn("mt-px flex items-center gap-1 opacity-80", sizeMuted)}>
-            <Clock className="size-2.5 shrink-0" />
+        <span className={nameCls}>{patientName}</span>
+
+        {showTime && (
+          <div className={cn("mt-px flex items-center gap-1", detailCls)}>
+            <Clock className={iconCls} />
             <span className="truncate">{formatHm(start)} - {formatHm(end)}</span>
+            {showDuration && (
+              <span className="shrink-0 opacity-60 tabular-nums">· {durationMin}m</span>
+            )}
           </div>
         )}
-        {height > 44 && appointment.fee && (
-          <div className={cn("mt-px flex items-center gap-1 opacity-70", sizeMuted)}>
-            <DollarSign className="size-2.5 shrink-0" />
-            <span>{appointment.fee}</span>
+
+        {showProfessional && (
+          <div className={cn("mt-px flex items-center gap-1", detailCls)}>
+            <span className={cn(iconCls, "rounded-full")} style={{ backgroundColor: color.dot }} />
+            <span className="truncate">{appointment.professional!.fullName.split(" ")[0]}</span>
           </div>
+        )}
+
+        {showFee && (
+          <div className={cn("mt-px flex items-center gap-1 opacity-70", detailCls)}>
+            <DollarSign className={iconCls} />
+            <span>${appointment.fee}</span>
+          </div>
+        )}
+
+        {hasConflict && (
+          <span className="absolute top-0.5 right-0.5 rounded-full bg-red-100 px-1 py-px text-[8px] font-bold text-red-700 leading-none">
+            !
+          </span>
         )}
       </button>
     );
@@ -508,44 +538,75 @@ export function CenterScheduleCalendar({
                   const endHour = getHour(end);
                   const top = (startHour - DAY_START_HOUR) * HOUR_HEIGHT;
                   const rawHeight = (endHour - startHour) * HOUR_HEIGHT;
-                  const height = Math.max(20, rawHeight);
+                  const height = Math.max(22, rawHeight);
+                  const durationMin = Math.round((endHour - startHour) * 60);
                   const profName = a.professional?.fullName?.split(" ")[0] ?? "";
                   const slot = layout.get(a.id);
-                  const multiColumn = slot && slot.totalColumns > 1;
-                  const tiny = height < 28;
-                  const compact = height >= 28 && height < 44;
-                  const sizeText = tiny ? "text-[10px]" : compact && !multiColumn ? "text-xs" : multiColumn ? "text-[10px]" : "text-[13px]";
-                  const sizeMuted = tiny ? "text-[9px]" : "text-[10px]";
+                  const cols = slot?.totalColumns ?? 1;
+                  const multiColumn = cols > 1;
+
+                  const tier = height < 28 ? 0 : height < 44 ? 1 : height < 72 ? 2 : height < 100 ? 3 : 4;
+
+                  const nameCls = cn(
+                    "font-semibold truncate leading-tight",
+                    cols >= 4 ? "text-[9px]" : cols >= 3 ? "text-[10px]" : cols >= 2 ? "text-[11px]" : tier <= 0 ? "text-[11px]" : "text-[13px]",
+                  );
+                  const detailCls = cn(
+                    "opacity-80",
+                    cols >= 3 ? "text-[8px]" : "text-[9px]",
+                  );
+                  const iconCls = cn("shrink-0", cols >= 3 ? "size-2" : "size-2.5");
+
+                  const showTime = tier >= 1 || !multiColumn;
+                  const showDuration = tier >= 2 && durationMin > 0;
+                  const showProfName = tier >= 1 && profName;
+
+                  const padCls = cn(
+                    tier <= 0 ? "px-1 py-px" : tier <= 1 ? "px-1.5 py-0.5" : tier <= 2 ? "px-1.5 py-1" : "px-2 py-1.5",
+                  );
 
                   return (
                     <button
                       key={a.id}
                       onClick={() => handleAppointmentClick(a)}
                       className={cn(
-                        "absolute rounded-lg border text-left transition-all hover:shadow-md z-10 overflow-hidden",
-                        tiny ? "px-1 py-0.5" : compact ? "px-1.5 py-1" : "px-2 py-1.5",
+                        "absolute rounded-lg border text-left transition-colors hover:shadow-md z-10 overflow-hidden",
+                        padCls,
                         hasConflict && "ring-2 ring-red-400",
                       )}
                       style={{
                         top: `${top}px`,
                         height: `${height}px`,
-                        left: multiColumn ? `calc(${slot!.left} + 2px)` : "0.25rem",
-                        width: multiColumn ? `calc(${slot!.width} - 4px)` : "calc(100% - 0.5rem)",
+                        left: multiColumn ? `calc(${slot!.left} + 1px)` : "0.25rem",
+                        width: multiColumn ? `calc(${slot!.width} - 2px)` : "calc(100% - 0.5rem)",
                         backgroundColor: color.bg,
                         borderColor: color.border,
                         color: color.text,
                       }}
                     >
                       <div className="flex items-center justify-between gap-1">
-                        <span className={cn("font-semibold truncate leading-tight", sizeText)}>
-                          {patientName}
-                        </span>
-                        {!tiny && profName && <span className="shrink-0 text-[9px] font-medium opacity-70">[{profName}]</span>}
+                        <span className={nameCls}>{patientName}</span>
+                        {showProfName && (
+                          <span className="shrink-0 font-medium opacity-70" style={{ fontSize: cols >= 3 ? "7px" : "8px" }}>
+                            [{profName}]
+                          </span>
+                        )}
                       </div>
-                      {!tiny && (
-                        <div className={cn("mt-px opacity-80", sizeMuted)}>
-                          {formatHm(start)} - {formatHm(end)}
+
+                      {showTime && (
+                        <div className={cn("mt-px flex items-center gap-1", detailCls)}>
+                          <Clock className={iconCls} />
+                          <span className="truncate">{formatHm(start)} - {formatHm(end)}</span>
+                          {showDuration && (
+                            <span className="shrink-0 opacity-60 tabular-nums">· {durationMin}m</span>
+                          )}
                         </div>
+                      )}
+
+                      {hasConflict && (
+                        <span className="absolute top-0.5 right-0.5 rounded-full bg-red-100 px-1 py-px text-[8px] font-bold text-red-700 leading-none">
+                          !
+                        </span>
                       )}
                     </button>
                   );
