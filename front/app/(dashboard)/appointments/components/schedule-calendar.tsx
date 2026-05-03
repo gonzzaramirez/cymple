@@ -10,82 +10,68 @@ import {
   type CalendarEvent,
 } from "@schedule-x/calendar";
 import { useNextCalendarApp, ScheduleXCalendar } from "@schedule-x/react";
-import { createEventModalPlugin } from "@schedule-x/event-modal";
 import { createCurrentTimePlugin } from "@schedule-x/current-time";
 import { Appointment as AppointmentType } from "@/lib/types";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AppointmentEventModal } from "./appointment-event-modal";
 
-/** Claves en minúsculas: deben coincidir con calendarId del evento (status en minúsculas). */
-const STATUS_CALENDARS = {
+const TIMEZONE = "America/Argentina/Buenos_Aires";
+
+/** Paleta de colores claros por profesional (legibles en modo claro). */
+const PROFESSIONAL_PALETTE = [
+  { main: "#3b82f6", container: "#dbeafe", onContainer: "#1e40af" }, // blue
+  { main: "#22c55e", container: "#dcfce7", onContainer: "#166534" }, // green
+  { main: "#f59e0b", container: "#fef3c7", onContainer: "#92400e" }, // amber
+  { main: "#ec4899", container: "#fce7f3", onContainer: "#9d174d" }, // pink
+  { main: "#06b6d4", container: "#cffafe", onContainer: "#155e75" }, // cyan
+  { main: "#8b5cf6", container: "#ede9fe", onContainer: "#5b21b6" }, // violet
+  { main: "#eab308", container: "#fef9c3", onContainer: "#854d0e" }, // yellow
+  { main: "#ef4444", container: "#fee2e2", onContainer: "#991b1b" }, // red
+];
+
+/** Colores por estado (fallback cuando no hay datos de profesional). */
+type CalendarConfig = {
+  colorName: string;
+  lightColors: { main: string; container: string; onContainer: string };
+};
+
+const STATUS_CALENDARS: Record<string, CalendarConfig> = {
   pending: {
     colorName: "pending",
-    lightColors: {
-      main: "#ff9500",
-      container: "#fff3e0",
-      onContainer: "#c77700",
-    },
-    darkColors: {
-      main: "#ffb340",
-      container: "#3d2e00",
-      onContainer: "#ffd080",
-    },
+    lightColors: { main: "#ff9500", container: "#fff3e0", onContainer: "#c77700" },
   },
   confirmed: {
     colorName: "confirmed",
-    lightColors: {
-      main: "#3b82f6",
-      container: "#bfdbfe",
-      onContainer: "#1d4ed8",
-    },
-    darkColors: {
-      main: "#60a5fa",
-      container: "#1e3a5f",
-      onContainer: "#bfdbfe",
-    },
+    lightColors: { main: "#3b82f6", container: "#bfdbfe", onContainer: "#1d4ed8" },
   },
   attended: {
     colorName: "attended",
-    lightColors: {
-      main: "#34c759",
-      container: "#e8f9ed",
-      onContainer: "#248a3d",
-    },
-    darkColors: {
-      main: "#30d158",
-      container: "#003d15",
-      onContainer: "#80f0a0",
-    },
+    lightColors: { main: "#34c759", container: "#e8f9ed", onContainer: "#248a3d" },
   },
   absent: {
     colorName: "absent",
-    lightColors: {
-      main: "#ff3b30",
-      container: "#ffe5e3",
-      onContainer: "#d70015",
-    },
-    darkColors: {
-      main: "#ff453a",
-      container: "#5a0008",
-      onContainer: "#ff9090",
-    },
+    lightColors: { main: "#ff3b30", container: "#ffe5e3", onContainer: "#d70015" },
   },
   cancelled: {
     colorName: "cancelled",
-    lightColors: {
-      main: "#8e8e93",
-      container: "#f2f3f5",
-      onContainer: "#45515e",
-    },
-    darkColors: {
-      main: "#a1a1aa",
-      container: "#27272a",
-      onContainer: "#d4d4d8",
-    },
+    lightColors: { main: "#8e8e93", container: "#f2f3f5", onContainer: "#45515e" },
   },
 };
 
-const TIMEZONE = "America/Argentina/Buenos_Aires";
+function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function getProfessionalColor(professionalId: string) {
+  const idx = hashString(professionalId) % PROFESSIONAL_PALETTE.length;
+  return PROFESSIONAL_PALETTE[idx];
+}
 
 /** Formatea una fecha JS en la zona horaria de Buenos Aires como "YYYY-MM-DD HH:mm". */
 function formatDateTimeFallback(date: Date): string {
@@ -98,7 +84,6 @@ function formatDateTimeFallback(date: Date): string {
     minute: "2-digit",
     hour12: false,
   });
-  // sv-SE produce "YYYY-MM-DD HH:MM" directamente
   return formatter.format(date).slice(0, 16);
 }
 
@@ -107,7 +92,6 @@ function toCalendarDateValue(date: Date): CalendarEvent["start"] {
   if (!T?.Instant?.fromEpochMilliseconds) {
     return formatDateTimeFallback(date) as unknown as CalendarEvent["start"];
   }
-
   const instant = T.Instant.fromEpochMilliseconds(date.getTime());
   return instant.toZonedDateTimeISO(TIMEZONE) as unknown as CalendarEvent["start"];
 }
@@ -116,20 +100,48 @@ function safeId(id: string): string {
   return id.replace(/[^a-zA-Z0-9_-]/g, "_");
 }
 
+function buildCalendars(items: AppointmentType[]) {
+  const hasProfessional = items.some((a) => a.professional);
+  if (!hasProfessional) {
+    return STATUS_CALENDARS;
+  }
+  const uniqueProfIds = [...new Set(items.map((a) => a.professional?.id).filter(Boolean))];
+  const calendars: Record<string, CalendarConfig> = {};
+  for (const profId of uniqueProfIds) {
+    if (!profId) continue;
+    const color = getProfessionalColor(profId);
+    calendars[`prof_${profId}`] = {
+      colorName: `prof_${profId}`,
+      lightColors: color,
+    };
+  }
+  return calendars;
+}
+
 function appointmentsToEvents(items: AppointmentType[]): CalendarEvent[] {
+  const hasProfessional = items.some((a) => a.professional);
   return items
     .filter((a) => a.status !== "CANCELLED")
-    .map((a) => ({
-      id: safeId(a.id),
-      title: a.patient
-        ? `${a.patient.lastName}, ${a.patient.firstName}`
-        : "Sin paciente",
-      start: toCalendarDateValue(new Date(a.startAt)),
-      end: toCalendarDateValue(new Date(a.endAt)),
-      calendarId: a.status.toLowerCase(),
-      _options: { disableDND: true, disableResize: true },
-      appointment: a,
-    }));
+    .map((a) => {
+      const titleParts: string[] = [];
+      if (hasProfessional && a.professional) {
+        titleParts.push(`[${a.professional.fullName.split(" ")[0]}]`);
+      }
+      titleParts.push(
+        a.patient ? `${a.patient.lastName}, ${a.patient.firstName}` : "Sin paciente"
+      );
+      return {
+        id: safeId(a.id),
+        title: titleParts.join(" "),
+        start: toCalendarDateValue(new Date(a.startAt)),
+        end: toCalendarDateValue(new Date(a.endAt)),
+        calendarId: hasProfessional && a.professional
+          ? `prof_${a.professional.id}`
+          : a.status.toLowerCase(),
+        _options: { disableDND: true, disableResize: true },
+        appointment: a,
+      };
+    });
 }
 
 type ScheduleCalendarProps = {
@@ -167,7 +179,7 @@ export function ScheduleCalendar({ items, selectedDate, hideWeekends }: Schedule
   }, [items, hideWeekends]);
 
   const events = useMemo(() => appointmentsToEvents(visibleItems), [visibleItems]);
-  const eventModal = useMemo(() => createEventModalPlugin(), []);
+  const calendars = useMemo(() => buildCalendars(items), [items]);
   const currentTime = useMemo(() => createCurrentTimePlugin(), []);
   const queryView = searchParams.get("view");
   const resolvedView = queryView === "day" || queryView === "month" || queryView === "week"
@@ -222,7 +234,7 @@ export function ScheduleCalendar({ items, selectedDate, hideWeekends }: Schedule
         eventWidth: isMobile ? 98 : 96,
         gridStep: 30,
       },
-      calendars: STATUS_CALENDARS,
+      calendars,
       events,
       skipValidation: true,
       callbacks: {
@@ -276,8 +288,7 @@ export function ScheduleCalendar({ items, selectedDate, hideWeekends }: Schedule
         },
       },
     },
-    // Solo plugins reales (isMobile era un bug: se pasaba como plugin incorrecto)
-    [eventModal, currentTime]
+    [currentTime]
   );
 
   useEffect(() => {

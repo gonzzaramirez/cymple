@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/pagination";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type DataTableProps<TData, TValue> = {
   columns: ColumnDef<TData, TValue>[];
@@ -34,6 +35,7 @@ type DataTableProps<TData, TValue> = {
   enableSorting?: boolean;
   enablePagination?: boolean;
   pageSize?: number;
+  onRowClick?: (row: TData) => void;
 };
 
 export function DataTable<TData, TValue>({
@@ -43,6 +45,7 @@ export function DataTable<TData, TValue>({
   enableSorting = false,
   enablePagination = false,
   pageSize = 20,
+  onRowClick,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([]);
 
@@ -91,7 +94,14 @@ export function DataTable<TData, TValue>({
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} className="transition-colors hover:bg-muted/30">
+                <TableRow
+                  key={row.id}
+                  className={cn(
+                    "transition-colors hover:bg-muted/30",
+                    onRowClick && "cursor-pointer"
+                  )}
+                  onClick={() => onRowClick?.(row.original)}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} className="py-4 text-sm">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}

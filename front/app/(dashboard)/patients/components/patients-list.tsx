@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { DataCard } from "@/components/data-card";
@@ -35,6 +36,7 @@ export function PatientsList({
   limit,
   query,
 }: PatientsListProps) {
+  const router = useRouter();
   const isMobile = useIsMobile();
 
   const pagination = (
@@ -149,6 +151,7 @@ export function PatientsList({
         enableSorting
         emptyMessage="Sin datos"
         enablePagination={false}
+        onRowClick={(patient) => router.push(`/patients/${patient.id}`)}
       />
       {pagination}
     </div>
