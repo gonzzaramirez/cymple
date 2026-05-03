@@ -110,6 +110,94 @@ function getWeekDays(date: Date): Date[] {
   return Array.from({ length: 7 }, (_, i) => addDays(start, i));
 }
 
+type LayoutSlot = {
+  left: string;
+  width: string;
+  totalColumns: number;
+  column: number;
+};
+
+function computeHorizontalLayout(items: Appointment[]): Map<string, LayoutSlot> {
+  if (items.length === 0) return new Map();
+
+  const sorted = [...items].sort(
+    (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
+  );
+
+  const groups: Appointment[][] = [];
+  const visited = new Set<string>();
+
+  for (const appt of sorted) {
+    if (visited.has(appt.id)) continue;
+    const group: Appointment[] = [];
+    const queue = [appt];
+    visited.add(appt.id);
+
+    while (queue.length > 0) {
+      const item = queue.shift();
+      if (!item) continue;
+      const current = item;
+      group.push(current);
+      for (const other of sorted) {
+        if (visited.has(other.id)) continue;
+        const cStart = new Date(current.startAt).getTime();
+        const cEnd = new Date(current.endAt).getTime();
+        const oStart = new Date(other.startAt).getTime();
+        const oEnd = new Date(other.endAt).getTime();
+        if (cStart < oEnd && oStart < cEnd) {
+          visited.add(other.id);
+          queue.push(other);
+        }
+      }
+    }
+
+    group.sort(
+      (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
+    );
+    groups.push(group);
+  }
+
+  const result = new Map<string, LayoutSlot>();
+
+  for (const group of groups) {
+    const lanes: { end: number }[] = [];
+    const laneMap = new Map<string, number>();
+
+    for (const appt of group) {
+      const start = new Date(appt.startAt).getTime();
+      const end = new Date(appt.endAt).getTime();
+
+      let placed = false;
+      for (let i = 0; i < lanes.length; i++) {
+        if (lanes[i].end <= start) {
+          lanes[i].end = end;
+          laneMap.set(appt.id, i);
+          placed = true;
+          break;
+        }
+      }
+
+      if (!placed) {
+        laneMap.set(appt.id, lanes.length);
+        lanes.push({ end });
+      }
+    }
+
+    const totalColumns = lanes.length;
+    for (const appt of group) {
+      const col = laneMap.get(appt.id)!;
+      result.set(appt.id, {
+        left: `${(col / totalColumns) * 100}%`,
+        width: `${(1 / totalColumns) * 100}%`,
+        totalColumns,
+        column: col,
+      });
+    }
+  }
+
+  return result;
+}
+
 function buildQueryParams(params: URLSearchParams, next: Record<string, string | undefined>) {
   const cloned = new URLSearchParams(params.toString());
   for (const [key, value] of Object.entries(next)) {
@@ -277,7 +365,7 @@ export function CenterScheduleCalendar({
     void changeStatus(status);
   }
 
-  function renderAppointmentCard(appointment: Appointment) {
+  function renderAppointmentCard(appointment: Appointment, layout?: LayoutSlot) {
     const color = getProfessionalColor(appointment.professionalId);
     const hasConflict = conflictMap.get(appointment.id) ?? false;
     const patientName = appointment.patient
@@ -290,28 +378,49 @@ export function CenterScheduleCalendar({
     const top = (startHour - DAY_START_HOUR) * HOUR_HEIGHT;
     const height = Math.max(24, (endHour - startHour) * HOUR_HEIGHT);
 
+    const multiColumn = layout && layout.totalColumns > 1;
+
     return (
       <button
         key={appointment.id}
         onClick={() => handleAppointmentClick(appointment)}
         className={cn(
-          "absolute left-1 right-1 rounded-lg border px-2 py-1.5 text-left transition-all hover:shadow-md z-10",
+          "absolute rounded-lg border px-2 py-1.5 text-left transition-all hover:shadow-md z-10",
           hasConflict && "ring-2 ring-red-400",
         )}
-        style={{ top: `${top}px`, height: `${height}px`, backgroundColor: color.bg, borderColor: color.border, color: color.text }}
+        style={{
+          top: `${top}px`,
+          height: `${height}px`,
+          left: multiColumn ? `calc(${layout!.left} + 2px)` : "0.25rem",
+          width: multiColumn ? `calc(${layout!.width} - 4px)` : "calc(100% - 0.5rem)",
+          backgroundColor: color.bg,
+          borderColor: color.border,
+          color: color.text,
+        }}
       >
         <div className="flex items-center justify-between gap-1">
-          <span className="font-semibold text-[13px] truncate">{patientName}</span>
+          <span className={cn(
+            "font-semibold truncate",
+            multiColumn ? "text-[11px]" : "text-[13px]",
+          )}>
+            {patientName}
+          </span>
           {hasConflict && (
             <span className="shrink-0 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700">!</span>
           )}
         </div>
-        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] opacity-80">
+        <div className={cn(
+          "mt-0.5 flex items-center gap-1.5 opacity-80",
+          multiColumn ? "text-[10px]" : "text-[11px]",
+        )}>
           <Clock className="size-3" />
           <span>{formatHm(start)} - {formatHm(end)}</span>
         </div>
         {height > 40 && appointment.fee && (
-          <div className="mt-0.5 flex items-center gap-1 text-[11px] opacity-70">
+          <div className={cn(
+            "mt-0.5 flex items-center gap-1 opacity-70",
+            multiColumn ? "text-[10px]" : "text-[11px]",
+          )}>
             <DollarSign className="size-3" />
             <span>{appointment.fee}</span>
           </div>
@@ -338,6 +447,7 @@ export function CenterScheduleCalendar({
           {activeProfessionals.map((prof) => {
             const color = getProfessionalColor(prof.id);
             const profItems = dayItems.filter((a) => a.professionalId === prof.id);
+            const layout = computeHorizontalLayout(profItems);
             return (
               <div key={prof.id} className="flex-1 border-r border-border last:border-r-0 min-w-[200px]">
                 <div className="h-12 border-b border-border px-3 flex items-center gap-2">
@@ -351,7 +461,7 @@ export function CenterScheduleCalendar({
                   {hours.map((hour) => (
                     <div key={hour} className="border-t border-border/50" style={{ height: `${HOUR_HEIGHT}px` }} />
                   ))}
-                  {profItems.map(renderAppointmentCard)}
+                  {profItems.map((a) => renderAppointmentCard(a, layout.get(a.id)))}
                 </div>
               </div>
             );
@@ -387,36 +497,59 @@ export function CenterScheduleCalendar({
               {hours.map((hour) => (
                 <div key={hour} className="border-t border-border/50" style={{ height: `${HOUR_HEIGHT}px` }} />
               ))}
-              {dayItems.map((a) => {
-                const color = getProfessionalColor(a.professionalId);
-                const hasConflict = conflictMap.get(a.id) ?? false;
-                const patientName = a.patient ? `${a.patient.lastName}, ${a.patient.firstName}` : "Sin paciente";
-                const start = new Date(a.startAt);
-                const end = new Date(a.endAt);
-                const startHour = getHour(start);
-                const endHour = getHour(end);
-                const top = (startHour - DAY_START_HOUR) * HOUR_HEIGHT;
-                const height = Math.max(24, (endHour - startHour) * HOUR_HEIGHT);
-                const profName = a.professional?.fullName?.split(" ")[0] ?? "";
+              {(() => {
+                const layout = computeHorizontalLayout(dayItems);
+                return dayItems.map((a) => {
+                  const color = getProfessionalColor(a.professionalId);
+                  const hasConflict = conflictMap.get(a.id) ?? false;
+                  const patientName = a.patient ? `${a.patient.lastName}, ${a.patient.firstName}` : "Sin paciente";
+                  const start = new Date(a.startAt);
+                  const end = new Date(a.endAt);
+                  const startHour = getHour(start);
+                  const endHour = getHour(end);
+                  const top = (startHour - DAY_START_HOUR) * HOUR_HEIGHT;
+                  const height = Math.max(24, (endHour - startHour) * HOUR_HEIGHT);
+                  const profName = a.professional?.fullName?.split(" ")[0] ?? "";
+                  const slot = layout.get(a.id);
+                  const multiColumn = slot && slot.totalColumns > 1;
 
-                return (
-                  <button
-                    key={a.id}
-                    onClick={() => handleAppointmentClick(a)}
-                    className={cn(
-                      "absolute left-1 right-1 rounded-lg border px-2 py-1.5 text-left transition-all hover:shadow-md z-10",
-                      hasConflict && "ring-2 ring-red-400",
-                    )}
-                    style={{ top: `${top}px`, height: `${height}px`, backgroundColor: color.bg, borderColor: color.border, color: color.text }}
-                  >
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="font-semibold text-[13px] truncate">{patientName}</span>
-                      {profName && <span className="shrink-0 text-[10px] font-medium opacity-70">[{profName}]</span>}
-                    </div>
-                    <div className="mt-0.5 text-[11px] opacity-80">{formatHm(start)} - {formatHm(end)}</div>
-                  </button>
-                );
-              })}
+                  return (
+                    <button
+                      key={a.id}
+                      onClick={() => handleAppointmentClick(a)}
+                      className={cn(
+                        "absolute rounded-lg border px-2 py-1.5 text-left transition-all hover:shadow-md z-10",
+                        hasConflict && "ring-2 ring-red-400",
+                      )}
+                      style={{
+                        top: `${top}px`,
+                        height: `${height}px`,
+                        left: multiColumn ? `calc(${slot!.left} + 2px)` : "0.25rem",
+                        width: multiColumn ? `calc(${slot!.width} - 4px)` : "calc(100% - 0.5rem)",
+                        backgroundColor: color.bg,
+                        borderColor: color.border,
+                        color: color.text,
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-1">
+                        <span className={cn(
+                          "font-semibold truncate",
+                          multiColumn ? "text-[11px]" : "text-[13px]",
+                        )}>
+                          {patientName}
+                        </span>
+                        {profName && <span className="shrink-0 text-[10px] font-medium opacity-70">[{profName}]</span>}
+                      </div>
+                      <div className={cn(
+                        "mt-0.5 opacity-80",
+                        multiColumn ? "text-[10px]" : "text-[11px]",
+                      )}>
+                        {formatHm(start)} - {formatHm(end)}
+                      </div>
+                    </button>
+                  );
+                });
+              })()}
             </div>
           </div>
         </div>

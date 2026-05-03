@@ -85,6 +85,96 @@ function getWeekDays(date: Date): Date[] {
   return Array.from({ length: 5 }, (_, i) => addDays(start, i)); // Mon-Fri only
 }
 
+type LayoutSlot = {
+  left: string;
+  width: string;
+  totalColumns: number;
+  column: number;
+};
+
+function computeHorizontalLayout(items: Appointment[]): Map<string, LayoutSlot> {
+  if (items.length === 0) return new Map();
+
+  const sorted = [...items].sort(
+    (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
+  );
+
+  // Group overlapping appointments via DFS (transitive overlap)
+  const groups: Appointment[][] = [];
+  const visited = new Set<string>();
+
+  for (const appt of sorted) {
+    if (visited.has(appt.id)) continue;
+    const group: Appointment[] = [];
+    const queue = [appt];
+    visited.add(appt.id);
+
+    while (queue.length > 0) {
+      const item = queue.shift();
+      if (!item) continue;
+      const current = item;
+      group.push(current);
+      for (const other of sorted) {
+        if (visited.has(other.id)) continue;
+        const cStart = new Date(current.startAt).getTime();
+        const cEnd = new Date(current.endAt).getTime();
+        const oStart = new Date(other.startAt).getTime();
+        const oEnd = new Date(other.endAt).getTime();
+        if (cStart < oEnd && oStart < cEnd) {
+          visited.add(other.id);
+          queue.push(other);
+        }
+      }
+    }
+
+    group.sort(
+      (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
+    );
+    groups.push(group);
+  }
+
+  // Assign lanes per group (first-fit)
+  const result = new Map<string, LayoutSlot>();
+
+  for (const group of groups) {
+    const lanes: { end: number }[] = [];
+    const laneMap = new Map<string, number>();
+
+    for (const appt of group) {
+      const start = new Date(appt.startAt).getTime();
+      const end = new Date(appt.endAt).getTime();
+
+      let placed = false;
+      for (let i = 0; i < lanes.length; i++) {
+        if (lanes[i].end <= start) {
+          lanes[i].end = end;
+          laneMap.set(appt.id, i);
+          placed = true;
+          break;
+        }
+      }
+
+      if (!placed) {
+        laneMap.set(appt.id, lanes.length);
+        lanes.push({ end });
+      }
+    }
+
+    const totalColumns = lanes.length;
+    for (const appt of group) {
+      const col = laneMap.get(appt.id)!;
+      result.set(appt.id, {
+        left: `${(col / totalColumns) * 100}%`,
+        width: `${(1 / totalColumns) * 100}%`,
+        totalColumns,
+        column: col,
+      });
+    }
+  }
+
+  return result;
+}
+
 type ScheduleCalendarProps = {
   items: Appointment[];
   selectedDate: string;
@@ -235,7 +325,11 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
     return conflicts;
   }, [dayItems]);
 
-  function renderAppointmentCard(appointment: Appointment, isWeekView = false) {
+  function renderAppointmentCard(
+    appointment: Appointment,
+    isWeekView = false,
+    layout?: LayoutSlot,
+  ) {
     const color = hasProfessional && appointment.professional
       ? getProfessionalColor(appointment.professional.id)
       : { bg: "#f1f5f9", text: "#475569", border: "#cbd5e1", dot: "#94a3b8" };
@@ -268,36 +362,51 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
     const top = (startHour - DAY_START_HOUR) * HOUR_HEIGHT;
     const height = Math.max(24, (endHour - startHour) * HOUR_HEIGHT);
 
+    const multiColumn = layout && layout.totalColumns > 1;
+
     return (
       <button
         key={appointment.id}
         onClick={() => handleAppointmentClick(appointment)}
         className={cn(
-          "absolute left-1 right-1 rounded-lg border px-2 py-1.5 text-left transition-all hover:shadow-md z-10",
+          "absolute rounded-lg border px-2 py-1.5 text-left transition-all hover:shadow-md z-10",
           hasConflict && "ring-2 ring-red-400",
         )}
         style={{
           top: `${top}px`,
           height: `${height}px`,
+          left: multiColumn ? `calc(${layout!.left} + 2px)` : "0.25rem",
+          width: multiColumn ? `calc(${layout!.width} - 4px)` : "calc(100% - 0.5rem)",
           backgroundColor: color.bg,
           borderColor: color.border,
           color: color.text,
         }}
       >
         <div className="flex items-center justify-between gap-1">
-          <span className="font-semibold text-[13px] truncate">{patientName}</span>
+          <span className={cn(
+            "font-semibold truncate",
+            multiColumn ? "text-[11px]" : "text-[13px]",
+          )}>
+            {patientName}
+          </span>
           {hasConflict && (
             <span className="shrink-0 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700">
               !
             </span>
           )}
         </div>
-        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] opacity-80">
+        <div className={cn(
+          "mt-0.5 flex items-center gap-1.5 opacity-80",
+          multiColumn ? "text-[10px]" : "text-[11px]",
+        )}>
           <Clock className="size-3" />
           <span>{formatHm(start)} - {formatHm(end)}</span>
         </div>
         {height > 40 && appointment.fee && (
-          <div className="mt-0.5 flex items-center gap-1 text-[11px] opacity-70">
+          <div className={cn(
+            "mt-0.5 flex items-center gap-1 opacity-70",
+            multiColumn ? "text-[10px]" : "text-[11px]",
+          )}>
             <DollarSign className="size-3" />
             <span>{appointment.fee}</span>
           </div>
@@ -311,6 +420,8 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
       ? appointments.filter((a) => a.professionalId === profId && isSameDay(new Date(a.startAt), date))
       : appointments.filter((a) => isSameDay(new Date(a.startAt), date));
 
+    const layout = computeHorizontalLayout(dayAppointments);
+
     return (
       <div className="relative" style={{ minHeight: `${(DAY_END_HOUR - DAY_START_HOUR) * HOUR_HEIGHT}px` }}>
         {hours.map((hour) => (
@@ -320,7 +431,7 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
             style={{ height: `${HOUR_HEIGHT}px` }}
           />
         ))}
-        {dayAppointments.map((a) => renderAppointmentCard(a))}
+        {dayAppointments.map((a) => renderAppointmentCard(a, false, layout.get(a.id)))}
       </div>
     );
   }
