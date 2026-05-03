@@ -360,16 +360,22 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
     const startHour = getHour(start);
     const endHour = getHour(end);
     const top = (startHour - DAY_START_HOUR) * HOUR_HEIGHT;
-    const height = Math.max(24, (endHour - startHour) * HOUR_HEIGHT);
+    const rawHeight = (endHour - startHour) * HOUR_HEIGHT;
+    const height = Math.max(20, rawHeight);
 
     const multiColumn = layout && layout.totalColumns > 1;
+    const tiny = height < 28;
+    const compact = height >= 28 && height < 44;
+    const sizeText = tiny ? "text-[10px]" : compact && !multiColumn ? "text-xs" : multiColumn ? "text-[10px]" : "text-[13px]";
+    const sizeMuted = tiny ? "text-[9px]" : "text-[10px]";
 
     return (
       <button
         key={appointment.id}
         onClick={() => handleAppointmentClick(appointment)}
         className={cn(
-          "absolute rounded-lg border px-2 py-1.5 text-left transition-all hover:shadow-md z-10",
+          "absolute rounded-lg border text-left transition-all hover:shadow-md z-10 overflow-hidden",
+          tiny ? "px-1 py-0.5" : compact ? "px-1.5 py-1" : "px-2 py-1.5",
           hasConflict && "ring-2 ring-red-400",
         )}
         style={{
@@ -383,31 +389,24 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
         }}
       >
         <div className="flex items-center justify-between gap-1">
-          <span className={cn(
-            "font-semibold truncate",
-            multiColumn ? "text-[11px]" : "text-[13px]",
-          )}>
+          <span className={cn("font-semibold truncate leading-tight", sizeText)}>
             {patientName}
           </span>
           {hasConflict && (
-            <span className="shrink-0 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700">
+            <span className="shrink-0 rounded-full bg-red-100 px-1 py-px text-[9px] font-bold text-red-700 leading-none">
               !
             </span>
           )}
         </div>
-        <div className={cn(
-          "mt-0.5 flex items-center gap-1.5 opacity-80",
-          multiColumn ? "text-[10px]" : "text-[11px]",
-        )}>
-          <Clock className="size-3" />
-          <span>{formatHm(start)} - {formatHm(end)}</span>
-        </div>
-        {height > 40 && appointment.fee && (
-          <div className={cn(
-            "mt-0.5 flex items-center gap-1 opacity-70",
-            multiColumn ? "text-[10px]" : "text-[11px]",
-          )}>
-            <DollarSign className="size-3" />
+        {!tiny && (
+          <div className={cn("mt-px flex items-center gap-1 opacity-80", sizeMuted)}>
+            <Clock className="size-2.5 shrink-0" />
+            <span className="truncate">{formatHm(start)} - {formatHm(end)}</span>
+          </div>
+        )}
+        {height > 44 && appointment.fee && (
+          <div className={cn("mt-px flex items-center gap-1 opacity-70", sizeMuted)}>
+            <DollarSign className="size-2.5 shrink-0" />
             <span>{appointment.fee}</span>
           </div>
         )}
