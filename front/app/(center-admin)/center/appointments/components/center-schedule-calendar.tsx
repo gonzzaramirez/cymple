@@ -58,6 +58,18 @@ const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secon
   CANCELLED: { label: "Cancelado", variant: "secondary" },
 };
 
+const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
+  PENDING: { bg: "#fef3c7", text: "#92400e" },
+  CONFIRMED: { bg: "#dbeafe", text: "#1e40af" },
+  ATTENDED: { bg: "#dcfce7", text: "#166534" },
+  ABSENT: { bg: "#ffedd5", text: "#9a3412" },
+  CANCELLED: { bg: "#fee2e2", text: "#991b1b" },
+};
+
+function getStatusColor(status: string): { bg: string; text: string } {
+  return STATUS_COLORS[status] ?? { bg: "#f1f5f9", text: "#475569" };
+}
+
 const STATUS_ACTIONS: Record<string, { status: string; label: string; icon: typeof CheckCircle2 }[]> = {
   PENDING: [
     { status: "CONFIRMED", label: "Confirmar", icon: CheckCircle2 },
@@ -90,8 +102,9 @@ function hashString(str: string): number {
   return Math.abs(hash);
 }
 
-function getProfessionalColor(professionalId: string) {
-  return PROFESSIONAL_COLORS[hashString(professionalId) % PROFESSIONAL_COLORS.length];
+function getProfessionalColor(professionalId: string, indexMap: Map<string, number>): (typeof PROFESSIONAL_COLORS)[number] {
+  const idx = indexMap.get(professionalId) ?? hashString(professionalId);
+  return PROFESSIONAL_COLORS[idx % PROFESSIONAL_COLORS.length];
 }
 
 function getHour(date: Date): number {
@@ -256,7 +269,13 @@ export function CenterScheduleCalendar({
     if (!Number.isNaN(d.getTime())) setFocusedDate(d);
   }, [selectedDate]);
 
-  const visibleItems = useMemo(() => items.filter((a) => a.status !== "CANCELLED"), [items]);
+  const visibleItems = useMemo(() => items, [items]);
+
+  const professionalColorIndex = useMemo(() => {
+    const map = new Map<string, number>();
+    professionals.forEach((p, i) => map.set(p.id, i));
+    return map;
+  }, [professionals]);
 
   const filteredItems = useMemo(() => {
     if (selectedProfessionals.length === 0) return visibleItems;
@@ -373,8 +392,10 @@ export function CenterScheduleCalendar({
   }
 
   function renderAppointmentCard(appointment: Appointment, layout?: LayoutSlot) {
-    const color = getProfessionalColor(appointment.professionalId);
+    const statusColor = getStatusColor(appointment.status);
+    const profColor = getProfessionalColor(appointment.professionalId, professionalColorIndex);
     const hasConflict = conflictMap.get(appointment.id) ?? false;
+    const isCancelled = appointment.status === "CANCELLED";
     const patientName = appointment.patient
       ? `${appointment.patient.lastName}, ${appointment.patient.firstName}`
       : "Sin paciente";
@@ -394,10 +415,12 @@ export function CenterScheduleCalendar({
 
     const nameCls = cn(
       "font-semibold truncate block leading-tight",
+      isCancelled && "line-through",
       cols >= 4 ? "text-[9px]" : cols >= 3 ? "text-[10px]" : cols >= 2 ? "text-[11px]" : tier <= 0 ? "text-[11px]" : "text-[13px]",
     );
     const detailCls = cn(
       "opacity-80",
+      isCancelled && "line-through",
       cols >= 3 ? "text-[8px]" : "text-[9px]",
     );
     const iconCls = cn("shrink-0", cols >= 3 ? "size-2" : "size-2.5");
@@ -416,8 +439,9 @@ export function CenterScheduleCalendar({
         key={appointment.id}
         onClick={() => handleAppointmentClick(appointment)}
         className={cn(
-          "absolute rounded-lg border text-left transition-colors hover:shadow-md z-10 overflow-hidden",
+          "absolute rounded-lg border-l-[3px] text-left transition-colors hover:shadow-md z-10 overflow-hidden",
           padCls,
+          isCancelled && "opacity-60",
           hasConflict && "ring-2 ring-red-400",
         )}
         style={{
@@ -425,9 +449,9 @@ export function CenterScheduleCalendar({
           height: `${height}px`,
           left: multiColumn ? `calc(${layout!.left} + 1px)` : "0.25rem",
           width: multiColumn ? `calc(${layout!.width} - 2px)` : "calc(100% - 0.5rem)",
-          backgroundColor: color.bg,
-          borderColor: color.border,
-          color: color.text,
+          backgroundColor: statusColor.bg,
+          borderColor: profColor.dot,
+          color: statusColor.text,
         }}
       >
         <span className={nameCls}>{patientName}</span>
@@ -444,7 +468,7 @@ export function CenterScheduleCalendar({
 
         {showProfessional && (
           <div className={cn("mt-px flex items-center gap-1", detailCls)}>
-            <span className={cn(iconCls, "rounded-full")} style={{ backgroundColor: color.dot }} />
+            <span className={cn(iconCls, "rounded-full")} style={{ backgroundColor: profColor.dot }} />
             <span className="truncate">{appointment.professional!.fullName.split(" ")[0]}</span>
           </div>
         )}
@@ -481,7 +505,7 @@ export function CenterScheduleCalendar({
 
           {/* Professional columns */}
           {activeProfessionals.map((prof) => {
-            const color = getProfessionalColor(prof.id);
+            const color = getProfessionalColor(prof.id, professionalColorIndex);
             const profItems = dayItems.filter((a) => a.professionalId === prof.id);
             const layout = computeHorizontalLayout(profItems);
             return (
@@ -537,7 +561,6 @@ export function CenterScheduleCalendar({
             const dayAppointments = filteredItems.filter(
               (a) => isSameDay(new Date(a.startAt), day),
             );
-            const layout = computeHorizontalLayout(dayAppointments);
 
             return (
               <div key={day.toISOString()} className="flex-1 flex flex-col border-r border-border last:border-r-0">
@@ -557,10 +580,11 @@ export function CenterScheduleCalendar({
                 {/* Professional sub-columns row */}
                 <div className="flex-1 flex">
                   {activeProfessionals.map((prof) => {
-                    const color = getProfessionalColor(prof.id);
+                    const color = getProfessionalColor(prof.id, professionalColorIndex);
                     const profItems = dayAppointments.filter(
                       (a) => a.professionalId === prof.id,
                     );
+                    const profLayout = computeHorizontalLayout(profItems);
 
                     return (
                       <div
@@ -598,7 +622,7 @@ export function CenterScheduleCalendar({
                             />
                           ))}
                           {profItems.map((a) =>
-                            renderAppointmentCard(a, layout.get(a.id)),
+                            renderAppointmentCard(a, profLayout.get(a.id)),
                           )}
                         </div>
                       </div>
@@ -615,7 +639,7 @@ export function CenterScheduleCalendar({
 
   const selectedCfg = selectedAppointment ? STATUS_CONFIG[selectedAppointment.status] : null;
   const allowedActions = selectedAppointment ? STATUS_ACTIONS[selectedAppointment.status] ?? [] : [];
-  const selectedColor = selectedAppointment ? getProfessionalColor(selectedAppointment.professionalId) : null;
+  const selectedColor = selectedAppointment ? getProfessionalColor(selectedAppointment.professionalId, professionalColorIndex) : null;
   const selectedListProfessionalId = searchParams.get("professionalId") ?? "all";
   const selectedListStatus = searchParams.get("status") ?? "all";
 
@@ -640,7 +664,7 @@ export function CenterScheduleCalendar({
         <span className="mr-1 text-xs font-medium text-muted-foreground">Profesionales:</span>
         {professionals.map((prof) => {
           const isActive = selectedProfessionals.length === 0 || selectedProfessionals.includes(prof.id);
-          const color = getProfessionalColor(prof.id);
+          const color = getProfessionalColor(prof.id, professionalColorIndex);
           return (
             <button
               key={prof.id}

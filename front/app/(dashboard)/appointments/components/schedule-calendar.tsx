@@ -52,6 +52,18 @@ const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secon
   CANCELLED: { label: "Cancelado", variant: "secondary" },
 };
 
+const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
+  PENDING: { bg: "#fef3c7", text: "#92400e" },
+  CONFIRMED: { bg: "#dbeafe", text: "#1e40af" },
+  ATTENDED: { bg: "#dcfce7", text: "#166534" },
+  ABSENT: { bg: "#ffedd5", text: "#9a3412" },
+  CANCELLED: { bg: "#fee2e2", text: "#991b1b" },
+};
+
+function getStatusColor(status: string): { bg: string; text: string } {
+  return STATUS_COLORS[status] ?? { bg: "#f1f5f9", text: "#475569" };
+}
+
 const STATUS_ACTIONS: Record<string, { status: string; label: string; icon: typeof CheckCircle2 }[]> = {
   PENDING: [
     { status: "CONFIRMED", label: "Confirmar", icon: CheckCircle2 },
@@ -207,7 +219,6 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
 
   const visibleItems = useMemo(() => {
     return items.filter((a) => {
-      if (a.status === "CANCELLED") return false;
       if (selectedProfessional !== "all" && a.professionalId !== selectedProfessional) return false;
       return true;
     });
@@ -336,10 +347,12 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
     isWeekView = false,
     layout?: LayoutSlot,
   ) {
-    const color = hasProfessional && appointment.professional
+    const statusColor = getStatusColor(appointment.status);
+    const profColor = hasProfessional && appointment.professional
       ? getProfessionalColor(appointment.professional.id)
-      : { bg: "#f1f5f9", text: "#475569", border: "#cbd5e1", dot: "#94a3b8" };
+      : null;
     const hasConflict = conflictMap.get(appointment.id) ?? false;
+    const isCancelled = appointment.status === "CANCELLED";
     const patientName = appointment.patient
       ? `${appointment.patient.lastName}, ${appointment.patient.firstName}`
       : "Sin paciente";
@@ -352,10 +365,15 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
           key={appointment.id}
           onClick={() => handleAppointmentClick(appointment)}
           className={cn(
-            "w-full rounded-md border px-1.5 py-1 text-left text-[11px] leading-tight transition-all hover:shadow-sm",
+            "w-full rounded-md border-l-[3px] px-1.5 py-1 text-left text-[11px] leading-tight transition-all hover:shadow-sm",
+            isCancelled && "line-through opacity-60",
             hasConflict && "ring-1 ring-red-400",
           )}
-          style={{ backgroundColor: color.bg, borderColor: color.border, color: color.text }}
+          style={{
+            backgroundColor: statusColor.bg,
+            borderColor: profColor?.dot ?? "#cbd5e1",
+            color: statusColor.text,
+          }}
         >
           <span className="font-semibold truncate block">{patientName}</span>
           <span className="opacity-75">{formatHm(start)}</span>
@@ -373,32 +391,25 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
     const cols = layout?.totalColumns ?? 1;
     const multiColumn = cols > 1;
 
-    // ── Height tiers (content area after padding) ──
-    // Tier 0 (<28px): 1 row — name only
-    // Tier 1 (28–44px): 2 rows — name + time
-    // Tier 2 (44–72px): 3 rows — name + time/duration + optional
-    // Tier 3 (72–100px): 4 rows — name + time/dur + prof + fee
-    // Tier 4 (>100px): 5 rows — all + extra detail
     const tier = height < 28 ? 0 : height < 44 ? 1 : height < 72 ? 2 : height < 100 ? 3 : 4;
 
-    // ── Font sizing ──
     const nameCls = cn(
       "font-semibold truncate block leading-tight",
+      isCancelled && "line-through",
       cols >= 4 ? "text-[9px]" : cols >= 3 ? "text-[10px]" : cols >= 2 ? "text-[11px]" : tier <= 0 ? "text-[11px]" : "text-[13px]",
     );
     const detailCls = cn(
       "opacity-80",
+      isCancelled && "line-through",
       cols >= 3 ? "text-[8px]" : "text-[9px]",
     );
     const iconCls = cn("shrink-0", cols >= 3 ? "size-2" : "size-2.5");
 
-    // ── Content visibility per tier ──
     const showTime = tier >= 1 || !multiColumn;
     const showDuration = tier >= 2 && durationMin > 0;
     const showProfessional = tier >= 3 && appointment.professional && hasProfessional && multiColumn;
     const showFee = tier >= 3 && appointment.fee && !multiColumn;
 
-    // ── Padding ──
     const padCls = cn(
       tier <= 0 ? "px-1 py-px" : tier <= 1 ? "px-1.5 py-0.5" : tier <= 2 ? "px-1.5 py-1" : "px-2 py-1.5",
     );
@@ -408,8 +419,9 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
         key={appointment.id}
         onClick={() => handleAppointmentClick(appointment)}
         className={cn(
-          "absolute rounded-lg border text-left transition-colors hover:shadow-md z-10 overflow-hidden",
+          "absolute rounded-lg border-l-[3px] text-left transition-colors hover:shadow-md z-10 overflow-hidden",
           padCls,
+          isCancelled && "opacity-60",
           hasConflict && "ring-2 ring-red-400",
         )}
         style={{
@@ -417,15 +429,13 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
           height: `${height}px`,
           left: multiColumn ? `calc(${layout!.left} + 1px)` : "0.25rem",
           width: multiColumn ? `calc(${layout!.width} - 2px)` : "calc(100% - 0.5rem)",
-          backgroundColor: color.bg,
-          borderColor: color.border,
-          color: color.text,
+          backgroundColor: statusColor.bg,
+          borderColor: profColor?.dot ?? "#cbd5e1",
+          color: statusColor.text,
         }}
       >
-        {/* Row 1 — Patient name */}
         <span className={nameCls}>{patientName}</span>
 
-        {/* Row 2 — Time range + duration */}
         {showTime && (
           <div className={cn("mt-px flex items-center gap-1", detailCls)}>
             <Clock className={iconCls} />
@@ -436,15 +446,13 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
           </div>
         )}
 
-        {/* Row 3 — Professional (multi-column only, when space) */}
         {showProfessional && (
           <div className={cn("mt-px flex items-center gap-1", detailCls)}>
-            <span className={cn(iconCls, "rounded-full")} style={{ backgroundColor: color.dot }} />
+            <span className={cn(iconCls, "rounded-full")} style={{ backgroundColor: profColor?.dot }} />
             <span className="truncate">{appointment.professional!.fullName.split(" ")[0]}</span>
           </div>
         )}
 
-        {/* Row 4 — Fee */}
         {showFee && (
           <div className={cn("mt-px flex items-center gap-1 opacity-70", detailCls)}>
             <DollarSign className={iconCls} />
@@ -452,7 +460,6 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
           </div>
         )}
 
-        {/* Conflict indicator — absolute top-right */}
         {hasConflict && (
           <span className="absolute top-0.5 right-0.5 rounded-full bg-red-100 px-1 py-px text-[8px] font-bold text-red-700 leading-none">
             !
