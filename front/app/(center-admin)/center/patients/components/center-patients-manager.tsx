@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -772,12 +773,17 @@ export function CenterPatientsManager({
           {data.items.map((patient) => (
             <div
               key={patient.id}
-              className="flex items-center justify-between gap-3 py-3"
+              className="flex items-center justify-between gap-3 py-3 cursor-pointer hover:bg-muted/30 -mx-2 px-2 rounded-lg transition-colors"
+              onClick={() => router.push(`/patients/${patient.id}`)}
             >
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium">
+                <Link
+                  href={`/patients/${patient.id}`}
+                  className="truncate text-sm font-medium transition-colors hover:text-primary"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {patientName(patient)}
-                </p>
+                </Link>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {patient.dni ? `DNI ${patient.dni} · ` : ""}
                   {patient.phone ?? patient.email ?? "Sin contacto"}
@@ -796,7 +802,10 @@ export function CenterPatientsManager({
               <Button
                 variant="ghost"
                 className="text-destructive hover:text-destructive"
-                onClick={() => void removePatient(patient.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void removePatient(patient.id);
+                }}
               >
                 <Trash2 className="size-4" /> Eliminar
               </Button>
