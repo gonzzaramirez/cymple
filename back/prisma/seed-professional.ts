@@ -22,7 +22,7 @@ async function main() {
     where: { email: 'test@gmail.com' },
     update: {},
     create: {
-      slug: 'demo',
+      slug: 'demo2',
       fullName: 'Demo Professional',
       email: 'test@gmail.com',
       passwordHash,
@@ -40,7 +40,7 @@ async function main() {
   console.log('  Cuenta creada:');
   console.log(`  → Email:    test@gmail.com`);
   console.log(`  → Password: test123`);
-  console.log(`  → Slug:     demo`);
+  console.log(`  → Slug:     demo2`);
   console.log(`  → ID:       ${professional.id}`);
   console.log('\n  Ingresar en: /login  (redirige a /home)\n');
 }
