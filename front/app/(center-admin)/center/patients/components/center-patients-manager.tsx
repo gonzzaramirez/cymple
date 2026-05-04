@@ -1,7 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Link from "next/link";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,10 +14,12 @@ import {
   Clock3,
   MapPin,
   Plus,
-  Trash2,
   Video,
 } from "lucide-react";
 import { ApiList, AppointmentModality, Patient, PaymentMethod } from "@/lib/types";
+import { DataTable } from "@/components/data-table";
+import { getPatientColumns } from "@/app/(dashboard)/patients/components/patient-columns";
+import { PatientsPagination } from "@/app/(dashboard)/patients/components/patients-pagination";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -109,7 +110,7 @@ async function apiFetch<T>(
     }
     const data = (await res.json()) as T;
     return { ok: true, data };
-  } catch (e) {
+  } catch {
     return { ok: false, error: "Error de red" };
   }
 }
@@ -155,7 +156,6 @@ export function CenterPatientsManager({
   const {
     register,
     handleSubmit,
-    setValue,
     reset,
     formState: { errors },
   } = useForm<PatientFormValues>({
@@ -314,21 +314,6 @@ export function CenterPatientsManager({
     sileo.success({ title: "Paciente y turno creados" });
     resetFlow(false);
     router.push("/center/appointments");
-    router.refresh();
-  }
-
-  /* ---------- remove patient ---------- */
-  async function removePatient(patientId: string) {
-    const ok = confirm("¿Eliminar paciente? Se bloqueará si tiene turnos futuros.");
-    if (!ok) return;
-    const result = await apiFetch<unknown>(`/api/backend/patients/${patientId}`, {
-      method: "DELETE",
-    });
-    if (!result.ok) {
-      sileo.error({ title: result.error || "No se pudo eliminar" });
-      return;
-    }
-    sileo.success({ title: "Paciente eliminado" });
     router.refresh();
   }
 
@@ -765,57 +750,21 @@ export function CenterPatientsManager({
       </div>
 
       {/* Patient list */}
-      <div className="rounded-2xl border border-[var(--border-light)] bg-card p-4 shadow-card">
-        <p className="mb-3 text-sm text-muted-foreground">
-          {data.total} pacientes
-        </p>
-        <div className="divide-y divide-[var(--border-light)]">
-          {data.items.map((patient) => (
-            <div
-              key={patient.id}
-              className="flex items-center justify-between gap-3 py-3 cursor-pointer hover:bg-muted/30 -mx-2 px-2 rounded-lg transition-colors"
-              onClick={() => router.push(`/center/patients/${patient.id}`)}
-            >
-              <div className="min-w-0">
-                <Link
-                  href={`/center/patients/${patient.id}`}
-                  className="truncate text-sm font-medium transition-colors hover:text-primary"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {patientName(patient)}
-                </Link>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {patient.dni ? `DNI ${patient.dni} · ` : ""}
-                  {patient.phone ?? patient.email ?? "Sin contacto"}
-                </p>
-                {patient.professional?.fullName && (
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Profesional: {patient.professional.fullName}
-                  </p>
-                )}
-                {patient.notes && (
-                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                    {patient.notes}
-                  </p>
-                )}
-              </div>
-              <Button
-                variant="ghost"
-                className="text-destructive hover:text-destructive"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void removePatient(patient.id);
-                }}
-              >
-                <Trash2 className="size-4" /> Eliminar
-              </Button>
-            </div>
-          ))}
-          {data.items.length === 0 && (
-            <p className="py-6 text-sm text-muted-foreground">Sin pacientes</p>
-          )}
-        </div>
-      </div>
+      <DataTable
+        columns={getPatientColumns("/center/patients")}
+        data={data.items}
+        enableSorting
+        emptyMessage="Sin pacientes"
+        enablePagination={false}
+        onRowClick={(patient) => router.push(`/center/patients/${patient.id}`)}
+      />
+      <PatientsPagination
+        page={data.page}
+        totalPages={data.totalPages}
+        total={data.total}
+        query={initialQuery}
+        limit={limit}
+      />
     </div>
   );
 }

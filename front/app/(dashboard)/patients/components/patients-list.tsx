@@ -9,7 +9,7 @@ import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Patient } from "@/lib/types";
-import { patientColumns } from "./patient-columns";
+import { getPatientColumns } from "./patient-columns";
 import { EditPatientDialog } from "./edit-patient-dialog";
 import { DeletePatientButton } from "./delete-patient-button";
 import { PatientsPagination } from "./patients-pagination";
@@ -146,7 +146,7 @@ export function PatientsList({
   return (
     <div className="space-y-4">
       <DataTable
-        columns={patientColumns}
+        columns={getPatientColumns()}
         data={patients}
         enableSorting
         emptyMessage="Sin datos"

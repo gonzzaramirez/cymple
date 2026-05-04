@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -86,18 +87,30 @@ export function CenterSidebar({ centerName }: CenterSidebarProps) {
         className="border-r border-[var(--border-light)] bg-[var(--col-bg13)]"
       >
         <SidebarHeader className="px-5 pt-7 pb-5">
-          <Link
-            href="/center/home"
-            onClick={() => setOpenMobile(false)}
-            className="group flex items-center gap-2.5 outline-none"
-          >
-            <div className="flex size-8 items-center justify-center rounded-lg bg-[#0071e3] shadow-[var(--shadow-subtle)] transition-transform duration-200 group-hover:scale-105">
-              <Stethoscope className="size-4 text-white" strokeWidth={2} />
-            </div>
-            <span className="font-display text-[19px] font-semibold tracking-tight text-[#0a0a0a] dark:text-foreground">
-              Cymple
-            </span>
-          </Link>
+          <div className="relative flex items-center justify-center">
+            <Link
+              href="/center/home"
+              onClick={() => setOpenMobile(false)}
+              className="absolute left-0 flex size-8 items-center justify-center rounded-lg bg-[#0071e3] shadow-[var(--shadow-subtle)] transition-transform duration-200 hover:scale-105"
+            >
+              <Image
+                src="/favicon-96x96.png"
+                alt="Cymple"
+                width={20}
+                height={20}
+                className="size-5"
+              />
+            </Link>
+            <Link
+              href="/center/home"
+              onClick={() => setOpenMobile(false)}
+              className="outline-none"
+            >
+              <span className="font-display text-[19px] font-semibold tracking-tight text-[#0a0a0a] dark:text-foreground">
+                Cymple
+              </span>
+            </Link>
+          </div>
         </SidebarHeader>
 
         <SidebarContent className="px-3 pb-2 pt-1">

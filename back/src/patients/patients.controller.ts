@@ -4,7 +4,6 @@ import {
   Delete,
   Get,
   Param,
-  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -41,26 +40,26 @@ export class PatientsController {
   }
 
   @Get(':id')
-  getOne(@Req() req: Request, @Param('id', ParseUUIDPipe) patientId: string) {
+  getOne(@Req() req: Request, @Param('id') patientId: string) {
     return this.patientsService.getOne(buildAccessContext(req), patientId);
   }
 
   @Patch(':id')
   update(
     @Req() req: Request,
-    @Param('id', ParseUUIDPipe) patientId: string,
+    @Param('id') patientId: string,
     @Body() dto: UpdatePatientDto,
   ) {
     return this.patientsService.update(buildAccessContext(req), patientId, dto);
   }
 
   @Delete(':id')
-  remove(@Req() req: Request, @Param('id', ParseUUIDPipe) patientId: string) {
+  remove(@Req() req: Request, @Param('id') patientId: string) {
     return this.patientsService.remove(buildAccessContext(req), patientId);
   }
 
   @Get(':id/history')
-  history(@Req() req: Request, @Param('id', ParseUUIDPipe) patientId: string) {
+  history(@Req() req: Request, @Param('id') patientId: string) {
     return this.patientsService.history(buildAccessContext(req), patientId);
   }
 }

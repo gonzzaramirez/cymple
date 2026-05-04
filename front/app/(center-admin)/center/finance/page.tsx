@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: "Finanzas | Centro Medico | Cymple",
 };
 
-type FinanceScope = "CENTER" | "PROFESSIONAL";
+type FinanceScope = "TODOS" | "CENTER" | "PROFESSIONAL";
 
 type FinanceSummary = {
   month: string;
@@ -39,7 +39,7 @@ type RevenueList = Array<{
   amount: string;
   occurredAt: string;
   notes?: string | null;
-  scope?: FinanceScope;
+  scope?: "CENTER" | "PROFESSIONAL";
   professionalId?: string | null;
   professional?: ScopedProfessional | null;
 }>;
@@ -49,7 +49,7 @@ type ExpenseList = Array<{
   concept: string;
   amount: string;
   occurredAt: string;
-  scope?: FinanceScope;
+  scope?: "CENTER" | "PROFESSIONAL";
   professionalId?: string | null;
   professional?: ScopedProfessional | null;
 }>;
@@ -57,11 +57,15 @@ type ExpenseList = Array<{
 
 
 function getScope(value?: string): FinanceScope {
-  return value === "PROFESSIONAL" ? "PROFESSIONAL" : "CENTER";
+  if (value === "PROFESSIONAL") return "PROFESSIONAL";
+  if (value === "CENTER") return "CENTER";
+  return "TODOS";
 }
 
 function buildFinanceQuery(scope: FinanceScope, professionalId?: string) {
-  const params = new URLSearchParams({ page: "1", limit: "30", scope });
+  const params = new URLSearchParams({ page: "1", limit: "30" });
+  if (scope === "TODOS") return params.toString();
+  params.set("scope", scope);
   if (scope === "PROFESSIONAL" && professionalId) {
     params.set("professionalId", professionalId);
   }
@@ -69,6 +73,7 @@ function buildFinanceQuery(scope: FinanceScope, professionalId?: string) {
 }
 
 function buildSummaryQuery(scope: FinanceScope, professionalId?: string) {
+  if (scope === "TODOS") return "";
   const params = new URLSearchParams({ scope });
   if (scope === "PROFESSIONAL" && professionalId) {
     params.set("professionalId", professionalId);
@@ -95,15 +100,18 @@ export default async function CenterFinancePage({
         : professionals[0]?.id
       : undefined;
 
+  const summaryQuery = buildSummaryQuery(scope, selectedProfessionalId);
+  const financeQuery = buildFinanceQuery(scope, selectedProfessionalId);
+
   const [summary, revenues, expenses] = await Promise.all([
     serverApiFetch<FinanceSummary>(
-      `finance/summary?${buildSummaryQuery(scope, selectedProfessionalId)}`,
+      summaryQuery ? `finance/summary?${summaryQuery}` : "finance/summary",
     ).catch(() => null),
     serverApiFetch<RevenueList>(
-      `finance/revenues?${buildFinanceQuery(scope, selectedProfessionalId)}`,
+      `finance/revenues?${financeQuery}`,
     ).catch(() => []),
     serverApiFetch<ExpenseList>(
-      `finance/expenses?${buildFinanceQuery(scope, selectedProfessionalId)}`,
+      `finance/expenses?${financeQuery}`,
     ).catch(() => []),
   ]);
 
@@ -121,12 +129,12 @@ export default async function CenterFinancePage({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <CenterCreateRevenueDialog
             professionals={professionals}
-            defaultScope={scope}
+            defaultScope={scope === "TODOS" ? "CENTER" : scope}
             defaultProfessionalId={selectedProfessionalId}
           />
           <CenterCreateExpenseDialog
             professionals={professionals}
-            defaultScope={scope}
+            defaultScope={scope === "TODOS" ? "CENTER" : scope}
             defaultProfessionalId={selectedProfessionalId}
           />
         </div>

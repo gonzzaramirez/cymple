@@ -15,14 +15,15 @@ function formatShortDate(value?: string | null) {
   return format(new Date(value), "dd MMM HH:mm", { locale: es });
 }
 
-export const patientColumns: ColumnDef<Patient>[] = [
+export function getPatientColumns(basePath = "/patients"): ColumnDef<Patient>[] {
+  return [
   {
     accessorKey: "lastName",
     header: "Paciente",
     cell: ({ row }) => (
       <div className="min-w-[220px]">
         <Link
-          href={`/patients/${row.original.id}`}
+          href={`${basePath}/${row.original.id}`}
           className="font-display text-[15px] font-semibold text-foreground transition-colors hover:text-primary"
         >
           {row.original.lastName}, {row.original.firstName}
@@ -104,4 +105,5 @@ export const patientColumns: ColumnDef<Patient>[] = [
       </div>
     ),
   },
-];
+  ];
+}

@@ -10,7 +10,7 @@ import {
   SelectTrigger,
 } from "@/components/ui/select";
 
-type FinanceScope = "CENTER" | "PROFESSIONAL";
+type FinanceScope = "TODOS" | "CENTER" | "PROFESSIONAL";
 
 export function CenterFinanceScopeControls({
   scope,
@@ -24,12 +24,28 @@ export function CenterFinanceScopeControls({
   const router = useRouter();
 
   function navigate(nextScope: FinanceScope, nextProfessionalId?: string) {
+    if (nextScope === "TODOS") {
+      router.replace("/center/finance");
+      return;
+    }
     const params = new URLSearchParams({ scope: nextScope });
     if (nextScope === "PROFESSIONAL" && nextProfessionalId) {
       params.set("professionalId", nextProfessionalId);
     }
     router.replace(`/center/finance?${params.toString()}`);
   }
+
+  const scopeLabels: Record<FinanceScope, string> = {
+    TODOS: "Todos",
+    CENTER: "Centro",
+    PROFESSIONAL: "Profesional",
+  };
+
+  const scopeDescriptions: Record<FinanceScope, string> = {
+    TODOS: "Mostrando todos los movimientos del centro y sus profesionales.",
+    CENTER: "Mostrando movimientos imputados al centro completo.",
+    PROFESSIONAL: "Mostrando movimientos vinculados al profesional seleccionado.",
+  };
 
   return (
     <div className="rounded-2xl border border-[var(--border-light)] bg-card p-4 shadow-card">
@@ -39,14 +55,20 @@ export function CenterFinanceScopeControls({
           <Select
             value={scope}
             onValueChange={(value) => {
-              const nextScope = value === "PROFESSIONAL" ? "PROFESSIONAL" : "CENTER";
-              navigate(nextScope, nextScope === "PROFESSIONAL" ? professionalId ?? professionals[0]?.id : undefined);
+              const nextScope = value as FinanceScope;
+              navigate(
+                nextScope,
+                nextScope === "PROFESSIONAL"
+                  ? professionalId ?? professionals[0]?.id
+                  : undefined,
+              );
             }}
           >
             <SelectTrigger className="w-full">
-              {scope === "CENTER" ? "Centro" : "Profesional"}
+              {scopeLabels[scope]}
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="TODOS">Todos</SelectItem>
               <SelectItem value="CENTER">Centro</SelectItem>
               <SelectItem value="PROFESSIONAL">Profesional</SelectItem>
             </SelectContent>
@@ -75,9 +97,7 @@ export function CenterFinanceScopeControls({
         )}
 
         <p className="text-sm leading-6 text-muted-foreground">
-          {scope === "CENTER"
-            ? "Mostrando movimientos imputados al centro completo."
-            : "Mostrando movimientos vinculados al profesional seleccionado."}
+          {scopeDescriptions[scope]}
         </p>
       </div>
     </div>

@@ -1,9 +1,7 @@
-import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { serverApiFetch } from "@/lib/server-api";
-import { Skeleton } from "@/components/ui/skeleton";
 import { PatientDetail } from "@/app/(dashboard)/patients/[id]/components/patient-detail";
-import type { PatientFull, PatientHistory } from "@/lib/types";
+import type { PatientHistory } from "@/lib/types";
 
 export default async function CenterPatientDetailPage({
   params,
@@ -11,25 +9,26 @@ export default async function CenterPatientDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  let patient: PatientFull;
+  let history: PatientHistory | null = null;
+
   try {
-    patient = await serverApiFetch<PatientFull>(`patients/${id}`);
+    history = await serverApiFetch<PatientHistory>(
+      `patients/${id}/history`
+    );
   } catch {
     notFound();
   }
 
-  const history = await serverApiFetch<PatientHistory>(
-    `patients/${id}/history`
-  );
+  if (!history) {
+    notFound();
+  }
 
   return (
-    <Suspense fallback={<Skeleton className="h-96 rounded-2xl" />}>
-      <PatientDetail
-        patient={patient}
-        appointments={history.appointments}
-        summary={history.summary}
-        messages={history.messages}
-      />
-    </Suspense>
+    <PatientDetail
+      patient={history.patient}
+      appointments={history.appointments}
+      summary={history.summary}
+      messages={history.messages}
+    />
   );
 }
