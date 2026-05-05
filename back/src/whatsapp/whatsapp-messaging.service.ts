@@ -758,7 +758,10 @@ export class WhatsappMessagingService {
 
       const profIds = profs.map((p) => p.id);
       const patients = await this.prisma.patient.findMany({
-        where: { professionalId: { in: profIds }, deletedAt: null },
+        where: {
+          deletedAt: null,
+          OR: [{ professionalId: { in: profIds } }, { organizationId: orgId }],
+        },
         select: {
           id: true,
           phone: true,
@@ -784,12 +787,14 @@ export class WhatsappMessagingService {
         );
         const fallback = await this.prisma.patient.findFirst({
           where: {
-            professionalId: { in: profIds },
             deletedAt: null,
             OR: [
-              { phone: { endsWith: last8 } },
-              { phone: { endsWith: last10 } },
+              { professionalId: { in: profIds } },
+              { organizationId: orgId },
             ],
+            phone: {
+              endsWith: last8.length >= 8 ? last8 : last10,
+            },
           },
           select: {
             id: true,
@@ -803,12 +808,31 @@ export class WhatsappMessagingService {
           this.logger.log(
             `resolveReplyContext[org]: DB fallback matched patient ${fallback.firstName} ${fallback.lastName} (stored phone: ${fallback.phone}) for incoming ${fromJidDigits}`,
           );
-          const matchedPro = profs.find(
+          let matchedPro = profs.find(
             (p) => p.id === fallback.professionalId,
           );
+          if (!matchedPro && (!fallback.professionalId || profs.length > 0)) {
+            const recentApt = await this.prisma.appointment.findFirst({
+              where: {
+                patientId: fallback.id,
+                professionalId: { in: profIds },
+                status: {
+                  in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
+                },
+              },
+              orderBy: { startAt: 'desc' },
+              select: { professionalId: true },
+            });
+            if (recentApt) {
+              matchedPro = profs.find((p) => p.id === recentApt.professionalId);
+            }
+            if (!matchedPro) {
+              matchedPro = profs[0];
+            }
+          }
           if (!matchedPro) {
             this.logger.warn(
-              `resolveReplyContext: professional ${fallback.professionalId} not found for fallback patient ${fallback.id}`,
+              `resolveReplyContext: no professional found for fallback patient ${fallback.id}`,
             );
             return null;
           }
@@ -828,12 +852,40 @@ export class WhatsappMessagingService {
         return null;
       }
 
-      const professional = profs.find((p) => p.id === patient.professionalId);
+      let professional = profs.find((p) => p.id === patient.professionalId);
       if (!professional) {
-        this.logger.warn(
-          `resolveReplyContext: professional ${patient.professionalId} not found for patient ${patient.id}`,
-        );
-        return null;
+        if (
+          patient.professionalId === null ||
+          patient.professionalId === undefined
+        ) {
+          const recentAppointment = await this.prisma.appointment.findFirst({
+            where: {
+              patientId: patient.id,
+              professionalId: { in: profIds },
+              status: {
+                in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
+              },
+            },
+            orderBy: { startAt: 'desc' },
+            select: { professionalId: true },
+          });
+          if (recentAppointment) {
+            professional = profs.find(
+              (p) => p.id === recentAppointment.professionalId,
+            );
+          }
+          if (!professional) {
+            professional = profs[0];
+            this.logger.log(
+              `resolveReplyContext[org]: patient ${patient.firstName} has no professionalId, assigned to first org professional: ${professional.fullName}`,
+            );
+          }
+        } else {
+          this.logger.warn(
+            `resolveReplyContext: professional ${patient.professionalId} not found for patient ${patient.id}`,
+          );
+          return null;
+        }
       }
 
       this.logger.log(
