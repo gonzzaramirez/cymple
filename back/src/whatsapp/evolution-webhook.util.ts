@@ -13,11 +13,15 @@ function asRecord(v: unknown): Record<string, unknown> | null {
 export function extractInstanceName(payload: unknown): string | undefined {
   const root = asRecord(payload);
   if (!root) return undefined;
-  const direct = root.instance ?? root.instanceName;
+
+  const direct =
+    root.instance ?? root.instanceName ?? root.owner ?? root.instanceId;
   if (typeof direct === 'string') return direct;
+
   const data = asRecord(root.data);
   if (data) {
-    const d = data.instanceName ?? data.instance;
+    const d =
+      data.instanceName ?? data.instance ?? data.owner ?? data.instanceId;
     if (typeof d === 'string') return d;
   }
   return undefined;
@@ -33,6 +37,7 @@ function digitsFromJidUser(jid: string): string {
 /**
  * Con WhatsApp "LID", `remoteJid` viene como `...@lid` y NO es el teléfono.
  * El número real suele ir en `remoteJidAlt` (`...@s.whatsapp.net`).
+ * En versiones modernas, el @lid contiene dígitos que podemos intentar usar.
  */
 function resolveSenderDigits(key: Record<string, unknown>): string | null {
   const remoteJid = typeof key.remoteJid === 'string' ? key.remoteJid : '';
@@ -41,43 +46,91 @@ function resolveSenderDigits(key: Record<string, unknown>): string | null {
   const participant =
     typeof key.participant === 'string' ? key.participant : '';
 
+  // Prioridad 1: remoteJidAlt con @s.whatsapp.net (número real en LID mode)
   if (remoteJidAlt.includes('@s.whatsapp.net')) {
-    return digitsFromJidUser(remoteJidAlt);
-  }
-  if (remoteJid.includes('@s.whatsapp.net')) {
-    return digitsFromJidUser(remoteJid);
-  }
-  if (participant.includes('@s.whatsapp.net')) {
-    return digitsFromJidUser(participant);
+    const digits = digitsFromJidUser(remoteJidAlt);
+    log.debug(`Sender resolved from remoteJidAlt: ${digits}`);
+    return digits;
   }
 
-  // Sin @s.whatsapp.net: no podemos cruzar con el paciente por teléfono
+  // Prioridad 2: remoteJid con @s.whatsapp.net
+  if (remoteJid.includes('@s.whatsapp.net')) {
+    const digits = digitsFromJidUser(remoteJid);
+    log.debug(`Sender resolved from remoteJid: ${digits}`);
+    return digits;
+  }
+
+  // Prioridad 3: participant (grupos)
+  if (participant.includes('@s.whatsapp.net')) {
+    const digits = digitsFromJidUser(participant);
+    log.debug(`Sender resolved from participant: ${digits}`);
+    return digits;
+  }
+
+  // Fallback LID: en versiones modernas de WhatsApp, el @lid puede contener dígitos utilizables
   if (remoteJid.includes('@lid')) {
-    log.debug(
-      `Mensaje solo con @lid y sin remoteJidAlt @s.whatsapp.net; no se puede resolver teléfono`,
+    const lidDigits = digitsFromJidUser(remoteJid);
+    if (lidDigits.length >= 8) {
+      log.debug(`Sender resolved from @lid digits (fallback): ${lidDigits}`);
+      return lidDigits;
+    }
+    log.warn(
+      `Mensaje solo con @lid (${remoteJid}) sin remoteJidAlt — dígitos extraídos: ${lidDigits || 'ninguno'}`,
     );
   }
+
+  log.warn(
+    `No se pudo resolver sender digits: remoteJid=${remoteJid}, remoteJidAlt=${remoteJidAlt}, participant=${participant}`,
+  );
   return null;
 }
 
 function textFromMessageContent(
   message: Record<string, unknown>,
 ): string | undefined {
+  // Texto plano
   const conv = message.conversation;
   if (typeof conv === 'string') return conv;
+
+  // Texto extendido
   const ext = asRecord(message.extendedTextMessage);
   if (ext && typeof ext.text === 'string') return ext.text;
 
+  // Button reply (respuesta interactiva por botón)
+  const btn = asRecord(message.buttonsResponseMessage);
+  if (btn) {
+    const btnText = btn.selectedDisplayText ?? btn.selectedButtonId;
+    if (typeof btnText === 'string') return btnText;
+    // Algunos envían selectedButtonId como texto del botón
+    const btnBody = asRecord(btn.selectedButtonId);
+    if (typeof btnBody === 'string') return btnBody;
+  }
+
+  // List reply (respuesta por lista interactiva)
+  const list = asRecord(message.listResponseMessage);
+  if (list) {
+    const listText = list.title ?? list.description ?? list.singleSelectReply;
+    if (typeof listText === 'string') return listText;
+  }
+
+  // Template button reply
+  const tplBtn = asRecord(message.templateButtonReplyMessage);
+  if (tplBtn && typeof tplBtn.selectedDisplayText === 'string')
+    return tplBtn.selectedDisplayText;
+
+  // Ephemeral / viewOnce (recursivo)
   const ephem = asRecord(message.ephemeralMessage);
   if (ephem) {
     const inner = asRecord(ephem.message);
     if (inner) return textFromMessageContent(inner);
   }
+
   const viewOnce = asRecord(message.viewOnceMessage);
   if (viewOnce) {
     const inner = asRecord(viewOnce.message);
     if (inner) return textFromMessageContent(inner);
   }
+
   return undefined;
 }
 
@@ -95,7 +148,10 @@ function messageLooksLikeInbound(msg: Record<string, unknown>): boolean {
 
 function firstInboundMessage(payload: unknown): Record<string, unknown> | null {
   const root = asRecord(payload);
-  if (!root) return null;
+  if (!root) {
+    log.debug('Payload no es un objeto');
+    return null;
+  }
 
   const tryPaths: unknown[] = [
     root.data,
@@ -133,6 +189,17 @@ function firstInboundMessage(payload: unknown): Record<string, unknown> | null {
     return data;
   }
 
+  // Evolution v3: { event: "messages.upsert", data: { key: ..., message: ... } }
+  const event = asRecord(root.event);
+  if (event) {
+    return firstInboundMessage(event);
+  }
+
+  log.debug(
+    `No inbound message found. Payload keys: ${
+      root ? Object.keys(root).slice(0, 10).join(', ') : 'none'
+    }`,
+  );
   return null;
 }
 
@@ -141,19 +208,39 @@ export function extractInboundText(payload: unknown): {
   fromJid: string;
 } | null {
   const msg = firstInboundMessage(payload);
-  if (!msg) return null;
+  if (!msg) {
+    log.debug(
+      'firstInboundMessage retornó null — sin mensaje entrante en payload',
+    );
+    return null;
+  }
 
   const key = asRecord(msg.key);
-  if (!key) return null;
+  if (!key) {
+    log.debug('msg.key no es un objeto — no se puede extraer fromJid');
+    return null;
+  }
 
   const fromMe = key.fromMe === true;
-  if (fromMe) return null;
+  if (fromMe) {
+    log.debug('Mensaje ignorado: es un eco saliente (fromMe=true)');
+    return null;
+  }
 
   const digits = resolveSenderDigits(key);
-  if (!digits) return null;
+  if (!digits) {
+    log.warn('No se pudieron resolver dígitos del remitente');
+    return null;
+  }
 
   const text = textFromMessage(msg);
-  if (typeof text !== 'string' || !text.trim()) return null;
+  if (typeof text !== 'string' || !text.trim()) {
+    log.debug(
+      `textFromMessage retornó ${typeof text === 'string' ? 'vacío' : typeof text} — posible mensaje no-text (imagen, audio, etc)`,
+    );
+    return null;
+  }
 
+  log.debug(`Texto extraído exitosamente: "${text.trim().substring(0, 80)}"`);
   return { text: text.trim(), fromJid: digits };
 }

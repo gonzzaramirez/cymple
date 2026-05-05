@@ -842,7 +842,10 @@ export class WhatsappMessagingService {
     if (isOne) {
       await this.prisma.appointment.update({
         where: { id: appointment.id },
-        data: { status: AppointmentStatus.CONFIRMED },
+        data: {
+          status: AppointmentStatus.CONFIRMED,
+          confirmationDeadline: null,
+        },
       });
       const fechaCorta = new Intl.DateTimeFormat('es-AR', {
         day: '2-digit',
@@ -892,6 +895,7 @@ export class WhatsappMessagingService {
       data: {
         status: AppointmentStatus.CANCELLED,
         cancelledAt: new Date(),
+        confirmationDeadline: null,
       },
     });
     const ack = `Entendido, ${patient.firstName}. Tu turno fue cancelado. ¡Hasta la próxima! \u{1F44B}`;

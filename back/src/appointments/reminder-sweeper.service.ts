@@ -28,7 +28,12 @@ export class ReminderSweeper {
       },
       include: {
         professional: {
-          select: { id: true, fullName: true, reminderHours: true },
+          select: {
+            id: true,
+            fullName: true,
+            reminderHours: true,
+            confirmationWindowMinutes: true,
+          },
         },
         patient: {
           select: { id: true, firstName: true, lastName: true, phone: true },
@@ -55,10 +60,20 @@ export class ReminderSweeper {
 
         await this.prisma.appointment.update({
           where: { id: appointment.id },
-          data: { reminderSentAt: now },
+          data: {
+            reminderSentAt: now,
+            confirmationDeadline: new Date(
+              now.getTime() +
+                (appointment.professional.confirmationWindowMinutes ?? 60) *
+                  60 *
+                  1000,
+            ),
+          },
         });
 
-        this.logger.log(`Reminder sent for appointment ${appointment.id}`);
+        this.logger.log(
+          `Reminder sent for appointment ${appointment.id} | confirmation deadline: ${appointment.professional.confirmationWindowMinutes}min`,
+        );
       } catch (error) {
         this.logger.error(
           `Failed to send reminder for appointment ${appointment.id}: ${error}`,
@@ -198,6 +213,59 @@ export class ReminderSweeper {
       } catch (error) {
         this.logger.error(
           `Failed to send payment reminder for appointment ${apt.id}: ${error}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Verifica deadlines de confirmación expirados.
+   * Si el paciente no respondió dentro de la ventana de confirmación,
+   * y el turno está a más de 24hs, se reenvía el recordatorio.
+   */
+  @Cron('*/5 * * * *')
+  async checkConfirmationDeadlines() {
+    const now = new Date();
+    const minReRequest = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    const expired = await this.prisma.appointment.findMany({
+      where: {
+        status: AppointmentStatus.PENDING,
+        confirmationDeadline: { lte: now },
+        startAt: { gte: minReRequest },
+      },
+      select: {
+        id: true,
+        startAt: true,
+        professional: {
+          select: { fullName: true },
+        },
+      },
+      take: 50,
+    });
+
+    if (expired.length === 0) return;
+
+    this.logger.log(
+      `Found ${expired.length} confirmation deadlines expired — re-requesting`,
+    );
+
+    for (const apt of expired) {
+      try {
+        await this.prisma.appointment.update({
+          where: { id: apt.id },
+          data: {
+            reminderSentAt: null,
+            reminderScheduledFor: now,
+            confirmationDeadline: null,
+          },
+        });
+        this.logger.log(
+          `Re-request queued for appointment ${apt.id} (${apt.professional.fullName} — ${apt.startAt.toISOString()})`,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Failed to re-request confirmation for appointment ${apt.id}: ${error}`,
         );
       }
     }

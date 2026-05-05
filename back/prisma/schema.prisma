@@ -109,8 +109,9 @@ model Professional {
   reminderHours       Int      @default(24)
   dailyDigestEnabled  Boolean  @default(false)
   dailyDigestTime     String   @default("08:00")
-  autoConfirmHours    Int?
-  paymentAlias        String?
+  autoConfirmHours         Int?
+  confirmationWindowMinutes Int      @default(60)
+  paymentAlias             String?
   waInstanceName      String?
   waStatus            WaStatus @default(DISCONNECTED)
   isActive            Boolean  @default(true)
@@ -246,6 +247,7 @@ model Appointment {
   reminderSentAt        DateTime?
   reminderJobId         String?
   paymentReminderSentAt DateTime?
+  confirmationDeadline  DateTime?
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
 
