@@ -129,22 +129,26 @@ export class WhatsappMessagingService {
     });
 
     if (pro?.organizationId) {
+      // Si el profesional pertenece a un centro, usar el WA del centro SOLO si está conectado
       const org = await this.prisma.organization.findUnique({
         where: { id: pro.organizationId },
         select: { waInstanceName: true, waStatus: true },
       });
-      return {
-        instance:
-          org?.waInstanceName ?? defaultOrgWaInstanceName(pro.organizationId),
-        isConnected: org?.waStatus === WaStatus.CONNECTED,
-        organizationId: pro.organizationId ?? undefined,
-      };
+      if (org?.waStatus === WaStatus.CONNECTED) {
+        return {
+          instance:
+            org.waInstanceName ?? defaultOrgWaInstanceName(pro.organizationId),
+          isConnected: true,
+          organizationId: pro.organizationId,
+        };
+      }
+      // Centro sin WA: fallback al WA individual del profesional
     }
 
     return {
       instance: pro?.waInstanceName ?? defaultWaInstanceName(professionalId),
       isConnected: pro?.waStatus === WaStatus.CONNECTED,
-      organizationId: undefined,
+      organizationId: pro?.organizationId ?? undefined,
     };
   }
 
@@ -238,14 +242,28 @@ export class WhatsappMessagingService {
         professional: true,
       },
     });
-    if (!row) return false;
+    if (!row) {
+      this.logger.warn(`Recordatorio: appointment ${appointmentId} no encontrado`);
+      return false;
+    }
 
     const { professional, patient } = row;
-    if (!this.evolution.isConfigured()) return false;
+    if (!this.evolution.isConfigured()) {
+      this.logger.warn('Recordatorio: Evolution no configurada');
+      return false;
+    }
 
     const waCtx = await this.resolveEffectiveWaContext(professional.id);
-    if (!waCtx.isConnected) return false;
-    if (!patient.phone) return false;
+    if (!waCtx.isConnected) {
+      this.logger.warn(
+        `Recordatorio: WA no conectado para profesional ${professional.id} (orgId: ${waCtx.organizationId ?? 'ninguno'})`,
+      );
+      return false;
+    }
+    if (!patient.phone) {
+      this.logger.warn(`Recordatorio: paciente ${patient.id} sin teléfono`);
+      return false;
+    }
 
     const rel = reminderRelativeDay(row.startAt, professional.timezone);
     const { weekday, dayMonth, time } = formatAppointmentHuman(
@@ -258,7 +276,10 @@ export class WhatsappMessagingService {
       professional.id,
       MessageType.APPOINTMENT_REMINDER,
     );
-    if (!tpl.isEnabled) return false;
+    if (!tpl.isEnabled) {
+      this.logger.warn(`Recordatorio: template deshabilitado para profesional ${professional.id}`);
+      return false;
+    }
 
     const text = this.interpolate(tpl.body, {
       nombrePaciente: patient.firstName,
@@ -272,6 +293,7 @@ export class WhatsappMessagingService {
     const to = normalizeArWhatsappNumber(patient.phone);
     try {
       await this.evolution.sendText(waCtx.instance, to, text);
+      this.logger.log(`Recordatorio enviado: ${appointmentId} → ${to} (${dayPhrase} ${time}hs)`);
       await this.prisma.messageLog.create({
         data: {
           professionalId: professional.id,

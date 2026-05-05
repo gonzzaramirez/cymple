@@ -167,7 +167,10 @@ export class ReminderSweeper {
         try {
           await this.prisma.appointment.update({
             where: { id: apt.id },
-            data: { status: AppointmentStatus.CONFIRMED },
+            data: {
+              status: AppointmentStatus.CONFIRMED,
+              confirmationDeadline: null,
+            },
           });
           this.logger.log(`Auto-confirmed appointment ${apt.id}`);
         } catch (error) {

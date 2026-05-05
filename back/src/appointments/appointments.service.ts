@@ -128,6 +128,17 @@ export class AppointmentsService {
       .sendAppointmentCreated(created.id)
       .catch(() => undefined);
 
+    // Si el recordatorio ya debería haberse enviado (turno cercano), mandarlo ya
+    const reminderTime = addMinutes(
+      startAt,
+      -professional.reminderHours * 60,
+    );
+    if (reminderTime <= new Date()) {
+      void this.whatsappMessaging
+        .sendAppointmentReminder(created.id)
+        .catch(() => undefined);
+    }
+
     return created;
   }
 
@@ -428,7 +439,10 @@ export class AppointmentsService {
       void this.prisma.appointment
         .update({
           where: { id: appointment.id },
-          data: { cancelledAt: new Date() },
+          data: {
+            cancelledAt: new Date(),
+            confirmationDeadline: null,
+          },
         })
         .catch(() => undefined);
       void this.whatsappMessaging
@@ -477,6 +491,7 @@ export class AppointmentsService {
         ),
         reminderJobId: null,
         reminderSentAt: null,
+        confirmationDeadline: null,
       },
     });
 
@@ -484,6 +499,17 @@ export class AppointmentsService {
     void this.whatsappMessaging
       .sendAppointmentRescheduled(updated.id)
       .catch(() => undefined);
+
+    // Si el recordatorio ya debió enviarse (turno cercano), mandarlo ya
+    const rescheduleReminder = addMinutes(
+      startAt,
+      -professional.reminderHours * 60,
+    );
+    if (rescheduleReminder <= new Date()) {
+      void this.whatsappMessaging
+        .sendAppointmentReminder(updated.id)
+        .catch(() => undefined);
+    }
 
     return updated;
   }
@@ -506,6 +532,7 @@ export class AppointmentsService {
         cancelledAt: new Date(),
         reason: dto.reason ?? appointment.reason,
         reminderJobId: null,
+        confirmationDeadline: null,
       },
     });
   }
