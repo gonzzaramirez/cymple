@@ -740,13 +740,21 @@ export class WhatsappMessagingService {
         where: { id: orgId },
         select: { id: true },
       });
-      if (!org) return null;
+      if (!org) {
+        this.logger.warn(`resolveReplyContext: org ${orgId} not found`);
+        return null;
+      }
 
       const profs = await this.prisma.professional.findMany({
         where: { organizationId: orgId },
         select: { id: true, fullName: true, timezone: true, phone: true },
       });
-      if (!profs.length) return null;
+      if (!profs.length) {
+        this.logger.warn(
+          `resolveReplyContext: no professionals found for org ${orgId}`,
+        );
+        return null;
+      }
 
       const profIds = profs.map((p) => p.id);
       const patients = await this.prisma.patient.findMany({
@@ -760,13 +768,77 @@ export class WhatsappMessagingService {
         },
       });
 
+      this.logger.debug(
+        `resolveReplyContext[org]: fromJid=${fromJidDigits}, profs=${profs.length}, patients=${patients.length}`,
+      );
+
       const patient = patients.find(
         (p) => p.phone && phonesMatch(p.phone, fromJidDigits),
       );
-      if (!patient) return null;
+
+      if (!patient) {
+        const last8 = fromJidDigits.slice(-8);
+        const last10 = fromJidDigits.slice(-10);
+        this.logger.warn(
+          `resolveReplyContext[org]: no in-memory match for ${fromJidDigits}. Trying DB fallback with last8=${last8}, last10=${last10}`,
+        );
+        const fallback = await this.prisma.patient.findFirst({
+          where: {
+            professionalId: { in: profIds },
+            deletedAt: null,
+            OR: [
+              { phone: { endsWith: last8 } },
+              { phone: { endsWith: last10 } },
+            ],
+          },
+          select: {
+            id: true,
+            phone: true,
+            firstName: true,
+            lastName: true,
+            professionalId: true,
+          },
+        });
+        if (fallback) {
+          this.logger.log(
+            `resolveReplyContext[org]: DB fallback matched patient ${fallback.firstName} ${fallback.lastName} (stored phone: ${fallback.phone}) for incoming ${fromJidDigits}`,
+          );
+          const matchedPro = profs.find(
+            (p) => p.id === fallback.professionalId,
+          );
+          if (!matchedPro) {
+            this.logger.warn(
+              `resolveReplyContext: professional ${fallback.professionalId} not found for fallback patient ${fallback.id}`,
+            );
+            return null;
+          }
+          return {
+            professional: matchedPro,
+            patient: { ...fallback, phone: fallback.phone! },
+            organizationId: orgId,
+          };
+        }
+
+        const storedPhones = patients
+          .filter((p) => p.phone)
+          .map((p) => `${p.firstName}:${p.phone}`);
+        this.logger.warn(
+          `resolveReplyContext: no patient match at all for incoming=${fromJidDigits}. Stored phones: [${storedPhones.join(', ')}]`,
+        );
+        return null;
+      }
 
       const professional = profs.find((p) => p.id === patient.professionalId);
-      if (!professional) return null;
+      if (!professional) {
+        this.logger.warn(
+          `resolveReplyContext: professional ${patient.professionalId} not found for patient ${patient.id}`,
+        );
+        return null;
+      }
+
+      this.logger.log(
+        `resolveReplyContext[org]: matched patient ${patient.firstName} ${patient.lastName} → professional ${professional.fullName}`,
+      );
 
       return {
         professional,
@@ -791,7 +863,9 @@ export class WhatsappMessagingService {
     });
 
     if (!professional) {
-      this.logger.warn(`Instancia WA sin profesional: ${instanceName}`);
+      this.logger.warn(
+        `resolveReplyContext: no professional found for instance ${instanceName}`,
+      );
       return null;
     }
 
@@ -803,11 +877,51 @@ export class WhatsappMessagingService {
       select: { id: true, phone: true, firstName: true, lastName: true },
     });
 
+    this.logger.debug(
+      `resolveReplyContext[prof]: fromJid=${fromJidDigits}, professional=${professional.fullName}, patients=${patients.length}`,
+    );
+
     const patient = patients.find(
       (p) => p.phone && phonesMatch(p.phone, fromJidDigits),
     );
 
-    if (!patient || !patient.phone) return null;
+    if (!patient || !patient.phone) {
+      const last8 = fromJidDigits.slice(-8);
+      const last10 = fromJidDigits.slice(-10);
+      this.logger.warn(
+        `resolveReplyContext[prof]: no in-memory match for ${fromJidDigits}. Trying DB fallback`,
+      );
+      const fallback = await this.prisma.patient.findFirst({
+        where: {
+          professionalId: professional.id,
+          deletedAt: null,
+          OR: [{ phone: { endsWith: last8 } }, { phone: { endsWith: last10 } }],
+        },
+        select: { id: true, phone: true, firstName: true, lastName: true },
+      });
+      if (fallback && fallback.phone) {
+        this.logger.log(
+          `resolveReplyContext[prof]: DB fallback matched patient ${fallback.firstName} ${fallback.lastName} (stored: ${fallback.phone}) for incoming ${fromJidDigits}`,
+        );
+        return {
+          professional,
+          patient: { ...fallback, phone: fallback.phone },
+          organizationId: undefined,
+        };
+      }
+
+      const storedPhones = patients
+        .filter((p) => p.phone)
+        .map((p) => `${p.firstName}:${p.phone}`);
+      this.logger.warn(
+        `resolveReplyContext: no patient match at all for incoming=${fromJidDigits} among ${patients.length} patients of ${professional.fullName}. Stored phones: [${storedPhones.join(', ')}]`,
+      );
+      return null;
+    }
+
+    this.logger.log(
+      `resolveReplyContext[prof]: matched patient ${patient.firstName} ${patient.lastName} → professional ${professional.fullName}`,
+    );
 
     return {
       professional,
@@ -842,7 +956,12 @@ export class WhatsappMessagingService {
       instanceName,
       fromJidDigits,
     );
-    if (!resolved) return false;
+    if (!resolved) {
+      this.logger.warn(
+        `processPatientReply: could not resolve context for instance=${instanceName}, fromJid=${fromJidDigits}, text="${rawText.substring(0, 50)}"`,
+      );
+      return false;
+    }
 
     const { professional, patient, organizationId } = resolved;
 
