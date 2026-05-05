@@ -129,10 +129,7 @@ export class AppointmentsService {
       .catch(() => undefined);
 
     // Si el recordatorio ya debería haberse enviado (turno cercano), mandarlo ya
-    const reminderTime = addMinutes(
-      startAt,
-      -professional.reminderHours * 60,
-    );
+    const reminderTime = addMinutes(startAt, -professional.reminderHours * 60);
     if (reminderTime <= new Date()) {
       void this.whatsappMessaging
         .sendAppointmentReminder(created.id)

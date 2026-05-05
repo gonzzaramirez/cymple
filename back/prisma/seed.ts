@@ -57,7 +57,7 @@ async function main() {
 
   await prisma.professional.upsert({
     where: { email: 'dra.garcia@demo.com' },
-    update: {},
+    update: { organizationId: org.id },
     create: {
       slug: `${org.slug}-dra-garcia`,
       fullName: 'Dra. García',
@@ -77,7 +77,7 @@ async function main() {
 
   await prisma.professional.upsert({
     where: { email: 'dr.lopez@demo.com' },
-    update: {},
+    update: { organizationId: org.id },
     create: {
       slug: `${org.slug}-dr-lopez`,
       fullName: 'Dr. López',

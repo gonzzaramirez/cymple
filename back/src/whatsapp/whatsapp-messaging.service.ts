@@ -114,7 +114,10 @@ export class WhatsappMessagingService {
    * Resuelve el contexto efectivo de WhatsApp para un profesional.
    * Si el profesional pertenece a un centro, usa la instancia y estado WA de la organización.
    */
-  private async resolveEffectiveWaContext(professionalId: string): Promise<{
+  private async resolveEffectiveWaContext(
+    professionalId: string,
+    fallbackOrgId?: string | null,
+  ): Promise<{
     instance: string;
     isConnected: boolean;
     organizationId: string | undefined;
@@ -128,27 +131,27 @@ export class WhatsappMessagingService {
       },
     });
 
-    if (pro?.organizationId) {
-      // Si el profesional pertenece a un centro, usar el WA del centro SOLO si está conectado
+    const effectiveOrgId = (pro?.organizationId ?? fallbackOrgId) || undefined;
+
+    if (effectiveOrgId) {
       const org = await this.prisma.organization.findUnique({
-        where: { id: pro.organizationId },
+        where: { id: effectiveOrgId },
         select: { waInstanceName: true, waStatus: true },
       });
       if (org?.waStatus === WaStatus.CONNECTED) {
         return {
           instance:
-            org.waInstanceName ?? defaultOrgWaInstanceName(pro.organizationId),
+            org.waInstanceName ?? defaultOrgWaInstanceName(effectiveOrgId),
           isConnected: true,
-          organizationId: pro.organizationId,
+          organizationId: effectiveOrgId,
         };
       }
-      // Centro sin WA: fallback al WA individual del profesional
     }
 
     return {
       instance: pro?.waInstanceName ?? defaultWaInstanceName(professionalId),
       isConnected: pro?.waStatus === WaStatus.CONNECTED,
-      organizationId: pro?.organizationId ?? undefined,
+      organizationId: effectiveOrgId,
     };
   }
 
@@ -172,7 +175,11 @@ export class WhatsappMessagingService {
     const { professional, patient } = row;
     if (!this.evolution.isConfigured()) return;
 
-    const waCtx = await this.resolveEffectiveWaContext(professional.id);
+    const waCtx = await this.resolveEffectiveWaContext(
+      professional.id,
+      row.organizationId,
+    );
+
     if (!waCtx.isConnected) {
       this.logger.debug(
         `Omitiendo WA alta: profesional ${professional.id} no conectado`,
@@ -243,7 +250,9 @@ export class WhatsappMessagingService {
       },
     });
     if (!row) {
-      this.logger.warn(`Recordatorio: appointment ${appointmentId} no encontrado`);
+      this.logger.warn(
+        `Recordatorio: appointment ${appointmentId} no encontrado`,
+      );
       return false;
     }
 
@@ -253,7 +262,10 @@ export class WhatsappMessagingService {
       return false;
     }
 
-    const waCtx = await this.resolveEffectiveWaContext(professional.id);
+    const waCtx = await this.resolveEffectiveWaContext(
+      professional.id,
+      row.organizationId,
+    );
     if (!waCtx.isConnected) {
       this.logger.warn(
         `Recordatorio: WA no conectado para profesional ${professional.id} (orgId: ${waCtx.organizationId ?? 'ninguno'})`,
@@ -277,7 +289,9 @@ export class WhatsappMessagingService {
       MessageType.APPOINTMENT_REMINDER,
     );
     if (!tpl.isEnabled) {
-      this.logger.warn(`Recordatorio: template deshabilitado para profesional ${professional.id}`);
+      this.logger.warn(
+        `Recordatorio: template deshabilitado para profesional ${professional.id}`,
+      );
       return false;
     }
 
@@ -293,7 +307,9 @@ export class WhatsappMessagingService {
     const to = normalizeArWhatsappNumber(patient.phone);
     try {
       await this.evolution.sendText(waCtx.instance, to, text);
-      this.logger.log(`Recordatorio enviado: ${appointmentId} → ${to} (${dayPhrase} ${time}hs)`);
+      this.logger.log(
+        `Recordatorio enviado: ${appointmentId} → ${to} (${dayPhrase} ${time}hs)`,
+      );
       await this.prisma.messageLog.create({
         data: {
           professionalId: professional.id,
@@ -321,10 +337,14 @@ export class WhatsappMessagingService {
     appointmentId: string | null;
     toPhoneDigits: string;
     content: string;
+    organizationId?: string | null;
   }): Promise<void> {
     if (!this.evolution.isConfigured()) return;
 
-    const waCtx = await this.resolveEffectiveWaContext(params.professionalId);
+    const waCtx = await this.resolveEffectiveWaContext(
+      params.professionalId,
+      params.organizationId,
+    );
     if (!waCtx.isConnected) return;
 
     try {
@@ -361,7 +381,10 @@ export class WhatsappMessagingService {
     const { professional, patient } = row;
     if (!this.evolution.isConfigured()) return;
 
-    const waCtx = await this.resolveEffectiveWaContext(professional.id);
+    const waCtx = await this.resolveEffectiveWaContext(
+      professional.id,
+      row.organizationId,
+    );
     if (!waCtx.isConnected) return;
     if (!patient.phone) return;
 
@@ -425,7 +448,10 @@ export class WhatsappMessagingService {
     const { professional, patient } = row;
     if (!this.evolution.isConfigured()) return;
 
-    const waCtx = await this.resolveEffectiveWaContext(professional.id);
+    const waCtx = await this.resolveEffectiveWaContext(
+      professional.id,
+      row.organizationId,
+    );
     if (!waCtx.isConnected) return;
     if (!patient.phone) return;
 
@@ -609,7 +635,10 @@ export class WhatsappMessagingService {
     const { professional, patient } = row;
     if (!this.evolution.isConfigured()) return;
 
-    const waCtx = await this.resolveEffectiveWaContext(professional.id);
+    const waCtx = await this.resolveEffectiveWaContext(
+      professional.id,
+      row.organizationId,
+    );
     if (!waCtx.isConnected) return;
     if (!patient.phone) return;
 
@@ -815,6 +844,7 @@ export class WhatsappMessagingService {
         appointmentId: null,
         toPhoneDigits: normalizeArWhatsappNumber(patient.phone),
         content: guidance,
+        organizationId,
       });
       return true;
     }
@@ -885,6 +915,7 @@ export class WhatsappMessagingService {
         appointmentId: appointment.id,
         toPhoneDigits: normalizeArWhatsappNumber(patient.phone),
         content: ack,
+        organizationId,
       });
 
       const patientName = `${patient.firstName} ${patient.lastName}`;
@@ -896,6 +927,7 @@ export class WhatsappMessagingService {
           appointmentId: appointment.id,
           toPhoneDigits: normalizeArWhatsappNumber(professional.phone),
           content: `\u{2705} ${patientName} confirmó su turno de ${notifBody}`,
+          organizationId,
         }).catch(() => undefined);
       }
       void this.notifications
@@ -927,6 +959,7 @@ export class WhatsappMessagingService {
       appointmentId: appointment.id,
       toPhoneDigits: normalizeArWhatsappNumber(patient.phone),
       content: ack,
+      organizationId,
     });
 
     const patientName = `${patient.firstName} ${patient.lastName}`;
@@ -938,6 +971,7 @@ export class WhatsappMessagingService {
         appointmentId: appointment.id,
         toPhoneDigits: normalizeArWhatsappNumber(professional.phone),
         content: `\u{274C} ${patientName} canceló su turno de ${notifBody}`,
+        organizationId,
       }).catch(() => undefined);
     }
     void this.notifications
