@@ -15,11 +15,12 @@ export class WebhooksService {
     private readonly whatsappMessaging: WhatsappMessagingService,
   ) {}
 
-  logEvent(
+  async logEvent(
     payload: unknown,
     eventType: string,
     source = 'evolution-api',
     professionalId?: string,
+    organizationId?: string,
   ) {
     return this.prisma.webhookEventLog.create({
       data: {
@@ -27,6 +28,7 @@ export class WebhooksService {
         eventType,
         payload: payload as object,
         professionalId: professionalId ?? null,
+        organizationId: organizationId ?? null,
       },
     });
   }
@@ -34,7 +36,11 @@ export class WebhooksService {
   async handleWhatsappPayload(payload: unknown) {
     const instanceName = extractInstanceName(payload);
     let professionalId: string | undefined;
-    if (instanceName?.startsWith('cymple-prof-')) {
+    let organizationId: string | undefined;
+
+    if (instanceName?.startsWith('cymple-org-')) {
+      organizationId = instanceName.slice('cymple-org-'.length);
+    } else if (instanceName?.startsWith('cymple-prof-')) {
       professionalId = instanceName.slice('cymple-prof-'.length);
     } else if (instanceName) {
       const pro = await this.prisma.professional.findFirst({
@@ -49,6 +55,7 @@ export class WebhooksService {
       'WHATSAPP_INBOUND',
       'evolution-api',
       professionalId,
+      organizationId,
     );
 
     const inbound = extractInboundText(payload);

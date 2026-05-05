@@ -13,7 +13,10 @@ import {
   phonesMatch,
 } from '../common/utils/phone.utils';
 import { EvolutionApiService } from './evolution-api.service';
-import { defaultWaInstanceName } from './whatsapp-connection.service';
+import {
+  defaultWaInstanceName,
+  defaultOrgWaInstanceName,
+} from './whatsapp-connection.service';
 import {
   MessageTemplatesService,
   TemplatableType,
@@ -107,14 +110,49 @@ export class WhatsappMessagingService {
     });
   }
 
+  /**
+   * Resuelve el contexto efectivo de WhatsApp para un profesional.
+   * Si el profesional pertenece a un centro, usa la instancia y estado WA de la organización.
+   */
+  private async resolveEffectiveWaContext(professionalId: string): Promise<{
+    instance: string;
+    isConnected: boolean;
+    organizationId: string | undefined;
+  }> {
+    const pro = await this.prisma.professional.findUnique({
+      where: { id: professionalId },
+      select: {
+        waInstanceName: true,
+        waStatus: true,
+        organizationId: true,
+      },
+    });
+
+    if (pro?.organizationId) {
+      const org = await this.prisma.organization.findUnique({
+        where: { id: pro.organizationId },
+        select: { waInstanceName: true, waStatus: true },
+      });
+      return {
+        instance:
+          org?.waInstanceName ?? defaultOrgWaInstanceName(pro.organizationId),
+        isConnected: org?.waStatus === WaStatus.CONNECTED,
+        organizationId: pro.organizationId ?? undefined,
+      };
+    }
+
+    return {
+      instance: pro?.waInstanceName ?? defaultWaInstanceName(professionalId),
+      isConnected: pro?.waStatus === WaStatus.CONNECTED,
+      organizationId: undefined,
+    };
+  }
+
   private async resolveInstance(
     professionalId: string,
   ): Promise<string | null> {
-    const pro = await this.prisma.professional.findUnique({
-      where: { id: professionalId },
-      select: { waInstanceName: true },
-    });
-    return pro?.waInstanceName ?? defaultWaInstanceName(professionalId);
+    const ctx = await this.resolveEffectiveWaContext(professionalId);
+    return ctx.isConnected ? ctx.instance : null;
   }
 
   async sendAppointmentCreated(appointmentId: string): Promise<void> {
@@ -128,16 +166,15 @@ export class WhatsappMessagingService {
     if (!row) return;
 
     const { professional, patient } = row;
-    if (professional.waStatus !== WaStatus.CONNECTED) {
+    if (!this.evolution.isConfigured()) return;
+
+    const waCtx = await this.resolveEffectiveWaContext(professional.id);
+    if (!waCtx.isConnected) {
       this.logger.debug(
         `Omitiendo WA alta: profesional ${professional.id} no conectado`,
       );
       return;
     }
-    if (!this.evolution.isConfigured()) return;
-
-    const instance = await this.resolveInstance(professional.id);
-    if (!instance) return;
     if (!patient.phone) return;
 
     const { weekday, dayMonth, time } = formatAppointmentHuman(
@@ -161,10 +198,11 @@ export class WhatsappMessagingService {
 
     const to = normalizeArWhatsappNumber(patient.phone);
     try {
-      await this.evolution.sendText(instance, to, text);
+      await this.evolution.sendText(waCtx.instance, to, text);
       await this.prisma.messageLog.create({
         data: {
           professionalId: professional.id,
+          organizationId: waCtx.organizationId,
           patientId: patient.id,
           appointmentId: row.id,
           direction: MessageDirection.OUTBOUND,
@@ -179,6 +217,7 @@ export class WhatsappMessagingService {
       await this.prisma.messageLog.create({
         data: {
           professionalId: professional.id,
+          organizationId: waCtx.organizationId,
           patientId: patient.id,
           appointmentId: row.id,
           direction: MessageDirection.OUTBOUND,
@@ -202,11 +241,10 @@ export class WhatsappMessagingService {
     if (!row) return false;
 
     const { professional, patient } = row;
-    if (professional.waStatus !== WaStatus.CONNECTED) return false;
     if (!this.evolution.isConfigured()) return false;
 
-    const instance = await this.resolveInstance(professional.id);
-    if (!instance) return false;
+    const waCtx = await this.resolveEffectiveWaContext(professional.id);
+    if (!waCtx.isConnected) return false;
     if (!patient.phone) return false;
 
     const rel = reminderRelativeDay(row.startAt, professional.timezone);
@@ -233,10 +271,11 @@ export class WhatsappMessagingService {
 
     const to = normalizeArWhatsappNumber(patient.phone);
     try {
-      await this.evolution.sendText(instance, to, text);
+      await this.evolution.sendText(waCtx.instance, to, text);
       await this.prisma.messageLog.create({
         data: {
           professionalId: professional.id,
+          organizationId: waCtx.organizationId,
           patientId: patient.id,
           appointmentId: row.id,
           direction: MessageDirection.OUTBOUND,
@@ -261,25 +300,21 @@ export class WhatsappMessagingService {
     toPhoneDigits: string;
     content: string;
   }): Promise<void> {
-    const pro = await this.prisma.professional.findUnique({
-      where: { id: params.professionalId },
-      select: { waStatus: true, waInstanceName: true },
-    });
-    if (!pro || pro.waStatus !== WaStatus.CONNECTED) return;
     if (!this.evolution.isConfigured()) return;
 
-    const instance =
-      pro.waInstanceName ?? defaultWaInstanceName(params.professionalId);
+    const waCtx = await this.resolveEffectiveWaContext(params.professionalId);
+    if (!waCtx.isConnected) return;
 
     try {
       await this.evolution.sendText(
-        instance,
+        waCtx.instance,
         params.toPhoneDigits,
         params.content,
       );
       await this.prisma.messageLog.create({
         data: {
           professionalId: params.professionalId,
+          organizationId: waCtx.organizationId,
           patientId: params.patientId,
           appointmentId: params.appointmentId,
           direction: MessageDirection.OUTBOUND,
@@ -302,11 +337,10 @@ export class WhatsappMessagingService {
     if (!row) return;
 
     const { professional, patient } = row;
-    if (professional.waStatus !== WaStatus.CONNECTED) return;
     if (!this.evolution.isConfigured()) return;
 
-    const instance = await this.resolveInstance(professional.id);
-    if (!instance) return;
+    const waCtx = await this.resolveEffectiveWaContext(professional.id);
+    if (!waCtx.isConnected) return;
     if (!patient.phone) return;
 
     const { weekday, dayMonth, time } = formatAppointmentHuman(
@@ -330,10 +364,11 @@ export class WhatsappMessagingService {
 
     const to = normalizeArWhatsappNumber(patient.phone);
     try {
-      await this.evolution.sendText(instance, to, text);
+      await this.evolution.sendText(waCtx.instance, to, text);
       await this.prisma.messageLog.create({
         data: {
           professionalId: professional.id,
+          organizationId: waCtx.organizationId,
           patientId: patient.id,
           appointmentId: row.id,
           direction: MessageDirection.OUTBOUND,
@@ -343,9 +378,9 @@ export class WhatsappMessagingService {
           sentAt: new Date(),
         },
       });
-      // In-app notification para el profesional
       await this.notifications.create({
         professionalId: professional.id,
+        organizationId: waCtx.organizationId,
         type: 'APPOINTMENT_RESCHEDULED',
         title: `Turno de ${patient.firstName} ${patient.lastName} reprogramado`,
         body: `Nuevo horario: ${weekday} ${dayMonth} a las ${time}hs — WA enviado al paciente`,
@@ -366,11 +401,10 @@ export class WhatsappMessagingService {
     if (!row) return;
 
     const { professional, patient } = row;
-    if (professional.waStatus !== WaStatus.CONNECTED) return;
     if (!this.evolution.isConfigured()) return;
 
-    const instance = await this.resolveInstance(professional.id);
-    if (!instance) return;
+    const waCtx = await this.resolveEffectiveWaContext(professional.id);
+    if (!waCtx.isConnected) return;
     if (!patient.phone) return;
 
     const { weekday, dayMonth, time } = formatAppointmentHuman(
@@ -394,10 +428,11 @@ export class WhatsappMessagingService {
 
     const to = normalizeArWhatsappNumber(patient.phone);
     try {
-      await this.evolution.sendText(instance, to, text);
+      await this.evolution.sendText(waCtx.instance, to, text);
       await this.prisma.messageLog.create({
         data: {
           professionalId: professional.id,
+          organizationId: waCtx.organizationId,
           patientId: patient.id,
           appointmentId: row.id,
           direction: MessageDirection.OUTBOUND,
@@ -407,9 +442,9 @@ export class WhatsappMessagingService {
           sentAt: new Date(),
         },
       });
-      // In-app notification para el profesional (confirmación de que el WA salió)
       await this.notifications.create({
         professionalId: professional.id,
+        organizationId: waCtx.organizationId,
         type: 'APPOINTMENT_CANCELLED_SENT',
         title: `Turno de ${patient.firstName} ${patient.lastName} cancelado`,
         body: `${weekday} ${dayMonth} a las ${time}hs — WA de cancelación enviado al paciente`,
@@ -430,17 +465,14 @@ export class WhatsappMessagingService {
         fullName: true,
         phone: true,
         timezone: true,
-        waStatus: true,
-        waInstanceName: true,
       },
     });
 
     if (!professional?.phone) return false;
-    if (professional.waStatus !== WaStatus.CONNECTED) return false;
     if (!this.evolution.isConfigured()) return false;
 
-    const instance = await this.resolveInstance(professionalId);
-    if (!instance) return false;
+    const waCtx = await this.resolveEffectiveWaContext(professionalId);
+    if (!waCtx.isConnected) return false;
 
     const now = new Date();
     const tz = professional.timezone;
@@ -478,13 +510,14 @@ export class WhatsappMessagingService {
         `No tenés turnos programados para hoy. \u{2615}`;
       try {
         await this.evolution.sendText(
-          instance,
+          waCtx.instance,
           normalizeArWhatsappNumber(professional.phone),
           text,
         );
         await this.prisma.messageLog.create({
           data: {
             professionalId,
+            organizationId: waCtx.organizationId,
             direction: MessageDirection.OUTBOUND,
             messageType: MessageType.SYSTEM,
             toPhone: normalizeArWhatsappNumber(professional.phone),
@@ -518,13 +551,14 @@ export class WhatsappMessagingService {
 
     try {
       await this.evolution.sendText(
-        instance,
+        waCtx.instance,
         normalizeArWhatsappNumber(professional.phone),
         text,
       );
       await this.prisma.messageLog.create({
         data: {
           professionalId,
+          organizationId: waCtx.organizationId,
           direction: MessageDirection.OUTBOUND,
           messageType: MessageType.SYSTEM,
           toPhone: normalizeArWhatsappNumber(professional.phone),
@@ -551,11 +585,10 @@ export class WhatsappMessagingService {
     if (!row) return;
 
     const { professional, patient } = row;
-    if (professional.waStatus !== WaStatus.CONNECTED) return;
     if (!this.evolution.isConfigured()) return;
 
-    const instance = await this.resolveInstance(professional.id);
-    if (!instance) return;
+    const waCtx = await this.resolveEffectiveWaContext(professional.id);
+    if (!waCtx.isConnected) return;
     if (!patient.phone) return;
 
     const { weekday, dayMonth, time } = formatAppointmentHuman(
@@ -583,10 +616,11 @@ export class WhatsappMessagingService {
 
     const to = normalizeArWhatsappNumber(patient.phone);
     try {
-      await this.evolution.sendText(instance, to, text);
+      await this.evolution.sendText(waCtx.instance, to, text);
       await this.prisma.messageLog.create({
         data: {
           professionalId: professional.id,
+          organizationId: waCtx.organizationId,
           patientId: patient.id,
           appointmentId: row.id,
           direction: MessageDirection.OUTBOUND,
@@ -601,31 +635,66 @@ export class WhatsappMessagingService {
     }
   }
 
-  async processPatientReply(
+  /**
+   * Resuelve profesional + paciente a partir de una instancia WA y un teléfono entrante.
+   * Para instancias de centro (cymple-org-*), busca entre todos los profesionales del centro.
+   */
+  private async resolveReplyContext(
     instanceName: string,
     fromJidDigits: string,
-    rawText: string,
-  ): Promise<boolean> {
-    const normalized = rawText.trim();
-    const digitReply = normalized.replace(/\D/g, '');
-    const lower = normalized.toLowerCase();
+  ): Promise<{
+    professional: {
+      id: string;
+      fullName: string;
+      timezone: string;
+      phone: string | null;
+    };
+    patient: { id: string; phone: string; firstName: string; lastName: string };
+    organizationId: string | undefined;
+  } | null> {
+    // Instancia de centro: buscar entre todos los profesionales del centro
+    if (instanceName.startsWith('cymple-org-')) {
+      const orgId = instanceName.slice('cymple-org-'.length);
+      const org = await this.prisma.organization.findUnique({
+        where: { id: orgId },
+        select: { id: true },
+      });
+      if (!org) return null;
 
-    // Feature D: texto libre además de 1/2
-    const isOne =
-      normalized === '1' ||
-      digitReply === '1' ||
-      /^1\uFE0F\u20E3/.test(normalized) ||
-      /\b(si|sí|confirmo|voy|dale|ok|claro|perfecto|ahí estoy|ahi estoy)\b/.test(
-        lower,
+      const profs = await this.prisma.professional.findMany({
+        where: { organizationId: orgId },
+        select: { id: true, fullName: true, timezone: true, phone: true },
+      });
+      if (!profs.length) return null;
+
+      const profIds = profs.map((p) => p.id);
+      const patients = await this.prisma.patient.findMany({
+        where: { professionalId: { in: profIds }, deletedAt: null },
+        select: {
+          id: true,
+          phone: true,
+          firstName: true,
+          lastName: true,
+          professionalId: true,
+        },
+      });
+
+      const patient = patients.find(
+        (p) => p.phone && phonesMatch(p.phone, fromJidDigits),
       );
-    const isTwo =
-      normalized === '2' ||
-      digitReply === '2' ||
-      /^2\uFE0F\u20E3/.test(normalized) ||
-      /\b(no|cancelo|cancelar|no puedo|no voy|imposible)\b/.test(lower);
+      if (!patient) return null;
 
-    if (!isOne && !isTwo) return false;
+      const professional = profs.find((p) => p.id === patient.professionalId);
+      if (!professional) return null;
 
+      return {
+        professional,
+        patient: { ...patient, phone: patient.phone! },
+        organizationId: orgId,
+      };
+    }
+
+    // Instancia de profesional independiente
     const idFromInstance = instanceName.startsWith('cymple-prof-')
       ? instanceName.slice('cymple-prof-'.length)
       : undefined;
@@ -642,7 +711,7 @@ export class WhatsappMessagingService {
 
     if (!professional) {
       this.logger.warn(`Instancia WA sin profesional: ${instanceName}`);
-      return false;
+      return null;
     }
 
     const patients = await this.prisma.patient.findMany({
@@ -657,28 +726,50 @@ export class WhatsappMessagingService {
       (p) => p.phone && phonesMatch(p.phone, fromJidDigits),
     );
 
-    if (!patient || !patient.phone) return false;
+    if (!patient || !patient.phone) return null;
 
-    const now = new Date();
-    const appointment = await this.prisma.appointment.findFirst({
-      where: {
-        professionalId: professional.id,
-        patientId: patient.id,
-        status: {
-          in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
-        },
-        startAt: { gte: now },
-      },
-      orderBy: { startAt: 'asc' },
-    });
+    return {
+      professional,
+      patient: { ...patient, phone: patient.phone },
+      organizationId: undefined,
+    };
+  }
 
-    if (!appointment) return false;
+  async processPatientReply(
+    instanceName: string,
+    fromJidDigits: string,
+    rawText: string,
+  ): Promise<boolean> {
+    const normalized = rawText.trim();
+    const digitReply = normalized.replace(/\D/g, '');
+    const lower = normalized.toLowerCase();
+
+    const isOne =
+      normalized === '1' ||
+      digitReply === '1' ||
+      /^1\uFE0F\u20E3/.test(normalized) ||
+      /\b(si|sí|confirmo|voy|dale|ok|vale|claro|perfecto|ahí estoy|ahi estoy)\b/.test(
+        lower,
+      );
+    const isTwo =
+      normalized === '2' ||
+      digitReply === '2' ||
+      /^2\uFE0F\u20E3/.test(normalized) ||
+      /\b(cancelo|cancelar|no puedo|no voy|imposible)\b/.test(lower);
+
+    const resolved = await this.resolveReplyContext(
+      instanceName,
+      fromJidDigits,
+    );
+    if (!resolved) return false;
+
+    const { professional, patient, organizationId } = resolved;
 
     await this.prisma.messageLog.create({
       data: {
         professionalId: professional.id,
+        organizationId,
         patientId: patient.id,
-        appointmentId: appointment.id,
         direction: MessageDirection.INBOUND,
         messageType: MessageType.PATIENT_REPLY,
         fromPhone: fromJidDigits,
@@ -686,6 +777,57 @@ export class WhatsappMessagingService {
         receivedAt: new Date(),
       },
     });
+
+    // Respuesta no reconocida: guiar amablemente al paciente
+    if (!isOne && !isTwo) {
+      const guidance =
+        `Hola ${patient.firstName} \u{1F44B}, soy el *asistente virtual de turnos* de ${professional.fullName}.\n\n` +
+        `No soy ${professional.fullName.split(' ')[0]}, solo gestiono sus turnos automáticamente. \u{1F916}\n\n` +
+        `Por favor respondé solo con:\n` +
+        `1\uFE0F\u20E3 para *confirmar* tu turno\n` +
+        `2\uFE0F\u20E3 para *cancelarlo*\n\n` +
+        `Si necesitás hablar directamente con ${professional.fullName.split(' ')[0]}, contactalo por otro medio. \u{1F64F}`;
+      await this.sendSystemText({
+        professionalId: professional.id,
+        patientId: patient.id,
+        appointmentId: null,
+        toPhoneDigits: normalizeArWhatsappNumber(patient.phone),
+        content: guidance,
+      });
+      return true;
+    }
+
+    const now = new Date();
+
+    // Elegir el turno correcto: priorizar el que recibió recordatorio más reciente
+    let appointment = await this.prisma.appointment.findFirst({
+      where: {
+        professionalId: professional.id,
+        patientId: patient.id,
+        status: {
+          in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
+        },
+        startAt: { gte: now },
+        reminderSentAt: { not: null },
+      },
+      orderBy: { reminderSentAt: 'desc' },
+    });
+
+    if (!appointment) {
+      appointment = await this.prisma.appointment.findFirst({
+        where: {
+          professionalId: professional.id,
+          patientId: patient.id,
+          status: {
+            in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
+          },
+          startAt: { gte: now },
+        },
+        orderBy: { startAt: 'asc' },
+      });
+    }
+
+    if (!appointment) return false;
 
     const { time } = formatAppointmentHuman(
       appointment.startAt,
@@ -720,7 +862,6 @@ export class WhatsappMessagingService {
         content: ack,
       });
 
-      // Feature A: WA al profesional + in-app notification
       const patientName = `${patient.firstName} ${patient.lastName}`;
       const notifBody = `${rel ? rel : whenLabel} a las ${time}hs`;
       if (professional.phone) {
@@ -735,6 +876,7 @@ export class WhatsappMessagingService {
       void this.notifications
         .create({
           professionalId: professional.id,
+          organizationId,
           type: 'PATIENT_CONFIRMED',
           title: `${patientName} confirmó su turno`,
           body: notifBody,
@@ -761,7 +903,6 @@ export class WhatsappMessagingService {
       content: ack,
     });
 
-    // Feature A: WA al profesional + in-app notification
     const patientName = `${patient.firstName} ${patient.lastName}`;
     const notifBody = `${rel ? rel : whenLabel} a las ${time}hs`;
     if (professional.phone) {
@@ -776,6 +917,7 @@ export class WhatsappMessagingService {
     void this.notifications
       .create({
         professionalId: professional.id,
+        organizationId,
         type: 'PATIENT_CANCELLED',
         title: `${patientName} canceló su turno`,
         body: notifBody,

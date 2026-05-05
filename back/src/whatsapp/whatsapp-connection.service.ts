@@ -351,7 +351,7 @@ export class WhatsappConnectionService {
     let state: string | undefined;
     try {
       state = await this.evolution.getConnectionState(instanceName);
-    } catch {
+    } catch (e) {
       await this.prisma.organization.update({
         where: { id: organizationId },
         data: { waStatus: WaStatus.DISCONNECTED },
@@ -360,6 +360,8 @@ export class WhatsappConnectionService {
         uiStatus: 'error' as const,
         qr: null,
         dbStatus: WaStatus.DISCONNECTED,
+        errorMessage:
+          e instanceof Error ? e.message : 'No se pudo consultar Evolution',
       };
     }
 
@@ -372,6 +374,28 @@ export class WhatsappConnectionService {
         uiStatus: 'ready' as const,
         qr: null,
         dbStatus: WaStatus.CONNECTED,
+      };
+    }
+
+    if (state === 'connecting') {
+      let qr: string | undefined;
+      try {
+        const connectRes = await this.evolution.connect(instanceName);
+        qr = extractQrBase64(connectRes);
+      } catch {
+        /* ignore */
+      }
+      await this.prisma.organization.update({
+        where: { id: organizationId },
+        data: { waStatus: WaStatus.CONNECTING },
+      });
+      if (qr) {
+        return { uiStatus: 'qr' as const, qr, dbStatus: WaStatus.CONNECTING };
+      }
+      return {
+        uiStatus: 'connecting' as const,
+        qr: null,
+        dbStatus: WaStatus.CONNECTING,
       };
     }
 
