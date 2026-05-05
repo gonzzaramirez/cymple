@@ -52,28 +52,46 @@ export class ReminderSweeper {
           appointment.id,
         );
         if (!sent) {
-          this.logger.warn(
-            `Recordatorio no enviado (WA no listo o error) ${appointment.id}`,
-          );
+          // Contar reintentos fallidos (MessageLog con [ERROR] en la última hora)
+          const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+          const errorCount = await this.prisma.messageLog.count({
+            where: {
+              appointmentId: appointment.id,
+              messageType: 'APPOINTMENT_REMINDER',
+              content: { startsWith: '[ERROR]' },
+              createdAt: { gte: oneHourAgo },
+            },
+          });
+
+          if (errorCount >= 3) {
+            this.logger.error(
+              `Recordatorio ${appointment.id} falló ${errorCount} veces — se cancela reintento`,
+            );
+            await this.prisma.appointment.update({
+              where: { id: appointment.id },
+              data: { reminderSentAt: now },
+            });
+            await this.prisma.messageLog.create({
+              data: {
+                professionalId: appointment.professional.id,
+                patientId: appointment.patient.id,
+                appointmentId: appointment.id,
+                direction: 'OUTBOUND',
+                messageType: 'APPOINTMENT_REMINDER',
+                toPhone: appointment.patient.phone ?? undefined,
+                content:
+                  '[FATAL] Recordatorio cancelado tras 3 reintentos fallidos',
+                sentAt: null,
+              },
+            });
+          } else {
+            this.logger.warn(
+              `Recordatorio no enviado (intento ${errorCount + 1}/3) ${appointment.id}`,
+            );
+          }
           continue;
         }
-
-        await this.prisma.appointment.update({
-          where: { id: appointment.id },
-          data: {
-            reminderSentAt: now,
-            confirmationDeadline: new Date(
-              now.getTime() +
-                (appointment.professional.confirmationWindowMinutes ?? 60) *
-                  60 *
-                  1000,
-            ),
-          },
-        });
-
-        this.logger.log(
-          `Reminder sent for appointment ${appointment.id} | confirmation deadline: ${appointment.professional.confirmationWindowMinutes}min`,
-        );
+        this.logger.log(`Reminder sent for appointment ${appointment.id}`);
       } catch (error) {
         this.logger.error(
           `Failed to send reminder for appointment ${appointment.id}: ${error}`,

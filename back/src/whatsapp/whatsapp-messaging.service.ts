@@ -100,8 +100,9 @@ export class WhatsappMessagingService {
   private async getTemplate(
     professionalId: string,
     type: TemplatableType,
+    organizationId?: string,
   ): Promise<{ body: string; isEnabled: boolean }> {
-    return this.messageTemplates.getOne(professionalId, type);
+    return this.messageTemplates.getOne(professionalId, type, organizationId);
   }
 
   private interpolate(template: string, vars: Record<string, string>): string {
@@ -196,6 +197,7 @@ export class WhatsappMessagingService {
     const tpl = await this.getTemplate(
       professional.id,
       MessageType.APPOINTMENT_CREATED,
+      waCtx.organizationId,
     );
     if (!tpl.isEnabled) return;
 
@@ -287,6 +289,7 @@ export class WhatsappMessagingService {
     const tpl = await this.getTemplate(
       professional.id,
       MessageType.APPOINTMENT_REMINDER,
+      waCtx.organizationId,
     );
     if (!tpl.isEnabled) {
       this.logger.warn(
@@ -307,9 +310,19 @@ export class WhatsappMessagingService {
     const to = normalizeArWhatsappNumber(patient.phone);
     try {
       await this.evolution.sendText(waCtx.instance, to, text);
+      const now = new Date();
       this.logger.log(
         `Recordatorio enviado: ${appointmentId} → ${to} (${dayPhrase} ${time}hs)`,
       );
+      await this.prisma.appointment.update({
+        where: { id: row.id },
+        data: {
+          reminderSentAt: now,
+          confirmationDeadline: new Date(
+            now.getTime() + (professional.confirmationWindowMinutes ?? 60) * 60 * 1000,
+          ),
+        },
+      });
       await this.prisma.messageLog.create({
         data: {
           professionalId: professional.id,
@@ -320,12 +333,25 @@ export class WhatsappMessagingService {
           messageType: MessageType.APPOINTMENT_REMINDER,
           toPhone: to,
           content: text,
-          sentAt: new Date(),
+          sentAt: now,
         },
       });
       return true;
     } catch (e) {
       this.logger.error(e, `Fallo envío recordatorio ${appointmentId}`);
+      await this.prisma.messageLog.create({
+        data: {
+          professionalId: professional.id,
+          organizationId: waCtx.organizationId,
+          patientId: patient.id,
+          appointmentId: row.id,
+          direction: MessageDirection.OUTBOUND,
+          messageType: MessageType.APPOINTMENT_REMINDER,
+          toPhone: to,
+          content: `[ERROR] ${e instanceof Error ? e.message : 'send failed'}`,
+          sentAt: null,
+        },
+      });
       return false;
     }
   }
@@ -396,6 +422,7 @@ export class WhatsappMessagingService {
     const tpl = await this.getTemplate(
       professional.id,
       MessageType.APPOINTMENT_RESCHEDULED,
+      waCtx.organizationId,
     );
     if (!tpl.isEnabled) return;
 
@@ -463,6 +490,7 @@ export class WhatsappMessagingService {
     const tpl = await this.getTemplate(
       professional.id,
       MessageType.APPOINTMENT_CANCELLED,
+      waCtx.organizationId,
     );
     if (!tpl.isEnabled) return;
 
@@ -652,6 +680,7 @@ export class WhatsappMessagingService {
     const tpl = await this.getTemplate(
       professional.id,
       MessageType.PAYMENT_REMINDER,
+      waCtx.organizationId,
     );
     if (!tpl.isEnabled) return;
 
