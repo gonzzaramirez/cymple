@@ -880,8 +880,8 @@ export class WhatsappMessagingService {
     }
 
     const now = new Date();
+    const gracePeriod = new Date(now.getTime() - 2 * 60 * 60 * 1000);
 
-    // Elegir el turno correcto: priorizar el que recibió recordatorio más reciente
     let appointment = await this.prisma.appointment.findFirst({
       where: {
         professionalId: professional.id,
@@ -889,10 +889,10 @@ export class WhatsappMessagingService {
         status: {
           in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
         },
-        startAt: { gte: now },
+        startAt: { gte: gracePeriod },
         reminderSentAt: { not: null },
       },
-      orderBy: { reminderSentAt: 'desc' },
+      orderBy: { startAt: 'asc' },
     });
 
     if (!appointment) {
@@ -903,13 +903,31 @@ export class WhatsappMessagingService {
           status: {
             in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
           },
-          startAt: { gte: now },
+          startAt: { gte: gracePeriod },
         },
         orderBy: { startAt: 'asc' },
       });
     }
 
-    if (!appointment) return false;
+    if (!appointment) {
+      this.logger.warn(
+        `No upcoming appointment found for patient ${patient.id} (${patient.firstName} ${patient.lastName}) from phone ${fromJidDigits}`,
+      );
+      const guidance =
+        `Hola ${patient.firstName} \u{1F44B}, soy el *asistente virtual de turnos* de ${professional.fullName}.\n\n` +
+        `No encontré un turno pendiente para vos. Si querés agendar uno, contactá directamente a ${professional.fullName}.\n\n` +
+        `1\uFE0F\u20E3 Confirmar turno\n` +
+        `2\uFE0F\u20E3 Cancelar turno`;
+      await this.sendSystemText({
+        professionalId: professional.id,
+        patientId: patient.id,
+        appointmentId: null,
+        toPhoneDigits: normalizeArWhatsappNumber(patient.phone),
+        content: guidance,
+        organizationId,
+      });
+      return true;
+    }
 
     if (inboundLog) {
       await this.prisma.messageLog

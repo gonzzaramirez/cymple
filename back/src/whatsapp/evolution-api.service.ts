@@ -162,6 +162,25 @@ export class EvolutionApiService {
       },
     );
   }
+
+  async setWebhook(
+    instanceName: string,
+    webhookUrl: string,
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/webhook/set/${encodeURIComponent(instanceName)}`,
+      {
+        enabled: true,
+        webhook: {
+          enabled: true,
+          url: webhookUrl,
+          webhookByEvents: false,
+          events: ['MESSAGES_UPSERT'],
+        },
+      },
+    );
+  }
 }
 
 /** Extrae QR base64 de respuestas create/connect/status Evolution (formas variables). */

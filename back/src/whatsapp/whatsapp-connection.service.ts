@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -29,6 +30,8 @@ export function defaultOrgWaInstanceName(organizationId: string): string {
 
 @Injectable()
 export class WhatsappConnectionService {
+  private readonly logger = new Logger(WhatsappConnectionService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly evolution: EvolutionApiService,
@@ -42,6 +45,22 @@ export class WhatsappConnectionService {
     );
     if (!base) return undefined;
     return `${base}/v1/webhooks/whatsapp`;
+  }
+
+  private async ensureWebhook(instanceName: string): Promise<void> {
+    const webhook = this.webhookUrl();
+    if (!webhook) {
+      this.logger.warn(
+        `APP_PUBLIC_URL not configured — skipping webhook setup for ${instanceName}`,
+      );
+      return;
+    }
+    try {
+      await this.evolution.setWebhook(instanceName, webhook);
+      this.logger.log(`Webhook set for ${instanceName} → ${webhook}`);
+    } catch (e) {
+      this.logger.warn(`Failed to set webhook for ${instanceName}: ${e}`);
+    }
   }
 
   private ensureEvolution() {
@@ -121,6 +140,8 @@ export class WhatsappConnectionService {
       where: { id: professionalId },
       data: { waStatus: WaStatus.CONNECTING },
     });
+
+    await this.ensureWebhook(instanceName);
 
     let qr = extractQrBase64(createOrConnectResponse);
     if (!qr) {
@@ -307,6 +328,8 @@ export class WhatsappConnectionService {
       where: { id: organizationId },
       data: { waStatus: WaStatus.CONNECTING },
     });
+
+    await this.ensureWebhook(instanceName);
 
     let qr = extractQrBase64(createOrConnectResponse);
     if (!qr) {

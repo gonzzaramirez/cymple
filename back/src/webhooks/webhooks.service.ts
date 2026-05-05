@@ -36,8 +36,14 @@ export class WebhooksService {
   async handleWhatsappPayload(payload: unknown) {
     const instanceName = extractInstanceName(payload);
     this.logger.log(
-      `Instance: ${instanceName ?? 'NO RESUELTA'} | Payload type: ${typeof payload}`,
+      `Webhook received — instance: ${instanceName ?? 'UNRESOLVED'} | payload type: ${typeof payload}`,
     );
+
+    if (payload && typeof payload === 'object') {
+      this.logger.debug(
+        `Payload keys: ${Object.keys(payload as Record<string, unknown>).join(', ')}`,
+      );
+    }
 
     let professionalId: string | undefined;
     let organizationId: string | undefined;
@@ -70,16 +76,16 @@ export class WebhooksService {
     const inbound = extractInboundText(payload);
     if (!inbound) {
       this.logger.warn(
-        'extractInboundText retornó null — posible LID, no-text, o fromMe',
+        `extractInboundText returned null — instance: ${instanceName ?? 'unknown'}, possible LID/non-text/fromMe`,
       );
       if (!instanceName) {
-        this.logger.warn('instanceName también es null, webhook descartado');
+        this.logger.warn('instanceName also null — webhook discarded');
       }
       return;
     }
 
     this.logger.log(
-      `Texto entrante: "${inbound.text.substring(0, 100)}" | fromJid: ${inbound.fromJid}`,
+      `Inbound message: "${inbound.text.substring(0, 80)}" from ${inbound.fromJid} | instance: ${instanceName}`,
     );
 
     try {
@@ -90,7 +96,7 @@ export class WebhooksService {
       );
       this.logger.log(`processPatientReply result: ${result}`);
     } catch (e) {
-      this.logger.error(e, 'Error procesando respuesta WhatsApp');
+      this.logger.error(e, 'Error processing WhatsApp reply');
     }
   }
 }
