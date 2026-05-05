@@ -52,46 +52,14 @@ export class ReminderSweeper {
           appointment.id,
         );
         if (!sent) {
-          // Contar reintentos fallidos (MessageLog con [ERROR] en la última hora)
-          const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-          const errorCount = await this.prisma.messageLog.count({
-            where: {
-              appointmentId: appointment.id,
-              messageType: 'APPOINTMENT_REMINDER',
-              content: { startsWith: '[ERROR]' },
-              createdAt: { gte: oneHourAgo },
-            },
-          });
-
-          if (errorCount >= 3) {
-            this.logger.error(
-              `Recordatorio ${appointment.id} falló ${errorCount} veces — se cancela reintento`,
-            );
-            await this.prisma.appointment.update({
-              where: { id: appointment.id },
-              data: { reminderSentAt: now },
-            });
-            await this.prisma.messageLog.create({
-              data: {
-                professionalId: appointment.professional.id,
-                patientId: appointment.patient.id,
-                appointmentId: appointment.id,
-                direction: 'OUTBOUND',
-                messageType: 'APPOINTMENT_REMINDER',
-                toPhone: appointment.patient.phone ?? undefined,
-                content:
-                  '[FATAL] Recordatorio cancelado tras 3 reintentos fallidos',
-                sentAt: null,
-              },
-            });
-          } else {
-            this.logger.warn(
-              `Recordatorio no enviado (intento ${errorCount + 1}/3) ${appointment.id}`,
-            );
-          }
+          this.logger.warn(
+            `Recordatorio no enviado para turno ${appointment.id} (${appointment.patient.firstName} ${appointment.patient.lastName}, profesional: ${appointment.professional.fullName}) — se reintentará en el próximo ciclo`,
+          );
           continue;
         }
-        this.logger.log(`Reminder sent for appointment ${appointment.id}`);
+        this.logger.log(
+          `Reminder sent for appointment ${appointment.id} (${appointment.patient.firstName} ${appointment.patient.lastName})`,
+        );
       } catch (error) {
         this.logger.error(
           `Failed to send reminder for appointment ${appointment.id}: ${error}`,

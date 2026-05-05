@@ -319,7 +319,8 @@ export class WhatsappMessagingService {
         data: {
           reminderSentAt: now,
           confirmationDeadline: new Date(
-            now.getTime() + (professional.confirmationWindowMinutes ?? 60) * 60 * 1000,
+            now.getTime() +
+              (professional.confirmationWindowMinutes ?? 60) * 60 * 1000,
           ),
         },
       });
@@ -845,7 +846,7 @@ export class WhatsappMessagingService {
 
     const { professional, patient, organizationId } = resolved;
 
-    await this.prisma.messageLog.create({
+    const inboundLog = await this.prisma.messageLog.create({
       data: {
         professionalId: professional.id,
         organizationId,
@@ -910,6 +911,15 @@ export class WhatsappMessagingService {
 
     if (!appointment) return false;
 
+    if (inboundLog) {
+      await this.prisma.messageLog
+        .update({
+          where: { id: inboundLog.id },
+          data: { appointmentId: appointment.id },
+        })
+        .catch(() => {});
+    }
+
     const { time } = formatAppointmentHuman(
       appointment.startAt,
       professional.timezone,
@@ -949,16 +959,6 @@ export class WhatsappMessagingService {
 
       const patientName = `${patient.firstName} ${patient.lastName}`;
       const notifBody = `${rel ? rel : whenLabel} a las ${time}hs`;
-      if (professional.phone) {
-        void this.sendSystemText({
-          professionalId: professional.id,
-          patientId: patient.id,
-          appointmentId: appointment.id,
-          toPhoneDigits: normalizeArWhatsappNumber(professional.phone),
-          content: `\u{2705} ${patientName} confirmó su turno de ${notifBody}`,
-          organizationId,
-        }).catch(() => undefined);
-      }
       void this.notifications
         .create({
           professionalId: professional.id,
@@ -968,7 +968,11 @@ export class WhatsappMessagingService {
           body: notifBody,
           link: '/appointments',
         })
-        .catch(() => undefined);
+        .catch((e) =>
+          this.logger.error(
+            `Failed to create PATIENT_CONFIRMED notification: ${e}`,
+          ),
+        );
 
       return true;
     }
@@ -993,16 +997,6 @@ export class WhatsappMessagingService {
 
     const patientName = `${patient.firstName} ${patient.lastName}`;
     const notifBody = `${rel ? rel : whenLabel} a las ${time}hs`;
-    if (professional.phone) {
-      void this.sendSystemText({
-        professionalId: professional.id,
-        patientId: patient.id,
-        appointmentId: appointment.id,
-        toPhoneDigits: normalizeArWhatsappNumber(professional.phone),
-        content: `\u{274C} ${patientName} canceló su turno de ${notifBody}`,
-        organizationId,
-      }).catch(() => undefined);
-    }
     void this.notifications
       .create({
         professionalId: professional.id,
@@ -1012,7 +1006,11 @@ export class WhatsappMessagingService {
         body: notifBody,
         link: '/appointments',
       })
-      .catch(() => undefined);
+      .catch((e) =>
+        this.logger.error(
+          `Failed to create PATIENT_CANCELLED notification: ${e}`,
+        ),
+      );
 
     return true;
   }

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -24,6 +25,8 @@ import { WhatsappMessagingService } from '../whatsapp/whatsapp-messaging.service
 
 @Injectable()
 export class AppointmentsService {
+  private readonly logger = new Logger(AppointmentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly whatsappMessaging: WhatsappMessagingService,
@@ -126,14 +129,18 @@ export class AppointmentsService {
 
     void this.whatsappMessaging
       .sendAppointmentCreated(created.id)
-      .catch(() => undefined);
+      .catch((e) =>
+        this.logger.error(`Failed to send appointment created message: ${e}`),
+      );
 
     // Si el recordatorio ya debería haberse enviado (turno cercano), mandarlo ya
     const reminderTime = addMinutes(startAt, -professional.reminderHours * 60);
     if (reminderTime <= new Date()) {
       void this.whatsappMessaging
         .sendAppointmentReminder(created.id)
-        .catch(() => undefined);
+        .catch((e) =>
+          this.logger.error(`Failed to send immediate reminder: ${e}`),
+        );
     }
 
     return created;
