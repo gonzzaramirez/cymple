@@ -406,19 +406,36 @@ export class WhatsappMessagingService {
     if (!row) return;
 
     const { professional, patient } = row;
-    if (!this.evolution.isConfigured()) return;
-
-    const waCtx = await this.resolveEffectiveWaContext(
-      professional.id,
-      row.organizationId,
-    );
-    if (!waCtx.isConnected) return;
-    if (!patient.phone) return;
-
     const { weekday, dayMonth, time } = formatAppointmentHuman(
       row.startAt,
       professional.timezone,
     );
+
+    const orgId = row.organizationId ?? undefined;
+
+    void this.notifications
+      .create({
+        professionalId: professional.id,
+        organizationId: orgId,
+        type: 'APPOINTMENT_RESCHEDULED',
+        title: `Turno de ${patient.firstName} ${patient.lastName} reprogramado`,
+        body: `Nuevo horario: ${weekday} ${dayMonth} a las ${time}hs`,
+        link: '/appointments',
+      })
+      .catch((e) =>
+        this.logger.error(
+          `Failed to create APPOINTMENT_RESCHEDULED notification: ${e}`,
+        ),
+      );
+
+    if (!this.evolution.isConfigured()) return;
+
+    const waCtx = await this.resolveEffectiveWaContext(
+      professional.id,
+      orgId,
+    );
+    if (!waCtx.isConnected) return;
+    if (!patient.phone) return;
 
     const tpl = await this.getTemplate(
       professional.id,
@@ -451,14 +468,6 @@ export class WhatsappMessagingService {
           sentAt: new Date(),
         },
       });
-      await this.notifications.create({
-        professionalId: professional.id,
-        organizationId: waCtx.organizationId,
-        type: 'APPOINTMENT_RESCHEDULED',
-        title: `Turno de ${patient.firstName} ${patient.lastName} reprogramado`,
-        body: `Nuevo horario: ${weekday} ${dayMonth} a las ${time}hs — WA enviado al paciente`,
-        link: '/appointments',
-      });
     } catch (e) {
       this.logger.error(e, `Fallo envío WA reprogramación ${appointmentId}`);
     }
@@ -474,19 +483,36 @@ export class WhatsappMessagingService {
     if (!row) return;
 
     const { professional, patient } = row;
-    if (!this.evolution.isConfigured()) return;
-
-    const waCtx = await this.resolveEffectiveWaContext(
-      professional.id,
-      row.organizationId,
-    );
-    if (!waCtx.isConnected) return;
-    if (!patient.phone) return;
-
     const { weekday, dayMonth, time } = formatAppointmentHuman(
       row.startAt,
       professional.timezone,
     );
+
+    const orgId = row.organizationId ?? undefined;
+
+    void this.notifications
+      .create({
+        professionalId: professional.id,
+        organizationId: orgId,
+        type: 'APPOINTMENT_CANCELLED_SENT',
+        title: `Turno de ${patient.firstName} ${patient.lastName} cancelado`,
+        body: `${weekday} ${dayMonth} a las ${time}hs`,
+        link: '/appointments',
+      })
+      .catch((e) =>
+        this.logger.error(
+          `Failed to create APPOINTMENT_CANCELLED_SENT notification: ${e}`,
+        ),
+      );
+
+    if (!this.evolution.isConfigured()) return;
+
+    const waCtx = await this.resolveEffectiveWaContext(
+      professional.id,
+      orgId,
+    );
+    if (!waCtx.isConnected) return;
+    if (!patient.phone) return;
 
     const tpl = await this.getTemplate(
       professional.id,
@@ -518,14 +544,6 @@ export class WhatsappMessagingService {
           content: text,
           sentAt: new Date(),
         },
-      });
-      await this.notifications.create({
-        professionalId: professional.id,
-        organizationId: waCtx.organizationId,
-        type: 'APPOINTMENT_CANCELLED_SENT',
-        title: `Turno de ${patient.firstName} ${patient.lastName} cancelado`,
-        body: `${weekday} ${dayMonth} a las ${time}hs — WA de cancelación enviado al paciente`,
-        link: '/appointments',
       });
     } catch (e) {
       this.logger.error(e, `Fallo envío WA cancelación ${appointmentId}`);
@@ -1012,6 +1030,29 @@ export class WhatsappMessagingService {
       this.logger.warn(
         `processPatientReply: could not resolve context for instance=${instanceName}, fromJid=${fromJidDigits}, text="${rawText.substring(0, 50)}"`,
       );
+      let notifyProfessionalId: string | undefined;
+      let notifyOrganizationId: string | undefined;
+      if (instanceName.startsWith('cymple-org-')) {
+        notifyOrganizationId = instanceName.slice('cymple-org-'.length);
+      } else if (instanceName.startsWith('cymple-prof-')) {
+        notifyProfessionalId = instanceName.slice('cymple-prof-'.length);
+      }
+      if (notifyProfessionalId || notifyOrganizationId) {
+        void this.notifications
+          .create({
+            professionalId: notifyProfessionalId,
+            organizationId: notifyOrganizationId,
+            type: 'WA_UNKNOWN_REPLY',
+            title: 'Mensaje de WhatsApp no identificado',
+            body: `Recibiste un mensaje de ${fromJidDigits} que no se pudo asociar a ningún paciente: "${rawText.substring(0, 80)}"`,
+            link: '/appointments',
+          })
+          .catch((e) =>
+            this.logger.error(
+              `Failed to create WA_UNKNOWN_REPLY notification: ${e}`,
+            ),
+          );
+      }
       return false;
     }
 

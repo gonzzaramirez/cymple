@@ -529,7 +529,7 @@ export class AppointmentsService {
       return appointment;
     }
 
-    return this.prisma.appointment.update({
+    const updated = await this.prisma.appointment.update({
       where: { id: appointment.id },
       data: {
         status: AppointmentStatus.CANCELLED,
@@ -539,6 +539,33 @@ export class AppointmentsService {
         confirmationDeadline: null,
       },
     });
+
+    void this.whatsappMessaging
+      .sendAppointmentCancelledByProfessional(appointment.id)
+      .catch((e) =>
+        this.logger.error(
+          `Failed to send cancellation WA for appointment ${appointment.id}: ${e}`,
+        ),
+      );
+
+    void this.notifications
+      .create({
+        professionalId: appointment.professionalId,
+        organizationId: appointment.organizationId ?? undefined,
+        type: 'APPOINTMENT_CANCELLED',
+        title: `Turno cancelado`,
+        body: dto.reason
+          ? `Motivo: ${dto.reason}`
+          : 'Turno cancelado por el profesional',
+        link: '/appointments',
+      })
+      .catch((e) =>
+        this.logger.error(
+          `Failed to create APPOINTMENT_CANCELLED notification: ${e}`,
+        ),
+      );
+
+    return updated;
   }
 
   private async getOwnedAppointment(ctx: AccessContext, appointmentId: string) {

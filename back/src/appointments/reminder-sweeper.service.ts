@@ -4,6 +4,7 @@ import { AppointmentStatus, PaymentMethod } from '@prisma/client';
 import { DateTime } from 'luxon';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { WhatsappMessagingService } from '../whatsapp/whatsapp-messaging.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ReminderSweeper {
@@ -12,6 +13,7 @@ export class ReminderSweeper {
   constructor(
     private readonly prisma: PrismaService,
     private readonly whatsappMessaging: WhatsappMessagingService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   @Cron('*/5 * * * *')
@@ -146,7 +148,9 @@ export class ReminderSweeper {
           reminderSentAt: { not: null },
           startAt: { gte: now, lte: cutoff },
         },
-        select: { id: true },
+        include: {
+          patient: { select: { firstName: true, lastName: true } },
+        },
       });
 
       for (const apt of toConfirm) {
@@ -159,6 +163,20 @@ export class ReminderSweeper {
             },
           });
           this.logger.log(`Auto-confirmed appointment ${apt.id}`);
+          void this.notifications
+            .create({
+              professionalId: apt.professionalId,
+              organizationId: apt.organizationId ?? undefined,
+              type: 'APPOINTMENT_AUTO_CONFIRMED',
+              title: `Turno de ${apt.patient.firstName} ${apt.patient.lastName} auto-confirmado`,
+              body: `El paciente no respondió dentro de la ventana de confirmación — el turno se confirmó automáticamente`,
+              link: '/appointments',
+            })
+            .catch((e) =>
+              this.logger.error(
+                `Failed to create APPOINTMENT_AUTO_CONFIRMED notification: ${e}`,
+              ),
+            );
         } catch (error) {
           this.logger.error(
             `Failed to auto-confirm appointment ${apt.id}: ${error}`,

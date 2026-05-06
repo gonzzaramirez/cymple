@@ -27,6 +27,9 @@ const TYPE_ICONS: Record<string, string> = {
   PATIENT_CANCELLED: "❌",
   APPOINTMENT_RESCHEDULED: "🔄",
   APPOINTMENT_CANCELLED_SENT: "🚫",
+  APPOINTMENT_CANCELLED: "🗑️",
+  APPOINTMENT_AUTO_CONFIRMED: "🤖",
+  WA_UNKNOWN_REPLY: "📱❓",
 };
 
 export function NotificationBell() {
