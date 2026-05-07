@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -32,6 +32,19 @@ const TYPE_ICONS: Record<string, string> = {
   WA_UNKNOWN_REPLY: "📱❓",
 };
 
+let notificationAudio: HTMLAudioElement | null = null;
+
+function playNotificationSound() {
+  try {
+    if (!notificationAudio) {
+      notificationAudio = new Audio("/notificacion.mp3");
+    }
+    void notificationAudio.play();
+  } catch {
+    // Browser may block autoplay
+  }
+}
+
 export function NotificationBell() {
   const router = useRouter();
   const [data, setData] = useState<NotificationsResponse>({
@@ -40,19 +53,24 @@ export function NotificationBell() {
   });
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const prevUnreadCount = useRef(0);
 
-  async function fetchNotifications() {
+  const fetchNotifications = useCallback(async () => {
     try {
       const res = await fetch("/api/backend/notifications", {
         cache: "no-store",
       });
       if (!res.ok) return;
       const json: NotificationsResponse = await res.json();
+      if (json.unreadCount > prevUnreadCount.current) {
+        playNotificationSound();
+      }
+      prevUnreadCount.current = json.unreadCount;
       setData(json);
     } catch {
       // silently ignore
     }
-  }
+  }, []);
 
   async function handleOpen() {
     const willOpen = !open;
