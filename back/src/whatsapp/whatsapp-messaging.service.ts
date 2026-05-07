@@ -477,7 +477,10 @@ export class WhatsappMessagingService {
         type: 'APPOINTMENT_RESCHEDULED',
         title: `Turno de ${patient.firstName} ${patient.lastName} reprogramado`,
         body: `Nuevo horario: ${weekday} ${dayMonth} a las ${time}hs`,
-        link: '/appointments',
+        link: `/appointments?id=${appointmentId}`,
+        appointmentId,
+        patientId: patient.id,
+        metadata: { patientName: `${patient.firstName} ${patient.lastName}`, when: `${weekday} ${dayMonth} a las ${time}hs` },
       })
       .catch((e) =>
         this.logger.error(
@@ -580,7 +583,10 @@ export class WhatsappMessagingService {
         type: 'APPOINTMENT_CANCELLED_SENT',
         title: `Turno de ${patient.firstName} ${patient.lastName} cancelado`,
         body: `${weekday} ${dayMonth} a las ${time}hs`,
-        link: '/appointments',
+        link: `/appointments?id=${appointmentId}`,
+        appointmentId,
+        patientId: patient.id,
+        metadata: { patientName: `${patient.firstName} ${patient.lastName}`, when: `${weekday} ${dayMonth} a las ${time}hs` },
       })
       .catch((e) =>
         this.logger.error(
@@ -1205,7 +1211,8 @@ export class WhatsappMessagingService {
             type: 'WA_UNKNOWN_REPLY',
             title: 'Mensaje de WhatsApp no identificado',
             body: `Recibiste un mensaje de ${maskPhone(fromJidDigits)} que no se pudo asociar a ningún paciente: "${rawText.substring(0, 80)}"`,
-            link: '/appointments',
+            link: '/messages',
+            metadata: { fromPhone: fromJidDigits, rawText: rawText.substring(0, 200) },
           })
           .catch((e) =>
             this.logger.error(
@@ -1384,7 +1391,10 @@ export class WhatsappMessagingService {
           type: 'PATIENT_CONFIRMED',
           title: `${patientName} confirmó su turno`,
           body: notifBody,
-          link: '/appointments',
+          link: `/appointments?id=${appointment.id}`,
+          appointmentId: appointment.id,
+          patientId: patient.id,
+          metadata: { patientName, when: notifBody },
         })
         .catch((e) =>
           this.logger.error(
@@ -1444,7 +1454,10 @@ export class WhatsappMessagingService {
         type: 'PATIENT_CANCELLED',
         title: `${patientName} canceló su turno`,
         body: notifBody,
-        link: '/appointments',
+        link: `/appointments?id=${appointment.id}`,
+        appointmentId: appointment.id,
+        patientId: patient.id,
+        metadata: { patientName, when: notifBody },
       })
       .catch((e) =>
         this.logger.error(

@@ -215,6 +215,7 @@ model Patient {
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   appointments Appointment[]
   messageLogs  MessageLog[]
+  notifications Notification[]
 
   // Solo professionals: unique phone/dni per professional
   @@unique([professionalId, phone])
@@ -258,6 +259,7 @@ model Appointment {
   patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Restrict)
   revenue      Revenue?
   messageLogs  MessageLog[]
+  notifications Notification[]
 
   @@index([professionalId, startAt])
   @@index([professionalId, status, startAt])
@@ -360,11 +362,19 @@ model Notification {
   readAt         DateTime?
   createdAt      DateTime  @default(now())
 
+  appointmentId  String?
+  patientId      String?
+  metadata       Json?
+
   professional Professional? @relation(fields: [professionalId], references: [id], onDelete: Cascade)
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  appointment   Appointment?  @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  patient       Patient?      @relation(fields: [patientId], references: [id], onDelete: SetNull)
 
   @@index([professionalId, readAt, createdAt])
   @@index([organizationId, readAt, createdAt])
+  @@index([appointmentId])
+  @@index([patientId])
 }
 
 model MessageTemplate {

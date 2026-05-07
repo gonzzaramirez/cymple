@@ -170,7 +170,10 @@ export class ReminderSweeper {
               type: 'APPOINTMENT_AUTO_CONFIRMED',
               title: `Turno de ${apt.patient.firstName} ${apt.patient.lastName} auto-confirmado`,
               body: `El paciente no respondió dentro de la ventana de confirmación — el turno se confirmó automáticamente`,
-              link: '/appointments',
+              link: `/appointments?id=${apt.id}`,
+              appointmentId: apt.id,
+              patientId: apt.patientId,
+              metadata: { patientName: `${apt.patient.firstName} ${apt.patient.lastName}` },
             })
             .catch((e) =>
               this.logger.error(

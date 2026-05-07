@@ -133,6 +133,32 @@ export class AppointmentsService {
         this.logger.error(`Failed to send appointment created message: ${e}`),
       );
 
+    const previousAppointments = await this.prisma.appointment.count({
+      where: {
+        patientId: patient.id,
+        status: { notIn: [AppointmentStatus.CANCELLED] },
+      },
+    });
+    if (previousAppointments <= 1) {
+      void this.notifications
+        .create({
+          professionalId,
+          organizationId: professional.organizationId ?? undefined,
+          type: 'NEW_PATIENT',
+          title: `Nuevo paciente: ${patient.firstName} ${patient.lastName}`,
+          body: patient.phone ? `Tel: ${patient.phone}` : undefined,
+          link: `/patients?id=${patient.id}`,
+          patientId: patient.id,
+          appointmentId: created.id,
+          metadata: { patientName: `${patient.firstName} ${patient.lastName}` },
+        })
+        .catch((e) =>
+          this.logger.error(
+            `Failed to create NEW_PATIENT notification: ${e}`,
+          ),
+        );
+    }
+
     // Si el recordatorio ya debería haberse enviado (turno cercano), mandarlo ya
     // con 1 min de delay para que el mensaje de alta llegue primero
     const reminderTime = addMinutes(startAt, -professional.reminderHours * 60);
@@ -567,7 +593,10 @@ export class AppointmentsService {
         body: dto.reason
           ? `Motivo: ${dto.reason}`
           : 'Turno cancelado por el profesional',
-        link: '/appointments',
+        link: `/appointments?id=${appointment.id}`,
+        appointmentId: appointment.id,
+        patientId: appointment.patientId,
+        metadata: { reason: dto.reason ?? null },
       })
       .catch((e) =>
         this.logger.error(

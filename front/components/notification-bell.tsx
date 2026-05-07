@@ -2,34 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { Bell, CheckCircle2Icon, XCircleIcon, ClockIcon, UserPlusIcon, BotIcon, MessageCircleQuestionIcon, BanIcon } from "lucide-react";
+import { formatDistanceToNow, isToday, isYesterday, subDays, isAfter } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-
-type AppNotification = {
-  id: string;
-  type: string;
-  title: string;
-  body?: string | null;
-  link?: string | null;
-  readAt?: string | null;
-  createdAt: string;
-};
+import { NotificationDetailSheet, getTypeConfig } from "./notification-detail-sheet";
+import type { AppNotification } from "./notification-detail-sheet";
 
 type NotificationsResponse = {
   items: AppNotification[];
   unreadCount: number;
-};
-
-const TYPE_ICONS: Record<string, string> = {
-  PATIENT_CONFIRMED: "✅",
-  PATIENT_CANCELLED: "❌",
-  APPOINTMENT_RESCHEDULED: "🔄",
-  APPOINTMENT_CANCELLED_SENT: "🚫",
-  APPOINTMENT_CANCELLED: "🗑️",
-  APPOINTMENT_AUTO_CONFIRMED: "🤖",
-  WA_UNKNOWN_REPLY: "📱❓",
 };
 
 let notificationAudio: HTMLAudioElement | null = null;
@@ -45,6 +27,34 @@ function playNotificationSound() {
   }
 }
 
+function groupByDay(items: AppNotification[]) {
+  const today: AppNotification[] = [];
+  const yesterday: AppNotification[] = [];
+  const earlier: AppNotification[] = [];
+
+  const now = new Date();
+  const twoDaysAgo = subDays(now, 2);
+
+  for (const item of items) {
+    const date = new Date(item.createdAt);
+    if (isToday(date)) {
+      today.push(item);
+    } else if (isYesterday(date)) {
+      yesterday.push(item);
+    } else if (isAfter(date, twoDaysAgo)) {
+      earlier.push(item);
+    } else {
+      earlier.push(item);
+    }
+  }
+
+  const groups: { label: string; items: AppNotification[] }[] = [];
+  if (today.length > 0) groups.push({ label: "Hoy", items: today });
+  if (yesterday.length > 0) groups.push({ label: "Ayer", items: yesterday });
+  if (earlier.length > 0) groups.push({ label: "Anteriores", items: earlier });
+  return groups;
+}
+
 export function NotificationBell() {
   const router = useRouter();
   const [data, setData] = useState<NotificationsResponse>({
@@ -52,6 +62,8 @@ export function NotificationBell() {
     unreadCount: 0,
   });
   const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<AppNotification | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const prevUnreadCount = useRef(0);
 
@@ -76,7 +88,6 @@ export function NotificationBell() {
     const willOpen = !open;
     setOpen(willOpen);
     if (willOpen && data.unreadCount > 0) {
-      // Mark all as read optimistically
       setData((prev) => ({ ...prev, unreadCount: 0 }));
       try {
         await fetch("/api/backend/notifications/mark-read", {
@@ -86,6 +97,17 @@ export function NotificationBell() {
         // silently ignore
       }
     }
+  }
+
+  function handleNotificationClick(notif: AppNotification) {
+    setSelected(notif);
+    setSheetOpen(true);
+  }
+
+  function handleNavigate(link: string) {
+    setOpen(false);
+    setSheetOpen(false);
+    router.push(link);
   }
 
   // Close on outside click
@@ -99,101 +121,130 @@ export function NotificationBell() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Initial fetch + polling every 30s
+  // Initial fetch + polling every 15s
   useEffect(() => {
     const startId = requestAnimationFrame(() => void fetchNotifications());
-    const interval = setInterval(fetchNotifications, 30_000);
+    const interval = setInterval(fetchNotifications, 15_000);
     return () => {
       cancelAnimationFrame(startId);
       clearInterval(interval);
     };
-  }, []);
+  }, [fetchNotifications]);
 
-  function handleNotificationClick(notif: AppNotification) {
-    setOpen(false);
-    if (notif.link) {
-      router.push(notif.link);
-    }
-  }
+  const groups = groupByDay(data.items);
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={handleOpen}
-        className={cn(
-          "relative flex size-8 items-center justify-center rounded-xl transition-colors",
-          open
-            ? "bg-accent text-accent-foreground"
-            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-        )}
-        aria-label="Notificaciones"
-      >
-        <Bell className="size-4" />
-        {data.unreadCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
-            {data.unreadCount > 9 ? "9+" : data.unreadCount}
-          </span>
-        )}
-      </button>
+    <>
+      <div ref={ref} className="relative">
+        <button
+          onClick={handleOpen}
+          className={cn(
+            "relative flex size-8 items-center justify-center rounded-xl transition-all duration-200",
+            open
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground",
+          )}
+          aria-label="Notificaciones"
+        >
+          <Bell className={cn("size-4 transition-transform", open && "scale-95")} />
+          {data.unreadCount > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white animate-in zoom-in duration-200">
+              {data.unreadCount > 9 ? "9+" : data.unreadCount}
+            </span>
+          )}
+        </button>
 
-      {open && (
-        <div className="absolute right-0 top-10 z-50 w-80 rounded-2xl border border-border bg-card shadow-elevated">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <p className="text-sm font-semibold">Notificaciones</p>
-            {data.items.length > 0 && (
-              <span className="text-xs text-muted-foreground">
-                {data.items.length} recientes
-              </span>
-            )}
-          </div>
+        {open && (
+          <div className="absolute right-0 top-10 z-50 w-[360px] animate-in slide-in-from-top-2 fade-in duration-200 rounded-2xl border border-border bg-card shadow-lg overflow-hidden">
+            <div className="flex items-center justify-between px-5 pt-4 pb-3">
+              <p className="text-sm font-semibold tracking-tight">Notificaciones</p>
+              {data.unreadCount > 0 && (
+                <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                  {data.unreadCount} sin leer
+                </span>
+              )}
+            </div>
 
-          <ul className="max-h-96 overflow-y-auto">
-            {data.items.length === 0 ? (
-              <li className="flex flex-col items-center gap-2 py-10 text-center">
-                <Bell className="size-7 text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground">
-                  Sin notificaciones
-                </p>
-              </li>
-            ) : (
-              data.items.map((notif) => (
-                <li key={notif.id}>
-                  <button
-                    onClick={() => handleNotificationClick(notif)}
-                    className={cn(
-                      "flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50",
-                      !notif.readAt && "bg-blue-50/60 dark:bg-blue-950/20",
-                    )}
-                  >
-                    <span className="mt-0.5 shrink-0 text-base leading-none">
-                      {TYPE_ICONS[notif.type] ?? "🔔"}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
-                        {notif.title}
-                      </p>
-                      {notif.body && (
-                        <p className="truncate text-xs text-muted-foreground">
-                          {notif.body}
-                        </p>
-                      )}
-                      <p className="mt-0.5 text-[11px] text-muted-foreground/60">
-                        {formatDistanceToNow(new Date(notif.createdAt), {
-                          addSuffix: true,
-                          locale: es,
-                        })}
+            <div className="max-h-[420px] overflow-y-auto">
+              {data.items.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-12">
+                  <div className="flex size-12 items-center justify-center rounded-2xl bg-muted/50">
+                    <Bell className="size-5 text-muted-foreground/40" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Sin notificaciones
+                  </p>
+                </div>
+              ) : (
+                groups.map((group) => (
+                  <div key={group.label}>
+                    <div className="sticky top-0 px-5 py-2 bg-card/95 backdrop-blur-sm">
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                        {group.label}
                       </p>
                     </div>
-                    {!notif.readAt && (
-                      <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" />
-                    )}
-                  </button>
-                </li>
-              ))
-            )}
-          </ul>
-        </div>
-      )}
-    </div>
+                    <div className="px-2 pb-1">
+                      {group.items.map((notif) => {
+                        const config = getTypeConfig(notif.type);
+                        const Icon = config.icon;
+                        return (
+                          <button
+                            key={notif.id}
+                            onClick={() => handleNotificationClick(notif)}
+                            className={cn(
+                              "flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition-all duration-150",
+                              "hover:bg-muted/60 active:scale-[0.99]",
+                              !notif.readAt && "bg-primary/[0.04]",
+                            )}
+                          >
+                            <div className={cn(
+                              "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg",
+                              config.bg,
+                            )}>
+                              <Icon className={cn("size-4", config.color)} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-baseline gap-1.5">
+                                <p className={cn(
+                                  "truncate text-sm leading-snug",
+                                  !notif.readAt ? "font-semibold" : "font-medium text-foreground/80",
+                                )}>
+                                  {notif.title}
+                                </p>
+                              </div>
+                              {notif.body && (
+                                <p className="mt-0.5 truncate text-xs text-muted-foreground leading-relaxed">
+                                  {notif.body}
+                                </p>
+                              )}
+                              <p className="mt-1 text-[10px] text-muted-foreground/50 tabular-nums">
+                                {formatDistanceToNow(new Date(notif.createdAt), {
+                                  addSuffix: true,
+                                  locale: es,
+                                })}
+                              </p>
+                            </div>
+                            {!notif.readAt && (
+                              <span className="mt-2 size-2 shrink-0 rounded-full bg-primary" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <NotificationDetailSheet
+        notification={selected}
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        onNavigate={handleNavigate}
+      />
+    </>
   );
 }

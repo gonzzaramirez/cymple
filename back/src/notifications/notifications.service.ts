@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 
 @Injectable()
@@ -12,6 +13,9 @@ export class NotificationsService {
     title: string;
     body?: string;
     link?: string;
+    appointmentId?: string;
+    patientId?: string;
+    metadata?: Prisma.InputJsonValue;
   }) {
     return this.prisma.notification.create({
       data: {
@@ -21,6 +25,9 @@ export class NotificationsService {
         title: params.title,
         body: params.body,
         link: params.link,
+        appointmentId: params.appointmentId,
+        patientId: params.patientId,
+        metadata: params.metadata ? params.metadata : undefined,
       },
     });
   }
@@ -31,7 +38,7 @@ export class NotificationsService {
       this.prisma.notification.findMany({
         where,
         orderBy: { createdAt: 'desc' },
-        take: 20,
+        take: 50,
       }),
       this.prisma.notification.count({
         where: { ...where, readAt: null },
@@ -44,6 +51,14 @@ export class NotificationsService {
     const where = isOrg ? { organizationId: id } : { professionalId: id };
     await this.prisma.notification.updateMany({
       where: { ...where, readAt: null },
+      data: { readAt: new Date() },
+    });
+  }
+
+  async markRead(id: string, notificationId: string, isOrg = false) {
+    const where = isOrg ? { organizationId: id } : { professionalId: id };
+    await this.prisma.notification.updateMany({
+      where: { ...where, id: notificationId, readAt: null },
       data: { readAt: new Date() },
     });
   }
