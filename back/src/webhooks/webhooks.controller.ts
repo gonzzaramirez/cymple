@@ -31,20 +31,20 @@ export class WebhooksController {
     );
 
     const expectedToken = process.env.EVOLUTION_WEBHOOK_TOKEN;
-    if (!expectedToken) {
-      this.logger.error(
-        'EVOLUTION_WEBHOOK_TOKEN not configured — webhook endpoint is OPEN',
+    if (expectedToken) {
+      if (
+        !webhookToken ||
+        !crypto.timingSafeEqual(
+          Buffer.from(webhookToken, 'utf-8'),
+          Buffer.from(expectedToken, 'utf-8'),
+        )
+      ) {
+        throw new UnauthorizedException('Unauthorized');
+      }
+    } else {
+      this.logger.warn(
+        'EVOLUTION_WEBHOOK_TOKEN not configured — webhook endpoint accepts all requests until token is set',
       );
-      throw new UnauthorizedException('Webhook not configured');
-    }
-    if (
-      !webhookToken ||
-      !crypto.timingSafeEqual(
-        Buffer.from(webhookToken, 'utf-8'),
-        Buffer.from(expectedToken, 'utf-8'),
-      )
-    ) {
-      throw new UnauthorizedException('Unauthorized');
     }
 
     await this.webhooksService.handleWhatsappPayload(payload);
