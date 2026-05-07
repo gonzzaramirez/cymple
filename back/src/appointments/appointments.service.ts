@@ -134,13 +134,18 @@ export class AppointmentsService {
       );
 
     // Si el recordatorio ya debería haberse enviado (turno cercano), mandarlo ya
+    // con 1 min de delay para que el mensaje de alta llegue primero
     const reminderTime = addMinutes(startAt, -professional.reminderHours * 60);
     if (reminderTime <= new Date()) {
-      void this.whatsappMessaging
-        .sendAppointmentReminder(created.id)
-        .catch((e) =>
-          this.logger.error(`Failed to send immediate reminder: ${e}`),
-        );
+      setTimeout(
+        () =>
+          void this.whatsappMessaging
+            .sendAppointmentReminder(created.id)
+            .catch((e) =>
+              this.logger.error(`Failed to send delayed reminder: ${e}`),
+            ),
+        60_000,
+      );
     }
 
     return created;
@@ -505,14 +510,19 @@ export class AppointmentsService {
       .catch(() => undefined);
 
     // Si el recordatorio ya debió enviarse (turno cercano), mandarlo ya
+    // con 1 min de delay para que el mensaje de reprogramación llegue primero
     const rescheduleReminder = addMinutes(
       startAt,
       -professional.reminderHours * 60,
     );
     if (rescheduleReminder <= new Date()) {
-      void this.whatsappMessaging
-        .sendAppointmentReminder(updated.id)
-        .catch(() => undefined);
+      setTimeout(
+        () =>
+          void this.whatsappMessaging
+            .sendAppointmentReminder(updated.id)
+            .catch(() => undefined),
+        60_000,
+      );
     }
 
     return updated;
