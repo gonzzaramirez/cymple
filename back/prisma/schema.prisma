@@ -226,6 +226,8 @@ model Patient {
   @@index([professionalId, createdAt])
   @@index([organizationId, lastName, firstName])
   @@index([organizationId, createdAt])
+  @@index([phone])
+  @@index([organizationId, phone])
 }
 
 model Appointment {
@@ -326,6 +328,7 @@ model MessageLog {
   @@index([professionalId, patientId, createdAt])
   @@index([organizationId, createdAt])
   @@index([organizationId, patientId, createdAt])
+  @@index([appointmentId])
 }
 
 model WebhookEventLog {

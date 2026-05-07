@@ -2,6 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 const REQUEST_MS = 15_000;
+const MAX_RETRIES = 3;
+const INITIAL_BACKOFF_MS = 1_000;
+const RETRYABLE_STATUSES = new Set([429, 502, 503, 504]);
 
 export class EvolutionApiError extends Error {
   constructor(
@@ -56,39 +59,70 @@ export class EvolutionApiService {
     }
 
     const url = `${base}${path.startsWith('/') ? path : `/${path}`}`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), REQUEST_MS);
 
-    try {
-      const res = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: key,
-        },
-        body: body !== undefined ? JSON.stringify(body) : undefined,
-        signal: controller.signal,
-      });
+    let lastError: unknown;
 
-      const text = await res.text();
-      let data: unknown = {};
-      if (text) {
-        try {
-          data = JSON.parse(text) as unknown;
-        } catch {
-          data = { raw: text };
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), REQUEST_MS);
+
+      try {
+        const res = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: key,
+          },
+          body: body !== undefined ? JSON.stringify(body) : undefined,
+          signal: controller.signal,
+        });
+
+        const text = await res.text();
+        let data: unknown = {};
+        if (text) {
+          try {
+            data = JSON.parse(text) as unknown;
+          } catch {
+            data = { raw: text };
+          }
         }
-      }
 
-      if (!res.ok) {
-        this.logger.warn({ url, status: res.status, data }, 'Evolution error');
-        throw new EvolutionApiError(res.status, data);
-      }
+        if (RETRYABLE_STATUSES.has(res.status) && attempt < MAX_RETRIES) {
+          const backoff = Math.min(INITIAL_BACKOFF_MS * 2 ** attempt, 10_000);
+          this.logger.warn(
+            `Evolution API ${res.status} — retrying in ${backoff}ms (attempt ${attempt + 1}/${MAX_RETRIES})`,
+          );
+          await new Promise((r) => setTimeout(r, backoff));
+          continue;
+        }
 
-      return data as T;
-    } finally {
-      clearTimeout(timer);
+        if (!res.ok) {
+          this.logger.warn(
+            { url, status: res.status, data },
+            'Evolution error',
+          );
+          throw new EvolutionApiError(res.status, data);
+        }
+
+        return data as T;
+      } catch (e) {
+        lastError = e;
+        if (e instanceof EvolutionApiError) throw e;
+
+        if (attempt < MAX_RETRIES) {
+          const backoff = Math.min(INITIAL_BACKOFF_MS * 2 ** attempt, 10_000);
+          this.logger.warn(
+            `Evolution request failed — retrying in ${backoff}ms (attempt ${attempt + 1}/${MAX_RETRIES}): ${e instanceof Error ? e.message : String(e)}`,
+          );
+          await new Promise((r) => setTimeout(r, backoff));
+          continue;
+        }
+      } finally {
+        clearTimeout(timer);
+      }
     }
+
+    throw lastError ?? new Error('Evolution API request failed after retries');
   }
 
   async getConnectionState(instanceName: string): Promise<string | undefined> {
@@ -116,7 +150,7 @@ export class EvolutionApiService {
       body.webhook = {
         url: webhookUrl,
         webhook_by_events: false,
-        events: ['MESSAGES_UPSERT'],
+        events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'],
       };
     }
     return this.request<Record<string, unknown>>(
@@ -176,7 +210,7 @@ export class EvolutionApiService {
           enabled: true,
           url: webhookUrl,
           webhookByEvents: false,
-          events: ['MESSAGES_UPSERT'],
+          events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'],
         },
       },
     );

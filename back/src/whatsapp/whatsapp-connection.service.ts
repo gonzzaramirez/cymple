@@ -32,6 +32,9 @@ export function defaultOrgWaInstanceName(organizationId: string): string {
 export class WhatsappConnectionService {
   private readonly logger = new Logger(WhatsappConnectionService.name);
 
+  private statusCache = new Map<string, { data: unknown; expires: number }>();
+  private static readonly STATUS_CACHE_TTL_MS = 3_000;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly evolution: EvolutionApiService,
@@ -45,6 +48,28 @@ export class WhatsappConnectionService {
     );
     if (!base) return undefined;
     return `${base}/v1/webhooks/whatsapp`;
+  }
+
+  private getCached<T>(key: string): T | null {
+    const entry = this.statusCache.get(key);
+    if (entry && entry.expires > Date.now()) {
+      return entry.data as T;
+    }
+    if (entry) {
+      this.statusCache.delete(key);
+    }
+    return null;
+  }
+
+  private setCache(key: string, data: unknown): void {
+    this.statusCache.set(key, {
+      data,
+      expires: Date.now() + WhatsappConnectionService.STATUS_CACHE_TTL_MS,
+    });
+  }
+
+  invalidateStatusCache(entityType: 'prof' | 'org', id: string): void {
+    this.statusCache.delete(`${entityType}:${id}`);
   }
 
   private async ensureWebhook(instanceName: string): Promise<void> {
@@ -180,13 +205,23 @@ export class WhatsappConnectionService {
     dbStatus: WaStatus;
     errorMessage?: string;
   }> {
+    const cached = this.getCached<{
+      uiStatus: WhatsappUiStatus;
+      qr: string | null;
+      dbStatus: WaStatus;
+      errorMessage?: string;
+    }>(`prof:${professionalId}`);
+    if (cached) return cached;
+
     if (!this.evolution.isConfigured()) {
-      return {
-        uiStatus: 'disconnected',
-        qr: null,
+      const result = {
+        uiStatus: 'disconnected' as const,
+        qr: null as string | null,
         dbStatus: WaStatus.DISCONNECTED,
         errorMessage: 'Evolution no configurada',
       };
+      this.setCache(`prof:${professionalId}`, result);
+      return result;
     }
 
     const instanceName = await this.resolveInstanceName(professionalId);
@@ -198,13 +233,15 @@ export class WhatsappConnectionService {
         where: { id: professionalId },
         data: { waStatus: WaStatus.DISCONNECTED },
       });
-      return {
-        uiStatus: 'error',
-        qr: null,
+      const result = {
+        uiStatus: 'error' as const,
+        qr: null as string | null,
         dbStatus: WaStatus.DISCONNECTED,
         errorMessage:
           e instanceof Error ? e.message : 'No se pudo consultar Evolution',
       };
+      this.setCache(`prof:${professionalId}`, result);
+      return result;
     }
 
     if (state === 'open') {
@@ -212,7 +249,13 @@ export class WhatsappConnectionService {
         where: { id: professionalId },
         data: { waStatus: WaStatus.CONNECTED },
       });
-      return { uiStatus: 'ready', qr: null, dbStatus: WaStatus.CONNECTED };
+      const result = {
+        uiStatus: 'ready' as const,
+        qr: null as string | null,
+        dbStatus: WaStatus.CONNECTED,
+      };
+      this.setCache(`prof:${professionalId}`, result);
+      return result;
     }
 
     if (state === 'connecting') {
@@ -228,24 +271,34 @@ export class WhatsappConnectionService {
         data: { waStatus: WaStatus.CONNECTING },
       });
       if (qr) {
-        return { uiStatus: 'qr', qr, dbStatus: WaStatus.CONNECTING };
+        const result = {
+          uiStatus: 'qr' as const,
+          qr: qr,
+          dbStatus: WaStatus.CONNECTING,
+        };
+        this.setCache(`prof:${professionalId}`, result);
+        return result;
       }
-      return {
-        uiStatus: 'connecting',
-        qr: null,
+      const result = {
+        uiStatus: 'connecting' as const,
+        qr: null as string | null,
         dbStatus: WaStatus.CONNECTING,
       };
+      this.setCache(`prof:${professionalId}`, result);
+      return result;
     }
 
     await this.prisma.professional.update({
       where: { id: professionalId },
       data: { waStatus: WaStatus.DISCONNECTED },
     });
-    return {
-      uiStatus: 'disconnected',
-      qr: null,
+    const result = {
+      uiStatus: 'disconnected' as const,
+      qr: null as string | null,
       dbStatus: WaStatus.DISCONNECTED,
     };
+    this.setCache(`prof:${professionalId}`, result);
+    return result;
   }
 
   async logout(professionalId: string): Promise<void> {
@@ -363,12 +416,22 @@ export class WhatsappConnectionService {
   }
 
   async getStatusOrg(organizationId: string) {
+    const cached = this.getCached<{
+      uiStatus: WhatsappUiStatus;
+      qr: string | null;
+      dbStatus: WaStatus;
+      errorMessage?: string;
+    }>(`org:${organizationId}`);
+    if (cached) return cached;
+
     if (!this.evolution.isConfigured()) {
-      return {
+      const result = {
         uiStatus: 'disconnected' as const,
-        qr: null,
+        qr: null as string | null,
         dbStatus: WaStatus.DISCONNECTED,
       };
+      this.setCache(`org:${organizationId}`, result);
+      return result;
     }
     const instanceName = await this.resolveOrgInstanceName(organizationId);
     let state: string | undefined;
@@ -379,13 +442,15 @@ export class WhatsappConnectionService {
         where: { id: organizationId },
         data: { waStatus: WaStatus.DISCONNECTED },
       });
-      return {
+      const result = {
         uiStatus: 'error' as const,
-        qr: null,
+        qr: null as string | null,
         dbStatus: WaStatus.DISCONNECTED,
         errorMessage:
           e instanceof Error ? e.message : 'No se pudo consultar Evolution',
       };
+      this.setCache(`org:${organizationId}`, result);
+      return result;
     }
 
     if (state === 'open') {
@@ -393,11 +458,13 @@ export class WhatsappConnectionService {
         where: { id: organizationId },
         data: { waStatus: WaStatus.CONNECTED },
       });
-      return {
+      const result = {
         uiStatus: 'ready' as const,
-        qr: null,
+        qr: null as string | null,
         dbStatus: WaStatus.CONNECTED,
       };
+      this.setCache(`org:${organizationId}`, result);
+      return result;
     }
 
     if (state === 'connecting') {
@@ -413,24 +480,34 @@ export class WhatsappConnectionService {
         data: { waStatus: WaStatus.CONNECTING },
       });
       if (qr) {
-        return { uiStatus: 'qr' as const, qr, dbStatus: WaStatus.CONNECTING };
+        const result = {
+          uiStatus: 'qr' as const,
+          qr: qr,
+          dbStatus: WaStatus.CONNECTING,
+        };
+        this.setCache(`org:${organizationId}`, result);
+        return result;
       }
-      return {
+      const result = {
         uiStatus: 'connecting' as const,
-        qr: null,
+        qr: null as string | null,
         dbStatus: WaStatus.CONNECTING,
       };
+      this.setCache(`org:${organizationId}`, result);
+      return result;
     }
 
     await this.prisma.organization.update({
       where: { id: organizationId },
       data: { waStatus: WaStatus.DISCONNECTED },
     });
-    return {
+    const result = {
       uiStatus: 'disconnected' as const,
-      qr: null,
+      qr: null as string | null,
       dbStatus: WaStatus.DISCONNECTED,
     };
+    this.setCache(`org:${organizationId}`, result);
+    return result;
   }
 
   async logoutOrg(organizationId: string): Promise<void> {

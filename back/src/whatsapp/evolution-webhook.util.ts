@@ -203,6 +203,19 @@ function firstInboundMessage(payload: unknown): Record<string, unknown> | null {
   return null;
 }
 
+const NON_TEXT_TYPES = [
+  'audioMessage',
+  'imageMessage',
+  'videoMessage',
+  'stickerMessage',
+  'documentMessage',
+  'contactMessage',
+  'locationMessage',
+  'call',
+  'protocolMessage',
+  'reactionMessage',
+];
+
 export function extractInboundText(payload: unknown): {
   text: string;
   fromJid: string;
@@ -235,9 +248,17 @@ export function extractInboundText(payload: unknown): {
 
   const text = textFromMessage(msg);
   if (typeof text !== 'string' || !text.trim()) {
-    log.debug(
-      `textFromMessage retornó ${typeof text === 'string' ? 'vacío' : typeof text} — posible mensaje no-text (imagen, audio, etc)`,
-    );
+    const message = asRecord(asRecord(msg)?.message ?? {});
+    const found = message
+      ? NON_TEXT_TYPES.find((t) => message[t] !== undefined)
+      : undefined;
+    if (found) {
+      log.log(`Non-text message received — type: ${found}, from: ${digits}`);
+    } else {
+      log.debug(
+        `textFromMessage retornó ${typeof text === 'string' ? 'vacío' : typeof text} — possible LID/non-text/fromMe`,
+      );
+    }
     return null;
   }
 
