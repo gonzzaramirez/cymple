@@ -480,7 +480,10 @@ export class WhatsappMessagingService {
         link: `/appointments?id=${appointmentId}`,
         appointmentId,
         patientId: patient.id,
-        metadata: { patientName: `${patient.firstName} ${patient.lastName}`, when: `${weekday} ${dayMonth} a las ${time}hs` },
+        metadata: {
+          patientName: `${patient.firstName} ${patient.lastName}`,
+          when: `${weekday} ${dayMonth} a las ${time}hs`,
+        },
       })
       .catch((e) =>
         this.logger.error(
@@ -586,7 +589,10 @@ export class WhatsappMessagingService {
         link: `/appointments?id=${appointmentId}`,
         appointmentId,
         patientId: patient.id,
-        metadata: { patientName: `${patient.firstName} ${patient.lastName}`, when: `${weekday} ${dayMonth} a las ${time}hs` },
+        metadata: {
+          patientName: `${patient.firstName} ${patient.lastName}`,
+          when: `${weekday} ${dayMonth} a las ${time}hs`,
+        },
       })
       .catch((e) =>
         this.logger.error(
@@ -1212,7 +1218,10 @@ export class WhatsappMessagingService {
             title: 'Mensaje de WhatsApp no identificado',
             body: `Recibiste un mensaje de ${maskPhone(fromJidDigits)} que no se pudo asociar a ningún paciente: "${rawText.substring(0, 80)}"`,
             link: '/messages',
-            metadata: { fromPhone: fromJidDigits, rawText: rawText.substring(0, 200) },
+            metadata: {
+              fromPhone: fromJidDigits,
+              rawText: rawText.substring(0, 200),
+            },
           })
           .catch((e) =>
             this.logger.error(

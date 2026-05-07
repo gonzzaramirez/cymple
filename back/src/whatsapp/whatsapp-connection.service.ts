@@ -47,7 +47,12 @@ export class WhatsappConnectionService {
       '',
     );
     if (!base) return undefined;
-    return `${base}/v1/webhooks/whatsapp`;
+    let url = `${base}/v1/webhooks/whatsapp`;
+    const token = process.env.EVOLUTION_WEBHOOK_TOKEN;
+    if (token) {
+      url += `?token=${encodeURIComponent(token)}`;
+    }
+    return url;
   }
 
   private getCached<T>(key: string): T | null {

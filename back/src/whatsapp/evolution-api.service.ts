@@ -147,11 +147,18 @@ export class EvolutionApiService {
       integration: 'WHATSAPP-BAILEYS',
     };
     if (webhookUrl) {
-      body.webhook = {
+      const webhookConfig: Record<string, unknown> = {
         url: webhookUrl,
         webhook_by_events: false,
         events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'],
       };
+      const token = process.env.EVOLUTION_WEBHOOK_TOKEN;
+      if (token) {
+        webhookConfig.headers = {
+          'x-evolution-webhook-token': token,
+        };
+      }
+      body.webhook = webhookConfig;
     }
     return this.request<Record<string, unknown>>(
       'POST',
@@ -201,18 +208,22 @@ export class EvolutionApiService {
     instanceName: string,
     webhookUrl: string,
   ): Promise<Record<string, unknown>> {
+    const webhookBody: Record<string, unknown> = {
+      enabled: true,
+      url: webhookUrl,
+      webhookByEvents: false,
+      events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'],
+    };
+    const token = process.env.EVOLUTION_WEBHOOK_TOKEN;
+    if (token) {
+      webhookBody.headers = {
+        'x-evolution-webhook-token': token,
+      };
+    }
     return this.request<Record<string, unknown>>(
       'POST',
       `/webhook/set/${encodeURIComponent(instanceName)}`,
-      {
-        enabled: true,
-        webhook: {
-          enabled: true,
-          url: webhookUrl,
-          webhookByEvents: false,
-          events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'],
-        },
-      },
+      { enabled: true, webhook: webhookBody },
     );
   }
 }

@@ -153,9 +153,7 @@ export class AppointmentsService {
           metadata: { patientName: `${patient.firstName} ${patient.lastName}` },
         })
         .catch((e) =>
-          this.logger.error(
-            `Failed to create NEW_PATIENT notification: ${e}`,
-          ),
+          this.logger.error(`Failed to create NEW_PATIENT notification: ${e}`),
         );
     }
 

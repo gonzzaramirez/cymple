@@ -173,7 +173,9 @@ export class ReminderSweeper {
               link: `/appointments?id=${apt.id}`,
               appointmentId: apt.id,
               patientId: apt.patientId,
-              metadata: { patientName: `${apt.patient.firstName} ${apt.patient.lastName}` },
+              metadata: {
+                patientName: `${apt.patient.firstName} ${apt.patient.lastName}`,
+              },
             })
             .catch((e) =>
               this.logger.error(
