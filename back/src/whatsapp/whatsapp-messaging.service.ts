@@ -1335,7 +1335,37 @@ export class WhatsappMessagingService {
       formatAppointmentHuman(appointment.startAt, professional.timezone)
         .weekday;
 
+    const freshAppointment = await this.prisma.appointment.findUnique({
+      where: { id: appointment.id },
+      select: { status: true },
+    });
+
     if (isOne) {
+      if (
+        freshAppointment &&
+        freshAppointment.status === AppointmentStatus.CONFIRMED
+      ) {
+        const fechaCorta = new Intl.DateTimeFormat('es-AR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          timeZone: professional.timezone,
+        }).format(appointment.startAt);
+        const ack =
+          `Hola ${patient.firstName}, tu turno ya estaba confirmado \u{2705}\n` +
+          `\u{1F4C5} ${fechaCorta} a las ${time} hs con ${professional.fullName}.\n\n` +
+          `¡Te esperamos!`;
+        await this.sendSystemText({
+          professionalId: professional.id,
+          patientId: patient.id,
+          appointmentId: appointment.id,
+          toPhoneDigits: normalizeArWhatsappNumber(patient.phone),
+          content: ack,
+          organizationId,
+        });
+        return true;
+      }
+
       const updateResult = await this.prisma.appointment.updateMany({
         where: {
           id: appointment.id,
@@ -1349,8 +1379,53 @@ export class WhatsappMessagingService {
 
       if (updateResult.count === 0) {
         this.logger.warn(
-          `Appointment ${appointment.id} already processed (race condition). Skipping.`,
+          `Appointment ${appointment.id} confirm race lost — status is now ${freshAppointment?.status}. Sending already-confirmed reply.`,
         );
+        const fechaCorta = new Intl.DateTimeFormat('es-AR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          timeZone: professional.timezone,
+        }).format(appointment.startAt);
+        const oneHourAfter = new Date(
+          appointment.startAt.getTime() + 60 * 60 * 1000,
+        );
+        const nextAptRace = await this.prisma.appointment.findFirst({
+          where: {
+            patientId: patient.id,
+            professionalId: professional.id,
+            id: { not: appointment.id },
+            status: {
+              in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
+            },
+            startAt: { gt: appointment.startAt, lte: oneHourAfter },
+          },
+          orderBy: { startAt: 'asc' },
+          select: { startAt: true },
+        });
+        let nextAptLineRace = '';
+        if (nextAptRace) {
+          const nextTime = new Intl.DateTimeFormat('es-AR', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+            timeZone: professional.timezone,
+          }).format(nextAptRace.startAt);
+          nextAptLineRace = `\n\n\u{1F4C5} Tenés otro turno a las ${nextTime} hs — también podés confirmarlo respondiendo 1.`;
+        }
+        const ack =
+          `Hola ${patient.firstName}, tu turno ya estaba confirmado \u{2705}\n` +
+          `\u{1F4C5} ${fechaCorta} a las ${time} hs con ${professional.fullName}.` +
+          nextAptLineRace +
+          `\n\n¡Te esperamos!`;
+        await this.sendSystemText({
+          professionalId: professional.id,
+          patientId: patient.id,
+          appointmentId: appointment.id,
+          toPhoneDigits: normalizeArWhatsappNumber(patient.phone),
+          content: ack,
+          organizationId,
+        });
         return true;
       }
 
@@ -1369,10 +1444,40 @@ export class WhatsappMessagingService {
         year: 'numeric',
         timeZone: professional.timezone,
       }).format(appointment.startAt);
+
+      const oneHourAfter = new Date(
+        appointment.startAt.getTime() + 60 * 60 * 1000,
+      );
+      const nextApt = await this.prisma.appointment.findFirst({
+        where: {
+          patientId: patient.id,
+          professionalId: professional.id,
+          id: { not: appointment.id },
+          status: {
+            in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
+          },
+          startAt: { gt: appointment.startAt, lte: oneHourAfter },
+        },
+        orderBy: { startAt: 'asc' },
+        select: { startAt: true },
+      });
+
+      let nextAptLine = '';
+      if (nextApt) {
+        const nextTime = new Intl.DateTimeFormat('es-AR', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+          timeZone: professional.timezone,
+        }).format(nextApt.startAt);
+        nextAptLine = `\n\n\u{1F4C5} Tenés otro turno a las ${nextTime} hs — también podés confirmarlo respondiendo 1.`;
+      }
+
       const ack =
         `\u{2705} ¡Listo, ${patient.firstName}! Tu turno quedó confirmado:\n` +
-        `\u{1F4C5} ${fechaCorta} a las ${time} hs con ${professional.fullName}.\n\n` +
-        `¡Te esperamos! Si necesitás algo antes, escribinos por acá.`;
+        `\u{1F4C5} ${fechaCorta} a las ${time} hs con ${professional.fullName}.` +
+        nextAptLine +
+        `\n\n¡Te esperamos! Si necesitás algo antes, escribinos por acá.`;
       await this.sendSystemText({
         professionalId: professional.id,
         patientId: patient.id,
@@ -1405,6 +1510,22 @@ export class WhatsappMessagingService {
       return true;
     }
 
+    if (
+      freshAppointment &&
+      freshAppointment.status === AppointmentStatus.CANCELLED
+    ) {
+      const ack = `Hola ${patient.firstName}, ese turno ya fue cancelado previamente. \u{1F44B}`;
+      await this.sendSystemText({
+        professionalId: professional.id,
+        patientId: patient.id,
+        appointmentId: appointment.id,
+        toPhoneDigits: normalizeArWhatsappNumber(patient.phone),
+        content: ack,
+        organizationId,
+      });
+      return true;
+    }
+
     const cancelResult = await this.prisma.appointment.updateMany({
       where: {
         id: appointment.id,
@@ -1421,8 +1542,24 @@ export class WhatsappMessagingService {
 
     if (cancelResult.count === 0) {
       this.logger.warn(
-        `Appointment ${appointment.id} already processed or not cancellable. Skipping.`,
+        `Appointment ${appointment.id} cancel race lost — status is now ${freshAppointment?.status}. Sending already-processed reply.`,
       );
+      const statusLabel =
+        freshAppointment?.status === AppointmentStatus.CANCELLED
+          ? 'cancelado'
+          : 'confirmado';
+      const ack =
+        freshAppointment?.status === AppointmentStatus.CANCELLED
+          ? `Hola ${patient.firstName}, ese turno ya fue cancelado previamente. \u{1F44B}`
+          : `Hola ${patient.firstName}, no se puede cancelar un turno que ya fue ${statusLabel}. Si necesitás cancelarlo, contactá directamente a ${professional.fullName}.`;
+      await this.sendSystemText({
+        professionalId: professional.id,
+        patientId: patient.id,
+        appointmentId: appointment.id,
+        toPhoneDigits: normalizeArWhatsappNumber(patient.phone),
+        content: ack,
+        organizationId,
+      });
       return true;
     }
 
