@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,6 +47,13 @@ export function ClinicalPatientPanel({
   );
 
   const activeAppointmentId = selectedAppointmentId ?? appointments[0]?.id ?? null;
+  const activeAppointment = useMemo(
+    () =>
+      appointments.find(
+        (appointment) => activeAppointmentId && appointment.id === activeAppointmentId,
+      ) ?? null,
+    [appointments, activeAppointmentId],
+  );
   const activeAppointmentRecord = useMemo(
     () =>
       appointmentNotes.find(
@@ -150,12 +159,19 @@ export function ClinicalPatientPanel({
             onValueChange={(value) => setSelectedAppointmentId(value)}
           >
             <SelectTrigger className="max-w-md">
-              <SelectValue placeholder="Seleccionar turno" />
+              {activeAppointment
+                ? `${format(new Date(activeAppointment.startAt), "EEE dd/MM HH:mm", {
+                    locale: es,
+                  })} · ${activeAppointment.status}`
+                : "Seleccionar turno"}
             </SelectTrigger>
             <SelectContent>
               {appointments.map((appointment) => (
                 <SelectItem key={appointment.id} value={appointment.id}>
-                  {new Date(appointment.startAt).toLocaleString("es-AR")} - {appointment.status}
+                  {format(new Date(appointment.startAt), "EEE dd/MM HH:mm", {
+                    locale: es,
+                  })}{" "}
+                  · {appointment.status}
                 </SelectItem>
               ))}
             </SelectContent>
