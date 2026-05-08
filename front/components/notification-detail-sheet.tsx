@@ -1,7 +1,7 @@
 "use client";
 
 import { XIcon, CheckCircle2Icon, XCircleIcon, ClockIcon, UserPlusIcon, BotIcon, MessageCircleQuestionIcon, BanIcon, ExternalLinkIcon } from "lucide-react";
-import { formatDistanceToNow, format, isToday, isTomorrow, isYesterday } from "date-fns";
+import { format, isToday, isYesterday } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import {
@@ -70,6 +70,12 @@ const TYPE_CONFIG: Record<string, NotificationTypeConfig> = {
     color: "text-violet-600 dark:text-violet-400",
     bg: "bg-violet-50 dark:bg-violet-950/40",
     label: "WhatsApp",
+  },
+  NEW_INBOUND_MESSAGE: {
+    icon: MessageCircleQuestionIcon,
+    color: "text-sky-600 dark:text-sky-400",
+    bg: "bg-sky-50 dark:bg-sky-950/40",
+    label: "Mensaje entrante",
   },
   NEW_PATIENT: {
     icon: UserPlusIcon,
@@ -168,7 +174,7 @@ export function NotificationDetailSheet({
                 "active:scale-[0.98]",
               )}
             >
-              {notification.appointmentId ? "Ver turno" : "Ir"}
+              {notification.link?.includes("/messages/") ? "Ver conversación" : notification.appointmentId ? "Ver turno" : "Ir"}
               <ExternalLinkIcon className="size-3.5" />
             </button>
           )}

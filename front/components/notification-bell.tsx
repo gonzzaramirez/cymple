@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, CheckCircle2Icon, XCircleIcon, ClockIcon, UserPlusIcon, BotIcon, MessageCircleQuestionIcon, BanIcon } from "lucide-react";
+import { Bell } from "lucide-react";
 import { formatDistanceToNow, isToday, isYesterday, subDays, isAfter } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -194,7 +194,7 @@ export function NotificationBell() {
                             className={cn(
                               "flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition-all duration-150",
                               "hover:bg-muted/60 active:scale-[0.99]",
-                              !notif.readAt && "bg-primary/[0.04]",
+                              !notif.readAt && "bg-primary/4",
                             )}
                           >
                             <div className={cn(

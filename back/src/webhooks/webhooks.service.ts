@@ -128,6 +128,11 @@ export class WebhooksService {
         instanceName!,
         inbound.fromJid,
         inbound.text,
+        {
+          mediaType: inbound.mediaType,
+          isStructuredText: inbound.isStructuredText,
+          previewText: inbound.previewText,
+        },
       );
       this.logger.log(`processPatientReply result: ${result}`);
     } catch (e) {

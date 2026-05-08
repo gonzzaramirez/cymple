@@ -219,6 +219,9 @@ const NON_TEXT_TYPES = [
 export function extractInboundText(payload: unknown): {
   text: string;
   fromJid: string;
+  isStructuredText: boolean;
+  mediaType?: string;
+  previewText: string;
 } | null {
   const msg = firstInboundMessage(payload);
   if (!msg) {
@@ -247,21 +250,40 @@ export function extractInboundText(payload: unknown): {
   }
 
   const text = textFromMessage(msg);
-  if (typeof text !== 'string' || !text.trim()) {
-    const message = asRecord(asRecord(msg)?.message ?? {});
-    const found = message
-      ? NON_TEXT_TYPES.find((t) => message[t] !== undefined)
-      : undefined;
-    if (found) {
-      log.log(`Non-text message received — type: ${found}, from: ${digits}`);
-    } else {
-      log.debug(
-        `textFromMessage retornó ${typeof text === 'string' ? 'vacío' : typeof text} — possible LID/non-text/fromMe`,
-      );
-    }
-    return null;
+  if (typeof text === 'string' && text.trim()) {
+    const normalized = text.trim();
+    log.debug(`Texto extraído exitosamente: "${normalized.substring(0, 80)}"`);
+    return {
+      text: normalized,
+      fromJid: digits,
+      isStructuredText: true,
+      previewText: normalized,
+    };
   }
 
-  log.debug(`Texto extraído exitosamente: "${text.trim().substring(0, 80)}"`);
-  return { text: text.trim(), fromJid: digits };
+  const message = asRecord(asRecord(msg)?.message ?? {});
+  const found = message
+    ? NON_TEXT_TYPES.find((t) => message[t] !== undefined)
+    : undefined;
+  if (found) {
+    log.log(`Non-text message received — type: ${found}, from: ${digits}`);
+    return {
+      text: `[${found}]`,
+      fromJid: digits,
+      isStructuredText: false,
+      mediaType: found,
+      previewText: `Nuevo archivo multimedia recibido (${found})`,
+    };
+  }
+
+  log.debug(
+    `textFromMessage retornó ${typeof text === 'string' ? 'vacío' : typeof text} — fallback inbound marker`,
+  );
+  return {
+    text: '[mensaje_sin_texto]',
+    fromJid: digits,
+    isStructuredText: false,
+    mediaType: 'UNKNOWN',
+    previewText: 'Nuevo mensaje sin texto recibido',
+  };
 }

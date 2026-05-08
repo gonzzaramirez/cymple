@@ -87,6 +87,34 @@ function reminderRelativeDay(startAt: Date, timezone: string): string {
   return '';
 }
 
+export function isStrictStructuredCommand(
+  input: string,
+): 'CONFIRM' | 'CANCEL' | null {
+  const normalized = input.trim();
+  if (normalized === '1' || normalized === '1️⃣') return 'CONFIRM';
+  if (normalized === '2' || normalized === '2️⃣') return 'CANCEL';
+  return null;
+}
+
+function buildMessageLink(params: {
+  patientId?: string | null;
+  organizationId?: string;
+}): string {
+  if (!params.patientId) {
+    return params.organizationId ? '/center/messages' : '/messages';
+  }
+  return params.organizationId
+    ? `/center/messages/${params.patientId}`
+    : `/messages/${params.patientId}`;
+}
+
+function truncateForNotification(content: string, max = 60): string {
+  const normalized = content.trim().replace(/\s+/g, ' ');
+  if (!normalized) return 'Nuevo mensaje recibido';
+  if (normalized.length <= max) return normalized;
+  return `${normalized.slice(0, max)}...`;
+}
+
 @Injectable()
 export class WhatsappMessagingService {
   private readonly logger = new Logger(WhatsappMessagingService.name);
@@ -1180,19 +1208,19 @@ export class WhatsappMessagingService {
     instanceName: string,
     fromJidDigits: string,
     rawText: string,
+    options?: {
+      mediaType?: string;
+      isStructuredText?: boolean;
+      previewText?: string;
+    },
   ): Promise<boolean> {
     const normalized = rawText.trim();
-
-    const isOne =
-      normalized === '1' ||
-      /^1\uFE0F\u20E3/.test(normalized) ||
-      /^\s*(s[ií]|confirmo|ok|voy|dale|vale|claro|perfecto|ah[ií] estoy)\s*$/i.test(
-        normalized,
-      );
-    const isTwo =
-      normalized === '2' ||
-      /^2\uFE0F\u20E3/.test(normalized) ||
-      /^\s*(cancelo|cancelar|no puedo|no voy|imposible)\s*$/i.test(normalized);
+    const command = isStrictStructuredCommand(normalized);
+    const isOne = command === 'CONFIRM';
+    const isTwo = command === 'CANCEL';
+    const inboundPreview = options?.previewText ?? normalized;
+    const inboundIsStructuredText = options?.isStructuredText ?? true;
+    const inboundMediaType = options?.mediaType;
 
     const resolved = await this.resolveReplyContext(
       instanceName,
@@ -1209,18 +1237,56 @@ export class WhatsappMessagingService {
       } else if (instanceName.startsWith('cymple-prof-')) {
         notifyProfessionalId = instanceName.slice('cymple-prof-'.length);
       }
+      const unknownProfessionalId =
+        notifyProfessionalId ??
+        (notifyOrganizationId
+          ? (
+              await this.prisma.professional.findFirst({
+                where: { organizationId: notifyOrganizationId },
+                select: { id: true },
+                orderBy: { createdAt: 'asc' },
+              })
+            )?.id
+          : undefined);
+      if (unknownProfessionalId) {
+        await this.prisma.messageLog
+          .create({
+            data: {
+              professionalId: unknownProfessionalId,
+              organizationId: notifyOrganizationId,
+              patientId: null,
+              direction: MessageDirection.INBOUND,
+              messageType: MessageType.PATIENT_REPLY,
+              fromPhone: fromJidDigits,
+              content: rawText,
+              receivedAt: new Date(),
+            },
+          })
+          .catch((e) =>
+            this.logger.error(
+              e,
+              'Failed to persist unknown inbound message log entry',
+            ),
+          );
+      }
       if (notifyProfessionalId || notifyOrganizationId) {
+        const bodyText = truncateForNotification(
+          inboundIsStructuredText
+            ? inboundPreview
+            : (options?.previewText ?? 'Nuevo archivo multimedia recibido'),
+        );
         void this.notifications
           .create({
             professionalId: notifyProfessionalId,
             organizationId: notifyOrganizationId,
             type: 'WA_UNKNOWN_REPLY',
             title: 'Mensaje de WhatsApp no identificado',
-            body: `Recibiste un mensaje de ${maskPhone(fromJidDigits)} que no se pudo asociar a ningún paciente: "${rawText.substring(0, 80)}"`,
-            link: '/messages',
+            body: bodyText,
+            link: buildMessageLink({ organizationId: notifyOrganizationId }),
             metadata: {
               fromPhone: fromJidDigits,
-              rawText: rawText.substring(0, 200),
+              rawText: rawText.substring(0, 2000),
+              mediaType: inboundMediaType ?? null,
             },
           })
           .catch((e) =>
@@ -1247,23 +1313,36 @@ export class WhatsappMessagingService {
       },
     });
 
-    // Respuesta no reconocida: guiar amablemente al paciente
+    // Texto libre o multimedia: modo pasivo, sin respuesta automática.
     if (!isOne && !isTwo) {
-      const guidance =
-        `Hola ${patient.firstName} \u{1F44B}, soy el *asistente virtual de turnos* de ${professional.fullName}.\n\n` +
-        `No soy ${professional.fullName.split(' ')[0]}, solo gestiono sus turnos automáticamente. \u{1F916}\n\n` +
-        `Por favor respondé solo con:\n` +
-        `1\uFE0F\u20E3 para *confirmar* tu turno\n` +
-        `2\uFE0F\u20E3 para *cancelarlo*\n\n` +
-        `Si necesitás hablar directamente con ${professional.fullName.split(' ')[0]}, contactalo por otro medio. \u{1F64F}`;
-      await this.sendSystemText({
-        professionalId: professional.id,
-        patientId: patient.id,
-        appointmentId: null,
-        toPhoneDigits: normalizeArWhatsappNumber(patient.phone),
-        content: guidance,
-        organizationId,
-      });
+      void this.notifications
+        .create({
+          professionalId: professional.id,
+          organizationId,
+          type: 'NEW_INBOUND_MESSAGE',
+          title: `Nuevo mensaje de ${patient.firstName} ${patient.lastName}`,
+          body: truncateForNotification(
+            inboundIsStructuredText
+              ? inboundPreview
+              : (options?.previewText ?? 'Nuevo archivo multimedia recibido'),
+          ),
+          link: buildMessageLink({
+            patientId: patient.id,
+            organizationId,
+          }),
+          patientId: patient.id,
+          metadata: {
+            patientId: patient.id,
+            fromPhone: fromJidDigits,
+            rawText: rawText.substring(0, 2000),
+            mediaType: inboundMediaType ?? null,
+          },
+        })
+        .catch((e) =>
+          this.logger.error(
+            `Failed to create NEW_INBOUND_MESSAGE notification: ${e}`,
+          ),
+        );
       return true;
     }
 
@@ -1314,11 +1393,7 @@ export class WhatsappMessagingService {
       this.logger.warn(
         `No upcoming appointment found for patient ${patient.id} (${patient.firstName} ${patient.lastName}) from phone ${maskPhone(fromJidDigits)}`,
       );
-      const guidance =
-        `Hola ${patient.firstName} \u{1F44B}, soy el *asistente virtual de turnos* de ${professional.fullName}.\n\n` +
-        `No encontré un turno pendiente para vos. Si querés agendar uno, contactá directamente a ${professional.fullName}.\n\n` +
-        `1\uFE0F\u20E3 Confirmar turno\n` +
-        `2\uFE0F\u20E3 Cancelar turno`;
+      const guidance = `Hola ${patient.firstName}, no hay turnos activos para confirmar o cancelar en este momento.`;
       await this.sendSystemText({
         professionalId: professional.id,
         patientId: patient.id,
