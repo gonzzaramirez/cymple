@@ -38,7 +38,7 @@ export function ClinicalWorkspace({ patients, basePatientPath }: ClinicalWorkspa
   const refreshPatientData = async () => {
     if (!selectedPatient) return;
     const [recordsResponse, historyResponse] = await Promise.all([
-      fetch(`/api/backend/patients/${selectedPatient.id}/clinical-records?limit=200`),
+      fetch(`/api/backend/patients/${selectedPatient.id}/clinical-records?limit=100`),
       fetch(`/api/backend/patients/${selectedPatient.id}/history`),
     ]);
     if (!recordsResponse.ok || !historyResponse.ok) return;

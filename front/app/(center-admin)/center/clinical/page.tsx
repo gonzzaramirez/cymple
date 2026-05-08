@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default async function CenterClinicalPage() {
-  const data = await serverApiFetch<ApiList<Patient>>("patients?page=1&limit=200");
+  const data = await serverApiFetch<ApiList<Patient>>("patients?page=1&limit=100");
 
   return (
     <section className="space-y-6">
