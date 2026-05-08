@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import {
   Home,
   Users,
+  NotebookPen,
   MessageSquareText,
   Calendar,
   DollarSign,
@@ -34,6 +35,7 @@ const centerNavItems = [
   { href: "/center/home", label: "Inicio", icon: Home },
   { href: "/center/professionals", label: "Profesionales", icon: Stethoscope },
   { href: "/center/patients", label: "Pacientes", icon: Users },
+  { href: "/center/clinical", label: "Clínica", icon: NotebookPen },
   { href: "/center/appointments", label: "Agenda", icon: Calendar },
   { href: "/center/availability", label: "Disponibilidad", icon: Clock },
   { href: "/center/finance", label: "Finanzas", icon: DollarSign },

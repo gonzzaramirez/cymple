@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import {
   Home,
   Users,
+  NotebookPen,
   MessageSquareText,
   Calendar,
   DollarSign,
@@ -32,6 +33,7 @@ import { LogoutButton } from "@/components/logout-button";
 const baseNavItems = [
   { href: "/home", label: "Inicio", icon: Home },
   { href: "/patients", label: "Pacientes", icon: Users },
+  { href: "/clinical", label: "Clínica", icon: NotebookPen },
   { href: "/messages", label: "Mensajes", icon: MessageSquareText },
   {
     href: "/appointments",

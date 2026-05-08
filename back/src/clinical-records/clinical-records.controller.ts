@@ -17,6 +17,7 @@ import { buildAccessContext } from '../common/tenant/access-context';
 import { ClinicalRecordsService } from './clinical-records.service';
 import { CreateGeneralNoteDto } from './dto/create-general-note.dto';
 import { ListClinicalRecordsDto } from './dto/list-clinical-records.dto';
+import { ListNotesDto } from './dto/list-notes.dto';
 import { UpdateClinicalRecordDto } from './dto/update-clinical-record.dto';
 import { UpsertAppointmentReasonDto } from './dto/upsert-appointment-reason.dto';
 
@@ -49,6 +50,19 @@ export class ClinicalRecordsController {
       patientId,
       query,
     );
+  }
+
+  @Get('appointments/:id/notes')
+  listByAppointment(@Req() req: Request, @Param('id') appointmentId: string) {
+    return this.clinicalRecordsService.listByAppointment(
+      buildAccessContext(req),
+      appointmentId,
+    );
+  }
+
+  @Get('notes')
+  listNotes(@Req() req: Request, @Query() query: ListNotesDto) {
+    return this.clinicalRecordsService.listNotes(buildAccessContext(req), query);
   }
 
   @Put('appointments/:id/reason')

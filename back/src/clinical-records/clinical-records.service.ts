@@ -9,12 +9,17 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { AccessContext } from '../common/tenant/access-context';
 import { CreateGeneralNoteDto } from './dto/create-general-note.dto';
 import { ListClinicalRecordsDto } from './dto/list-clinical-records.dto';
+import { ListNotesDto } from './dto/list-notes.dto';
 import { UpdateClinicalRecordDto } from './dto/update-clinical-record.dto';
 import { UpsertAppointmentReasonDto } from './dto/upsert-appointment-reason.dto';
+import { ClinicalNotesQueryService } from './clinical-notes-query.service';
 
 @Injectable()
 export class ClinicalRecordsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly clinicalNotesQuery: ClinicalNotesQueryService,
+  ) {}
 
   async createGeneralNote(
     ctx: AccessContext,
@@ -46,36 +51,7 @@ export class ClinicalRecordsService {
     patientId: string,
     query: ListClinicalRecordsDto,
   ) {
-    await this.getOwnedPatient(ctx, patientId);
-    const skip = (query.page - 1) * query.limit;
-    const where: Prisma.ClinicalRecordWhereInput = {
-      deletedAt: null,
-      patientId,
-      ...this.scopeFilter(ctx),
-      ...(query.recordType ? { recordType: query.recordType } : {}),
-    };
-
-    const [items, total] = await this.prisma.$transaction([
-      this.prisma.clinicalRecord.findMany({
-        where,
-        skip,
-        take: query.limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          professional: { select: { id: true, fullName: true, specialty: true } },
-          appointment: { select: { id: true, status: true, startAt: true } },
-        },
-      }),
-      this.prisma.clinicalRecord.count({ where }),
-    ]);
-
-    return {
-      items,
-      page: query.page,
-      limit: query.limit,
-      total,
-      totalPages: Math.ceil(total / query.limit) || 1,
-    };
+    return this.clinicalNotesQuery.listByPatient(ctx, patientId, query);
   }
 
   async upsertAppointmentReason(
@@ -113,6 +89,14 @@ export class ClinicalRecordsService {
         professional: { select: { id: true, fullName: true, specialty: true } },
       },
     });
+  }
+
+  async listByAppointment(ctx: AccessContext, appointmentId: string) {
+    return this.clinicalNotesQuery.listByAppointment(ctx, appointmentId);
+  }
+
+  async listNotes(ctx: AccessContext, query: ListNotesDto) {
+    return this.clinicalNotesQuery.listNotes(ctx, query);
   }
 
   async update(

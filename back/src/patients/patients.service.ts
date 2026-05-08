@@ -7,13 +7,17 @@ import {
 import { AppointmentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AccessContext } from '../common/tenant/access-context';
+import { ClinicalNotesQueryService } from '../clinical-records/clinical-notes-query.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { SearchPatientsDto } from './dto/search-patients.dto';
 
 @Injectable()
 export class PatientsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly clinicalNotesQuery: ClinicalNotesQueryService,
+  ) {}
 
   async create(ctx: AccessContext, dto: CreatePatientDto) {
     const organizationId = ctx.organizationId ?? null;
@@ -242,24 +246,12 @@ export class PatientsService {
       },
     });
 
-    const clinicalRecords = await this.prisma.clinicalRecord.findMany({
-      where: {
-        patientId,
-        deletedAt: null,
-        ...(ctx.role === 'CENTER_ADMIN'
-          ? { organizationId: ctx.organizationId }
-          : { professionalId: ctx.professionalId }),
-      },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        professional: {
-          select: { id: true, fullName: true, specialty: true },
-        },
-        appointment: {
-          select: { id: true, status: true, startAt: true },
-        },
-      },
-    });
+    const clinicalRecords = (
+      await this.clinicalNotesQuery.listByPatient(ctx, patientId, {
+        page: 1,
+        limit: 200,
+      })
+    ).items;
 
     return { patient, appointments, summary: totals, messages, clinicalRecords };
   }
