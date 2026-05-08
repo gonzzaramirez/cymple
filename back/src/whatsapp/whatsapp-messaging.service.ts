@@ -1275,9 +1275,7 @@ export class WhatsappMessagingService {
       where: {
         professionalId: professional.id,
         patientId: patient.id,
-        status: {
-          in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
-        },
+        status: AppointmentStatus.PENDING,
         startAt: { gte: gracePeriod, lte: futureLimit },
         reminderSentAt: { not: null },
       },
@@ -1297,9 +1295,7 @@ export class WhatsappMessagingService {
         where: {
           professionalId: professional.id,
           patientId: patient.id,
-          status: {
-            in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
-          },
+          status: AppointmentStatus.PENDING,
           startAt: { gte: gracePeriod },
         },
         orderBy: { startAt: 'asc' },
@@ -1396,8 +1392,8 @@ export class WhatsappMessagingService {
           year: 'numeric',
           timeZone: professional.timezone,
         }).format(appointment.startAt);
-        const oneHourAfter = new Date(
-          appointment.startAt.getTime() + 60 * 60 * 1000,
+        const fortyEightHoursAfterRace = new Date(
+          appointment.startAt.getTime() + 48 * 60 * 60 * 1000,
         );
         const nextAptRace = await this.prisma.appointment.findFirst({
           where: {
@@ -1407,7 +1403,7 @@ export class WhatsappMessagingService {
             status: {
               in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
             },
-            startAt: { gt: appointment.startAt, lte: oneHourAfter },
+            startAt: { gt: appointment.startAt, lte: fortyEightHoursAfterRace },
           },
           orderBy: { startAt: 'asc' },
           select: { startAt: true },
@@ -1454,8 +1450,8 @@ export class WhatsappMessagingService {
         timeZone: professional.timezone,
       }).format(appointment.startAt);
 
-      const oneHourAfter = new Date(
-        appointment.startAt.getTime() + 60 * 60 * 1000,
+      const fortyEightHoursAfter = new Date(
+        appointment.startAt.getTime() + 48 * 60 * 60 * 1000,
       );
       const nextApt = await this.prisma.appointment.findFirst({
         where: {
@@ -1465,7 +1461,7 @@ export class WhatsappMessagingService {
           status: {
             in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
           },
-          startAt: { gt: appointment.startAt, lte: oneHourAfter },
+          startAt: { gt: appointment.startAt, lte: fortyEightHoursAfter },
         },
         orderBy: { startAt: 'asc' },
         select: { startAt: true },
