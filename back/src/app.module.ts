@@ -23,6 +23,7 @@ import { MessageTemplatesModule } from './message-templates/message-templates.mo
 import { TenantModule } from './common/tenant/tenant.module';
 import { AuditModule } from './common/audit/audit.module';
 import { OrganizationModule } from './organization/organization.module';
+import { ClinicalRecordsModule } from './clinical-records/clinical-records.module';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { OrganizationModule } from './organization/organization.module';
     NotificationsModule,
     MessageTemplatesModule,
     OrganizationModule,
+    ClinicalRecordsModule,
   ],
   controllers: [AppController],
   providers: [

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { format, addDays, subDays, startOfWeek, isToday, isSameDay } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -24,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { sileo } from "sileo";
+import { ClinicalRichTextEditor } from "@/components/clinical/clinical-rich-text-editor";
 
 const DAY_START_HOUR = 7;
 const DAY_END_HOUR = 21;
@@ -210,6 +212,7 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
   const [pendingAttended, setPendingAttended] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [reasonInitialContent, setReasonInitialContent] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     const d = new Date(selectedDate);
@@ -278,13 +281,35 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
     setSelectedAppointment(appointment);
     setPendingAttended(false);
     setSelectedPayment(null);
+    setReasonInitialContent(null);
   }
 
   function closeModal() {
     setSelectedAppointment(null);
     setPendingAttended(false);
     setSelectedPayment(null);
+    setReasonInitialContent(null);
   }
+
+  useEffect(() => {
+    if (!selectedAppointment) return;
+    const loadReason = async () => {
+      const response = await fetch(
+        `/api/backend/patients/${selectedAppointment.patientId}/clinical-records?recordType=APPOINTMENT_REASON&limit=200`,
+      );
+      if (!response.ok) return;
+      const payload = (await response.json()) as {
+        items?: Array<{ appointmentId?: string | null; content?: Record<string, unknown> }>;
+      };
+      const reasonRecord = payload.items?.find(
+        (item) => item.appointmentId === selectedAppointment.id,
+      );
+      if (reasonRecord?.content) {
+        setReasonInitialContent(reasonRecord.content);
+      }
+    };
+    void loadReason();
+  }, [selectedAppointment]);
 
   async function changeStatus(status: string, paymentMethod?: PaymentMethod) {
     if (!selectedAppointment) return;
@@ -715,6 +740,58 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
                   </div>
                 </div>
               )}
+            </div>
+
+            <div className="mt-4">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground">
+                  Motivo de turno (historial clínico)
+                </p>
+                {selectedAppointment.patientId && (
+                  <Link
+                    href={`/patients/${selectedAppointment.patientId}`}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Ver historial
+                  </Link>
+                )}
+              </div>
+              <ClinicalRichTextEditor
+                initialContent={reasonInitialContent}
+                placeholder="Motivo de consulta, evolución y plan..."
+                templates={[
+                  {
+                    id: "soap",
+                    label: "Plantilla SOAP",
+                    content: {
+                      type: "doc",
+                      content: [
+                        { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "SOAP" }] },
+                        { type: "paragraph", content: [{ type: "text", text: "S: " }] },
+                        { type: "paragraph", content: [{ type: "text", text: "O: " }] },
+                        { type: "paragraph", content: [{ type: "text", text: "A: " }] },
+                        { type: "paragraph", content: [{ type: "text", text: "P: " }] },
+                      ],
+                    },
+                  },
+                ]}
+                onSave={async (payload) => {
+                  if (!selectedAppointment) return;
+                  const response = await fetch(
+                    `/api/backend/appointments/${selectedAppointment.id}/reason`,
+                    {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(payload),
+                    },
+                  );
+                  if (!response.ok) {
+                    sileo.error({ title: "No se pudo guardar el motivo del turno" });
+                    throw new Error("save failed");
+                  }
+                  router.refresh();
+                }}
+              />
             </div>
 
             {/* Payment selector for ATTENDED */}

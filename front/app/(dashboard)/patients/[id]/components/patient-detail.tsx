@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useRouter, usePathname } from "next/navigation";
@@ -15,19 +15,23 @@ import {
   MessageSquareText,
   Phone,
   Plus,
+  Stethoscope,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   MESSAGE_DIRECTION_LABELS,
 } from "@/lib/message-log-labels";
 import { cn } from "@/lib/utils";
-import type { PatientFull, HistoryAppointment, PatientMessage } from "@/lib/types";
+import type { ClinicalRecord, PatientFull, HistoryAppointment, PatientMessage } from "@/lib/types";
 import { EditPatientDialog } from "../../components/edit-patient-dialog";
 import { DeletePatientButton } from "../../components/delete-patient-button";
 import {
   CreateAppointmentDialog,
   CreateAppointmentDialogHandle,
 } from "../../../appointments/components/create-appointment-dialog";
+import { ClinicalRichTextEditor } from "@/components/clinical/clinical-rich-text-editor";
+import { sileo } from "sileo";
 
 const statusConfig: Record<string, { label: string; dot: string }> = {
   PENDING: { label: "Pendiente", dot: "bg-amber-400" },
@@ -42,6 +46,7 @@ type PatientDetailProps = {
   appointments: HistoryAppointment[];
   summary: { totalSessions: number; totalBilled: number };
   messages: PatientMessage[];
+  clinicalRecords: ClinicalRecord[];
 };
 
 function formatShortDateTime(value: string) {
@@ -210,11 +215,13 @@ export function PatientDetail({
   appointments,
   summary,
   messages,
+  clinicalRecords,
 }: PatientDetailProps) {
   const router = useRouter();
   const pathname = usePathname();
   const backUrl = pathname.startsWith("/center/") ? "/center/patients" : "/patients";
   const createApptRef = useRef<CreateAppointmentDialogHandle>(null);
+  const [activeGeneralNoteId, setActiveGeneralNoteId] = useState<string | null>(null);
 
   const upcoming = appointments
     .filter((a) => a.status === "PENDING" || a.status === "CONFIRMED")
@@ -230,6 +237,58 @@ export function PatientDetail({
     .sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
 
   const latestMessages = messages.slice(0, 6);
+  const soapTemplate = useMemo(
+    () => ({
+      type: "doc",
+      content: [
+        { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "SOAP" }] },
+        { type: "paragraph", content: [{ type: "text", text: "S: " }] },
+        { type: "paragraph", content: [{ type: "text", text: "O: " }] },
+        { type: "paragraph", content: [{ type: "text", text: "A: " }] },
+        { type: "paragraph", content: [{ type: "text", text: "P: " }] },
+      ],
+    }),
+    [],
+  );
+  const physicalExamTemplate = useMemo(
+    () => ({
+      type: "doc",
+      content: [
+        { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Examen físico" }] },
+        { type: "paragraph", content: [{ type: "text", text: "Signos vitales: " }] },
+        { type: "paragraph", content: [{ type: "text", text: "Hallazgos: " }] },
+        { type: "paragraph", content: [{ type: "text", text: "Plan: " }] },
+      ],
+    }),
+    [],
+  );
+
+  const unifiedTimeline = useMemo(() => {
+    const appointmentEntries = past.map((appointment) => ({
+      id: `appointment-${appointment.id}`,
+      date: new Date(appointment.startAt).getTime(),
+      type: "appointment" as const,
+      appointment,
+    }));
+    const noteEntries = clinicalRecords.map((record) => ({
+      id: `record-${record.id}`,
+      date: new Date(record.createdAt).getTime(),
+      type: "record" as const,
+      record,
+    }));
+    return [...appointmentEntries, ...noteEntries].sort((a, b) => b.date - a.date);
+  }, [past, clinicalRecords]);
+  const latestGeneralNote = useMemo(
+    () =>
+      clinicalRecords.find((record) => record.recordType === "GENERAL_NOTE") ?? null,
+    [clinicalRecords],
+  );
+
+  useEffect(() => {
+    if (!latestGeneralNote) return;
+    if (activeGeneralNoteId === latestGeneralNote.id) return;
+    setActiveGeneralNoteId(latestGeneralNote.id);
+  }, [latestGeneralNote, activeGeneralNoteId]);
 
   return (
     <>
@@ -382,12 +441,36 @@ export function PatientDetail({
             {/* Notes */}
             <div>
               <h3 className="px-2.5 mb-2 text-[11px] font-medium uppercase tracking-[0.1em] text-slate-400">
-                Notas
+                Nota general
               </h3>
-              <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-600">
-                  {patient.notes || "Sin notas cargadas."}
-                </p>
+              <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
+                <ClinicalRichTextEditor
+                  initialContent={latestGeneralNote?.content}
+                  placeholder="Antecedentes, alergias, observaciones..."
+                  templates={[
+                    { id: "soap", label: "Plantilla SOAP", content: soapTemplate },
+                    { id: "physical", label: "Examen físico", content: physicalExamTemplate },
+                  ]}
+                  onSave={async (payload) => {
+                    const endpoint = activeGeneralNoteId
+                      ? `/api/backend/clinical-records/${activeGeneralNoteId}`
+                      : `/api/backend/patients/${patient.id}/clinical-records`;
+                    const response = await fetch(endpoint, {
+                      method: activeGeneralNoteId ? "PATCH" : "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(payload),
+                    });
+                    if (!response.ok) {
+                      sileo.error({ title: "No se pudo guardar la nota general" });
+                      throw new Error("save failed");
+                    }
+                    if (!activeGeneralNoteId) {
+                      const created = (await response.json()) as { id: string };
+                      setActiveGeneralNoteId(created.id);
+                    }
+                    router.refresh();
+                  }}
+                />
               </div>
             </div>
           </aside>
@@ -433,26 +516,59 @@ export function PatientDetail({
               </div>
             </section>
 
-            {/* Past Appointments */}
+            {/* Unified Timeline */}
             <section>
               <div className="mb-3">
                 <h2 className="text-sm font-semibold text-slate-900">
-                  Historial
+                  Timeline clínica
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Últimos movimientos
+                  Turnos + notas generales + motivos de turno
                 </p>
               </div>
 
               <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden divide-y divide-slate-100">
-                {past.length === 0 ? (
+                {unifiedTimeline.length === 0 ? (
                   <p className="px-4 py-8 text-center text-sm text-slate-400">
                     Sin historial
                   </p>
                 ) : (
-                  past.slice(0, 8).map((a) => (
-                    <AppointmentRow key={a.id} appointment={a} isPast />
-                  ))
+                  unifiedTimeline.slice(0, 16).map((item) => {
+                    if (item.type === "appointment") {
+                      return <AppointmentRow key={item.id} appointment={item.appointment} isPast />;
+                    }
+                    const record = item.record;
+                    const isReason = record.recordType === "APPOINTMENT_REASON";
+                    return (
+                      <div key={item.id} className="px-4 py-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Stethoscope className="size-4 text-slate-400" />
+                            <p className="text-sm font-medium text-slate-800 truncate">
+                              {isReason ? "Motivo de turno" : "Nota general"}
+                            </p>
+                            <Badge variant="secondary">
+                              {isReason ? "Turno" : "Paciente"}
+                            </Badge>
+                            {record.appointment?.status === "CANCELLED" && (
+                              <Badge variant="destructive">Turno cancelado</Badge>
+                            )}
+                          </div>
+                          <span className="text-xs text-slate-400">
+                            {format(new Date(record.createdAt), "dd/MM HH:mm", { locale: es })}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm text-slate-600 whitespace-pre-wrap">
+                          {record.plainTextPreview || "Sin contenido"}
+                        </p>
+                        {record.professional && (
+                          <p className="mt-1 text-xs text-slate-400">
+                            {record.professional.fullName}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </section>

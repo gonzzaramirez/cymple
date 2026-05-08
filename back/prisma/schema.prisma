@@ -61,6 +61,11 @@ enum PaymentMethod {
   TRANSFER
 }
 
+enum NoteType {
+  GENERAL_NOTE
+  APPOINTMENT_REASON
+}
+
 enum AccountRole {
   INDEPENDENT
   CENTER_ADMIN
@@ -91,6 +96,7 @@ model Organization {
   messageTemplates MessageTemplate[]
   notifications    Notification[]
   webhookEventLogs WebhookEventLog[]
+  clinicalRecords  ClinicalRecord[]
 }
 
 model Professional {
@@ -130,6 +136,7 @@ model Professional {
   webhookEventLogs   WebhookEventLog[]
   notifications      Notification[]
   messageTemplates   MessageTemplate[]
+  clinicalRecords    ClinicalRecord[]
 
   @@index([organizationId])
 }
@@ -216,6 +223,7 @@ model Patient {
   appointments Appointment[]
   messageLogs  MessageLog[]
   notifications Notification[]
+  clinicalRecords ClinicalRecord[]
 
   // Solo professionals: unique phone/dni per professional
   @@unique([professionalId, phone])
@@ -260,6 +268,7 @@ model Appointment {
   revenue      Revenue?
   messageLogs  MessageLog[]
   notifications Notification[]
+  clinicalRecords ClinicalRecord[]
 
   @@index([professionalId, startAt])
   @@index([professionalId, status, startAt])
@@ -394,4 +403,30 @@ model MessageTemplate {
   @@unique([organizationId, messageType])
   @@index([professionalId])
   @@index([organizationId])
+}
+
+model ClinicalRecord {
+  id               String    @id @default(cuid())
+  patientId        String
+  professionalId   String
+  organizationId   String?
+  appointmentId    String?
+  recordType       NoteType
+  content          Json
+  plainTextPreview String
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  professional Professional  @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  appointment  Appointment?  @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@unique([appointmentId, recordType])
+  @@index([patientId, createdAt])
+  @@index([professionalId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([appointmentId])
+  @@index([deletedAt])
 }

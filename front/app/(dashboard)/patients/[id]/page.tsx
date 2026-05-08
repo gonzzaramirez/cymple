@@ -29,6 +29,7 @@ export default async function PatientDetailPage({
         appointments={history.appointments}
         summary={history.summary}
         messages={history.messages}
+        clinicalRecords={history.clinicalRecords}
       />
     </Suspense>
   );

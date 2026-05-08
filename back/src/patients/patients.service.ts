@@ -242,7 +242,26 @@ export class PatientsService {
       },
     });
 
-    return { patient, appointments, summary: totals, messages };
+    const clinicalRecords = await this.prisma.clinicalRecord.findMany({
+      where: {
+        patientId,
+        deletedAt: null,
+        ...(ctx.role === 'CENTER_ADMIN'
+          ? { organizationId: ctx.organizationId }
+          : { professionalId: ctx.professionalId }),
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        professional: {
+          select: { id: true, fullName: true, specialty: true },
+        },
+        appointment: {
+          select: { id: true, status: true, startAt: true },
+        },
+      },
+    });
+
+    return { patient, appointments, summary: totals, messages, clinicalRecords };
   }
 
   private buildWhereClause(

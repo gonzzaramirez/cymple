@@ -89,6 +89,28 @@ export type PatientMessage = {
   appointmentId?: string | null;
 };
 
+export type ClinicalRecord = {
+  id: string;
+  patientId: string;
+  professionalId: string;
+  appointmentId?: string | null;
+  recordType: "GENERAL_NOTE" | "APPOINTMENT_REASON";
+  content: Record<string, unknown>;
+  plainTextPreview: string;
+  createdAt: string;
+  updatedAt: string;
+  professional?: {
+    id: string;
+    fullName: string;
+    specialty?: string | null;
+  } | null;
+  appointment?: {
+    id: string;
+    status: Appointment["status"];
+    startAt: string;
+  } | null;
+};
+
 export type PatientHistory = {
   patient: PatientFull;
   appointments: HistoryAppointment[];
@@ -97,6 +119,7 @@ export type PatientHistory = {
     totalBilled: number;
   };
   messages: PatientMessage[];
+  clinicalRecords: ClinicalRecord[];
 };
 
 export type AppointmentModality = "PRESENCIAL" | "VIRTUAL";
