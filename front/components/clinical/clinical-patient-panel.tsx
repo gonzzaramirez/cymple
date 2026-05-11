@@ -78,7 +78,7 @@ function NoteCard({
 
   return (
     <div
-      className="group relative flex h-[64px] overflow-hidden rounded-xl border border-black/5 bg-white shadow-sm transition-all duration-300 ease-out hover:border-black/10 hover:shadow-md"
+      className="group relative flex h-[64px] cursor-pointer overflow-hidden rounded-xl border border-black/5 bg-white shadow-sm transition-all duration-300 ease-out hover:border-black/10 hover:shadow-md"
       onClick={onSelect}
     >
       <div className="relative flex h-full flex-1 items-center px-4 transition-transform duration-300 ease-out">
