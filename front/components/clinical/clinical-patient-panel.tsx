@@ -78,46 +78,32 @@ function NoteCard({
 
   return (
     <div
-      className="group relative h-[64px] overflow-hidden rounded-xl border border-black/5 bg-white shadow-sm transition-all duration-300 ease-out hover:border-black/10 hover:shadow-md"
+      className="group relative flex h-[64px] overflow-hidden rounded-xl border border-black/5 bg-white shadow-sm transition-all duration-300 ease-out hover:border-black/10 hover:shadow-md"
       onClick={onSelect}
     >
-      <div className="relative flex h-full items-center px-4 transition-transform duration-300 ease-out">
+      <div className="relative flex h-full flex-1 items-center px-4 transition-transform duration-300 ease-out">
         <div className="flex h-full w-10 shrink-0 items-center justify-center">
           <FileText className="size-5 text-black/20" />
         </div>
-
         <span className="text-[15px] font-medium text-black/90">{title}</span>
-
         <div className="ml-auto flex flex-col items-end">
           <span className="text-xs text-black/40">{dateStr}</span>
           <span className="text-[10px] text-black/30">{timeStr}</span>
         </div>
       </div>
 
-      <div className="absolute right-0 top-0 flex h-full w-1/5 items-center justify-end">
+      <div className="delete-btn flex h-full w-0 items-center overflow-hidden transition-all duration-300 ease-out group-hover:w-[20%]">
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
             onDelete();
           }}
-          className="flex h-full w-full items-center justify-center rounded-r-xl bg-[#FF3B30] opacity-0 transition-all duration-300 ease-out hover:bg-[#E6342A] active:bg-[#D62C1A]"
-          style={{
-            transform: "translateX(100%)",
-          }}
+          className="flex h-full w-full items-center justify-center rounded-r-xl bg-[#FF3B30] hover:bg-[#E6342A] active:bg-[#D62C1A]"
         >
           <Trash2 className="size-5 text-white" />
         </button>
       </div>
-
-      <style jsx>{`
-        .group:hover .relative {
-          transform: translateX(-20%);
-        }
-        .group:hover button {
-          transform: translateX(0%) !important;
-        }
-      `}</style>
     </div>
   );
 }
