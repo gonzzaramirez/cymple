@@ -73,43 +73,51 @@ function NoteCard({
   onDelete: () => void;
 }) {
   const title = record.title || extractTitleFromContent(record.content) || "Sin título";
-  const preview = record.plainTextPreview?.slice(0, 100) || "";
-  const dateStr = format(new Date(record.createdAt), "EEE dd/MM", { locale: es });
+  const dateStr = format(new Date(record.createdAt), "dd/MM");
   const timeStr = format(new Date(record.createdAt), "HH:mm");
 
   return (
     <div
-      className={cn(
-        "group relative cursor-pointer rounded-lg border p-3 transition-all hover:border-primary/40 hover:shadow-sm",
-        isActive ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-card"
-      )}
+      className="group relative h-[64px] overflow-hidden rounded-xl border border-black/5 bg-white shadow-sm transition-all duration-300 ease-out hover:border-black/10 hover:shadow-md"
       onClick={onSelect}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <FileText className="size-4 shrink-0 text-muted-foreground" />
-            <span className="truncate font-medium text-sm">{title}</span>
-          </div>
-          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{preview}</p>
+      <div className="relative flex h-full items-center px-4 transition-transform duration-300 ease-out">
+        <div className="flex h-full w-10 shrink-0 items-center justify-center">
+          <FileText className="size-5 text-black/20" />
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <span className="text-xs text-muted-foreground">{dateStr}</span>
-          <span className="text-xs text-muted-foreground/70">{timeStr}</span>
+
+        <span className="text-[15px] font-medium text-black/90">{title}</span>
+
+        <div className="ml-auto flex flex-col items-end">
+          <span className="text-xs text-black/40">{dateStr}</span>
+          <span className="text-[10px] text-black/30">{timeStr}</span>
         </div>
       </div>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        className="absolute top-2 right-2 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete();
-        }}
-      >
-        <Trash2 className="size-3.5" />
-      </Button>
+
+      <div className="absolute right-0 top-0 flex h-full w-1/5 items-center justify-end">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          className="flex h-full w-full items-center justify-center rounded-r-xl bg-[#FF3B30] opacity-0 transition-all duration-300 ease-out hover:bg-[#E6342A] active:bg-[#D62C1A]"
+          style={{
+            transform: "translateX(100%)",
+          }}
+        >
+          <Trash2 className="size-5 text-white" />
+        </button>
+      </div>
+
+      <style jsx>{`
+        .group:hover .relative {
+          transform: translateX(-20%);
+        }
+        .group:hover button {
+          transform: translateX(0%) !important;
+        }
+      `}</style>
     </div>
   );
 }
@@ -249,7 +257,6 @@ export function ClinicalPatientPanel({
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   const [isCreatingNote, setIsCreatingNote] = useState(false);
   const [noteTitle, setNoteTitle] = useState("");
-  const [noteContent, setNoteContent] = useState<Record<string, unknown> | null>(null);
   const [isCreatingNoteLoading, setIsCreatingNoteLoading] = useState(false);
 
   const generalNotes = useMemo(
@@ -288,7 +295,6 @@ export function ClinicalPatientPanel({
 
   const handleOpenCreateDialog = () => {
     setNoteTitle("");
-    setNoteContent(null);
     setIsCreatingNote(true);
   };
 
@@ -296,19 +302,7 @@ export function ClinicalPatientPanel({
     if (!patient) return;
     setIsCreatingNoteLoading(true);
     try {
-      const content = noteContent ?? { type: "doc", content: [{ type: "paragraph" }] };
-      const plainTextPreview = (() => {
-        if (!content || !content.content || !Array.isArray(content.content)) return "";
-        const texts: string[] = [];
-        const walk = (node: unknown) => {
-          if (!node || typeof node !== "object") return;
-          const n = node as Record<string, unknown>;
-          if (n.text && typeof n.text === "string") texts.push(n.text);
-          if (Array.isArray(n.content)) n.content.forEach(walk);
-        };
-        content.content.forEach(walk);
-        return texts.join(" ").trim().slice(0, 500);
-      })();
+      const content = { type: "doc", content: [{ type: "paragraph" }] };
 
       const response = await fetch(`/api/backend/patients/${patient.id}/clinical-records`, {
         method: "POST",
@@ -316,7 +310,7 @@ export function ClinicalPatientPanel({
         body: JSON.stringify({
           content,
           title: noteTitle.trim() || null,
-          plainTextPreview: plainTextPreview || null,
+          plainTextPreview: null,
         }),
       });
       if (!response.ok) throw new Error("save failed");
@@ -516,46 +510,17 @@ export function ClinicalPatientPanel({
       <Dialog open={isCreatingNote} onOpenChange={setIsCreatingNote}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Nueva nota</DialogTitle>
+            <DialogTitle>Crear nota</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Título (opcional)</label>
-              <Input
-                placeholder="Ej: Antecedentes familiares"
-                value={noteTitle}
-                onChange={(e) => setNoteTitle(e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Contenido inicial (opcional)</label>
-              <ClinicalRichTextEditor
-                key={`new-note-${isCreatingNote}`}
-                initialContent={noteContent}
-                placeholder="Escribí la nota o dejá vacío para empezar en blanco..."
-                templates={[
-                  {
-                    id: "soap",
-                    label: "Plantilla SOAP",
-                    content: {
-                      type: "doc",
-                      content: [
-                        { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "SOAP" }] },
-                        { type: "paragraph", content: [{ type: "text", text: "S: " }] },
-                        { type: "paragraph", content: [{ type: "text", text: "O: " }] },
-                        { type: "paragraph", content: [{ type: "text", text: "A: " }] },
-                        { type: "paragraph", content: [{ type: "text", text: "P: " }] },
-                      ],
-                    },
-                  },
-                ]}
-                debounceMs={999999}
-                onSave={async (payload) => {
-                  setNoteContent(payload.content);
-                }}
-              />
-            </div>
+          <div>
+            <label className="text-sm font-medium text-muted-foreground">Título (opcional)</label>
+            <Input
+              placeholder="Ej: Antecedentes familiares"
+              value={noteTitle}
+              onChange={(e) => setNoteTitle(e.target.value)}
+              className="mt-1"
+              autoFocus
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreatingNote(false)}>
