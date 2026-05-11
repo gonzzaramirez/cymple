@@ -95,6 +95,7 @@ export type ClinicalRecord = {
   professionalId: string;
   appointmentId?: string | null;
   recordType: "GENERAL_NOTE" | "APPOINTMENT_REASON";
+  title?: string | null;
   content: Record<string, unknown>;
   plainTextPreview: string;
   createdAt: string;

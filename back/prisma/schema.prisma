@@ -412,6 +412,7 @@ model ClinicalRecord {
   organizationId   String?
   appointmentId    String?
   recordType       NoteType
+  title            String?
   content          Json
   plainTextPreview String
   deletedAt        DateTime?

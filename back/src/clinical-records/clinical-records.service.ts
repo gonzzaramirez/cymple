@@ -38,6 +38,7 @@ export class ClinicalRecordsService {
         organizationId: patient.organizationId ?? null,
         recordType: NoteType.GENERAL_NOTE,
         content: this.toInputJson(dto.content),
+        title: dto.title ?? null,
         plainTextPreview: this.buildPreview(dto.content, dto.plainTextPreview),
       },
       include: {
@@ -125,6 +126,7 @@ export class ClinicalRecordsService {
       where: { id: clinicalRecordId },
       data: {
         ...(dto.content ? { content: this.toInputJson(dto.content) } : {}),
+        ...(dto.title !== undefined ? { title: dto.title || null } : {}),
         ...(dto.content || dto.plainTextPreview !== undefined
           ? {
               plainTextPreview: this.buildPreview(
@@ -137,6 +139,29 @@ export class ClinicalRecordsService {
       include: {
         professional: { select: { id: true, fullName: true, specialty: true } },
       },
+    });
+  }
+
+  async delete(ctx: AccessContext, clinicalRecordId: string) {
+    const record = await this.prisma.clinicalRecord.findFirst({
+      where: {
+        id: clinicalRecordId,
+        deletedAt: null,
+        ...this.scopeFilter(ctx),
+      },
+    });
+    if (!record) {
+      throw new NotFoundException('Registro clínico no encontrado');
+    }
+    if (
+      ctx.role !== 'CENTER_ADMIN' &&
+      record.professionalId !== ctx.professionalId
+    ) {
+      throw new ForbiddenException('No podés eliminar este registro');
+    }
+    return this.prisma.clinicalRecord.update({
+      where: { id: clinicalRecordId },
+      data: { deletedAt: new Date() },
     });
   }
 

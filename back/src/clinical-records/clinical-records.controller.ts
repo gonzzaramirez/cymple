@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -88,6 +89,14 @@ export class ClinicalRecordsController {
       buildAccessContext(req),
       clinicalRecordId,
       dto,
+    );
+  }
+
+  @Delete('clinical-records/:id')
+  delete(@Req() req: Request, @Param('id') clinicalRecordId: string) {
+    return this.clinicalRecordsService.delete(
+      buildAccessContext(req),
+      clinicalRecordId,
     );
   }
 }

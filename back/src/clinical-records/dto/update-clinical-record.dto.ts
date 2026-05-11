@@ -7,6 +7,11 @@ export class UpdateClinicalRecordDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(255)
+  title?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(500)
   plainTextPreview?: string;
 }
