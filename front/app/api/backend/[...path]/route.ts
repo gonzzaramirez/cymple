@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { API_BASE_URL, AUTH_COOKIE } from "@/lib/env";
-import { resolveTenantSlugFromHostname, resolveTenantSlugFromToken } from "@/lib/tenant";
+import { resolveTenantSlugFromHostname } from "@/lib/tenant";
 
 async function proxy(
   request: Request,
@@ -17,13 +17,21 @@ async function proxy(
     request.headers.get("x-forwarded-host") ??
     request.headers.get("host") ??
     url.host;
-  const tenantSlug =
-    request.headers.get("x-tenant-slug") ??
-    resolveTenantSlugFromHostname(tenantHost) ??
-    resolveTenantSlugFromToken(token);
+  const hostname = tenantHost.split(":")[0].toLowerCase();
+  const tenantSlug = resolveTenantSlugFromHostname(hostname);
 
   if (!token) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!tenantSlug) {
+    return NextResponse.json(
+      {
+        message:
+          "No se pudo resolver el tenant desde el host. Configura NEXT_PUBLIC_BASE_DOMAIN.",
+      },
+      { status: 400 },
+    );
   }
 
   const bodyAllowed = !["GET", "HEAD"].includes(request.method);

@@ -1,3 +1,8 @@
+/**
+ * Next.js 16+: el límite de red antes del App Router vive en `proxy.ts` con `export function proxy`
+ * (no uses `middleware.ts`; la convención se renombró — ver docs de Next.js "middleware-to-proxy").
+ * Inyecta x-tenant-host y x-tenant-slug según el hostname y NEXT_PUBLIC_BASE_DOMAIN.
+ */
 import { NextResponse, type NextRequest } from "next/server";
 import { resolveTenantSlugFromHostname } from "@/lib/tenant";
 

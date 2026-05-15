@@ -25,7 +25,7 @@ export class AuthController {
       req,
     );
     try {
-      const result = await this.authService.login(dto);
+      const result = await this.authService.login(dto, req);
       this.audit.info(
         'auth.login.success',
         { id: result.user.id, email: result.user.email },

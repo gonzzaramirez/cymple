@@ -27,6 +27,11 @@ export class TenantGuard implements CanActivate {
         if (!tenant.organizationId || tenant.organizationId !== user.sub) {
           throw new UnauthorizedException('Token no pertenece a este tenant');
         }
+        if (user.tenantSlug && user.tenantSlug !== tenant.slug) {
+          throw new UnauthorizedException(
+            'Token no pertenece a este subdominio',
+          );
+        }
         req.organizationId = tenant.organizationId;
         req.professionalId = null;
         req.tenantSlug = tenant.slug;
@@ -44,6 +49,14 @@ export class TenantGuard implements CanActivate {
         }
         if (tenant.professionalId && tenant.professionalId !== user.sub) {
           throw new UnauthorizedException('Token no pertenece a este tenant');
+        }
+        if (user.tenantSlug) {
+          const expectedOrgSlug = tenant.organizationSlug ?? null;
+          if (!expectedOrgSlug || user.tenantSlug !== expectedOrgSlug) {
+            throw new UnauthorizedException(
+              'Token no pertenece a este subdominio',
+            );
+          }
         }
         req.professionalId = user.sub;
         req.organizationId = user.organizationId;

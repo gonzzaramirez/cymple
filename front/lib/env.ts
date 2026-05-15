@@ -3,4 +3,11 @@ export const API_BASE_URL =
 
 export const AUTH_COOKIE = "medagenda_token";
 
-export const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN ?? "";
+const rawBaseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN ?? "";
+if (process.env.NODE_ENV === "production" && !rawBaseDomain.trim()) {
+  throw new Error(
+    "NEXT_PUBLIC_BASE_DOMAIN es obligatorio en producción para resolver tenants por subdominio.",
+  );
+}
+
+export const BASE_DOMAIN = rawBaseDomain.trim();

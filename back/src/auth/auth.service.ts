@@ -3,8 +3,10 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { AccountRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import type { Request } from 'express';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { JwtPayload } from '../common/auth/jwt-payload.interface';
+import { TenantResolverService } from '../common/tenant/tenant-resolver.service';
 import { LoginDto } from './dto/login.dto';
 
 @Injectable()
@@ -13,9 +15,18 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly tenantResolver: TenantResolverService,
   ) {}
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, req: Request) {
+    let requestTenantSlug: string;
+    try {
+      requestTenantSlug = this.tenantResolver.extractSlugFromHostContextOnly(
+        req,
+      );
+    } catch {
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
     const email = dto.email.toLowerCase().trim();
 
     // 1. Check if email belongs to an Organization (CENTER_ADMIN)
@@ -37,6 +48,9 @@ export class AuthService {
       }
       const passwordOk = await bcrypt.compare(dto.password, org.passwordHash);
       if (!passwordOk) {
+        throw new UnauthorizedException('Credenciales inválidas');
+      }
+      if (org.slug !== requestTenantSlug) {
         throw new UnauthorizedException('Credenciales inválidas');
       }
 
@@ -86,6 +100,9 @@ export class AuthService {
       professional.passwordHash,
     );
     if (!passwordOk) {
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
+    if (professional.slug !== requestTenantSlug) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 

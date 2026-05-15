@@ -43,6 +43,7 @@ npx prisma db seed      # Seed demo data
 - Frontend uses cookie-based auth (`medagenda_token`) with server-side `serverApiFetch`
 - Frontend proxy: `/api/backend/[...path]` proxies to backend with auth cookie
 - Multi-tenancy: every query filters by `professionalId` from JWT
+- **Next.js 16:** tenant edge logic lives in [`front/proxy.ts`](front/proxy.ts) as `export function proxy` (not `middleware.ts`; see Next.js "Renaming Middleware to Proxy"). Requires `NEXT_PUBLIC_BASE_DOMAIN` in production for subdomain tenant resolution.
 - Soft delete for patients (`deletedAt` field)
 
 ## Architecture

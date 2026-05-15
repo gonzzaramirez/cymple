@@ -234,6 +234,16 @@ export class WhatsappConnectionService {
     try {
       state = await this.evolution.getConnectionState(instanceName);
     } catch (e) {
+      // 404 = instancia aún no creada en Evolution → estado normal "disconnected"
+      if (e instanceof EvolutionApiError && e.status === 404) {
+        const result = {
+          uiStatus: 'disconnected' as const,
+          qr: null as string | null,
+          dbStatus: WaStatus.DISCONNECTED,
+        };
+        this.setCache(`prof:${professionalId}`, result);
+        return result;
+      }
       await this.prisma.professional.update({
         where: { id: professionalId },
         data: { waStatus: WaStatus.DISCONNECTED },
@@ -443,6 +453,16 @@ export class WhatsappConnectionService {
     try {
       state = await this.evolution.getConnectionState(instanceName);
     } catch (e) {
+      // 404 = instancia aún no creada en Evolution → estado normal "disconnected"
+      if (e instanceof EvolutionApiError && e.status === 404) {
+        const result = {
+          uiStatus: 'disconnected' as const,
+          qr: null as string | null,
+          dbStatus: WaStatus.DISCONNECTED,
+        };
+        this.setCache(`org:${organizationId}`, result);
+        return result;
+      }
       await this.prisma.organization.update({
         where: { id: organizationId },
         data: { waStatus: WaStatus.DISCONNECTED },

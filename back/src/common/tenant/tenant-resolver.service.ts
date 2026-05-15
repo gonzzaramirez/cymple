@@ -15,6 +15,8 @@ const RESERVED_INFRA_SUBDOMAINS = new Set(['api', 'www']);
 
 export interface ResolvedTenant {
   slug: string;
+  /** Slug de la organización cuando el tenant es un profesional miembro (para validar JWT). */
+  organizationSlug?: string | null;
   professionalId: string | null;
   organizationId: string | null;
   role: AccountRole;
@@ -39,6 +41,7 @@ export class TenantResolverService {
     if (org) {
       return {
         slug: org.slug,
+        organizationSlug: org.slug,
         professionalId: null,
         organizationId: org.id,
         role: AccountRole.CENTER_ADMIN,
@@ -48,7 +51,12 @@ export class TenantResolverService {
     // Check Professional
     const professional = await this.prisma.professional.findFirst({
       where: { slug, isActive: true },
-      select: { id: true, slug: true, organizationId: true },
+      select: {
+        id: true,
+        slug: true,
+        organizationId: true,
+        organization: { select: { slug: true } },
+      },
     });
 
     if (!professional) {
@@ -58,6 +66,7 @@ export class TenantResolverService {
     if (professional.organizationId) {
       return {
         slug: professional.slug,
+        organizationSlug: professional.organization?.slug ?? null,
         professionalId: professional.id,
         organizationId: professional.organizationId,
         role: AccountRole.CENTER_MEMBER,
@@ -66,10 +75,19 @@ export class TenantResolverService {
 
     return {
       slug: professional.slug,
+      organizationSlug: null,
       professionalId: professional.id,
       organizationId: null,
       role: AccountRole.INDEPENDENT,
     };
+  }
+
+  /**
+   * Slug solo desde Host / Origin + BASE_DOMAIN (sin X-Tenant-Slug).
+   * Usar en login para que el cliente no pueda fijar un tenant distinto al host.
+   */
+  extractSlugFromHostContextOnly(req: any): string {
+    return this.resolveSlugFromHostContext(req);
   }
 
   extractSlugFromRequest(req: any): string {
@@ -77,6 +95,13 @@ export class TenantResolverService {
       this.readSingleHeader(req?.headers?.[TENANT_HEADER]),
       'Header de tenant inválido',
     );
+    if (tenantHeader) {
+      return tenantHeader;
+    }
+    return this.resolveSlugFromHostContext(req);
+  }
+
+  private resolveSlugFromHostContext(req: any): string {
     const host = this.resolveHostname(req);
     const originHost = this.resolveOriginHostname(req);
     const baseDomain = this.configService
@@ -88,10 +113,6 @@ export class TenantResolverService {
 
     const hostSlug = this.extractSlugFromHostname(host, baseDomain);
     const originSlug = this.extractSlugFromHostname(originHost, baseDomain);
-
-    if (tenantHeader) {
-      return tenantHeader;
-    }
 
     if (hostSlug && originSlug && hostSlug !== originSlug) {
       throw new BadRequestException('Tenant mismatch');

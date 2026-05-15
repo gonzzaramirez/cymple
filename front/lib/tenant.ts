@@ -17,18 +17,3 @@ export function resolveTenantSlugFromHostname(hostname: string): string | null {
   if (RESERVED_INFRA_SUBDOMAINS.has(slug)) return null;
   return slug;
 }
-
-export function resolveTenantSlugFromToken(token: string | null | undefined): string | null {
-  if (!token) return null;
-  try {
-    const [, payload] = token.split(".");
-    if (!payload) return null;
-    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const json = JSON.parse(Buffer.from(normalized, "base64").toString("utf8")) as {
-      tenantSlug?: unknown;
-    };
-    return typeof json.tenantSlug === "string" ? json.tenantSlug : null;
-  } catch {
-    return null;
-  }
-}

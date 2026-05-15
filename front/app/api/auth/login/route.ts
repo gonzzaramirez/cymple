@@ -3,25 +3,25 @@ import { NextResponse } from "next/server";
 import { API_BASE_URL, AUTH_COOKIE } from "@/lib/env";
 import { resolveTenantSlugFromHostname } from "@/lib/tenant";
 
-function resolveTenantSlugFromRequest(request: Request): string | null {
-  const explicitTenant = request.headers.get("x-tenant-slug");
-  if (explicitTenant) return explicitTenant.trim().toLowerCase();
-
+/** Slug solo desde el host de la petición (no confiar en x-tenant-slug del cliente). */
+function forwardedHostForBackend(request: Request): string {
   const forwardedHost = request.headers.get("x-forwarded-host");
   const host = request.headers.get("host");
   const url = new URL(request.url);
-  const hostname = (forwardedHost ?? host ?? url.hostname).toLowerCase();
-  return resolveTenantSlugFromHostname(hostname);
+  return (forwardedHost ?? host ?? url.host).split(",")[0]?.trim() ?? "";
 }
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const tenantSlug = resolveTenantSlugFromRequest(request);
+  const forwardedHost = forwardedHostForBackend(request);
+  const hostname = forwardedHost.split(":")[0].toLowerCase();
+  const tenantSlug = resolveTenantSlugFromHostname(hostname);
 
   const response = await fetch(`${API_BASE_URL}/auth/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(forwardedHost ? { "X-Forwarded-Host": forwardedHost } : {}),
       ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}),
     },
     body: JSON.stringify(body),

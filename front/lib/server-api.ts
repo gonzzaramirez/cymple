@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { API_BASE_URL } from "./env";
 import { getAuthToken } from "./server-auth";
-import { resolveTenantSlugFromHostname, resolveTenantSlugFromToken } from "./tenant";
+import { resolveTenantSlugFromHostname } from "./tenant";
 
 type RequestInitWithMethod = RequestInit & { method?: string };
 
@@ -15,15 +15,18 @@ export async function serverApiFetch<T>(
     redirect("/login");
   }
   const incomingHeaders = await headers();
-  const tenantHeaderSlug = incomingHeaders.get("x-tenant-slug");
   const tenantHost =
     incomingHeaders.get("x-tenant-host") ??
     incomingHeaders.get("x-forwarded-host") ??
-    incomingHeaders.get("host");
-  const tenantSlug =
-    tenantHeaderSlug ??
-    resolveTenantSlugFromHostname(tenantHost ?? "") ??
-    resolveTenantSlugFromToken(token);
+    incomingHeaders.get("host") ??
+    "";
+  const hostname = tenantHost.split(":")[0].toLowerCase();
+  const tenantSlug = resolveTenantSlugFromHostname(hostname);
+  if (!tenantSlug) {
+    throw new Error(
+      "No se pudo resolver el tenant desde el host. Configura NEXT_PUBLIC_BASE_DOMAIN y accede por un subdominio válido.",
+    );
+  }
 
   const response = await fetch(`${API_BASE_URL}/${path}`, {
     ...init,

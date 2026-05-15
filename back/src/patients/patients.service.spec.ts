@@ -15,7 +15,7 @@ describe('PatientsService', () => {
       },
     };
 
-    const service = new PatientsService(prismaMock);
+    const service = new PatientsService(prismaMock, {} as any);
 
     await expect(
       service.remove(

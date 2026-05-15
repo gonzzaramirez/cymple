@@ -361,15 +361,24 @@ export class AppointmentsService {
     });
 
     const patientIds = [...new Set(appointments.map((a) => a.patientId))];
+    const absentWhere: Prisma.AppointmentWhereInput = {
+      ...this.buildAppointmentWhereFromCtx(
+        ctx,
+        ctx.role === 'CENTER_ADMIN' && !isMultiProfessional
+          ? professionalId ?? undefined
+          : undefined,
+      ),
+      ...(isMultiProfessional && (query.professionalIds?.length ?? 0) > 0
+        ? { professionalId: { in: query.professionalIds } }
+        : {}),
+      patientId: { in: patientIds },
+      status: AppointmentStatus.ABSENT,
+    };
     const absentCounts =
       patientIds.length > 0
         ? await this.prisma.appointment.groupBy({
             by: ['patientId'],
-            where: {
-              organizationId: ctx.organizationId,
-              patientId: { in: patientIds },
-              status: AppointmentStatus.ABSENT,
-            },
+            where: absentWhere,
             _count: { id: true },
           })
         : [];
