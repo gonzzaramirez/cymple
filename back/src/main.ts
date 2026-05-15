@@ -94,7 +94,12 @@ async function bootstrap() {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Slug'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Tenant-Slug',
+      'X-Tenant-Host',
+    ],
   });
 
   app.useLogger(app.get(Logger));

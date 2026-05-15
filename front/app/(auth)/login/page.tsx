@@ -1,11 +1,20 @@
 import { redirect } from "next/navigation";
 import { LoginForm } from "./components/login-form";
 import { getAuthToken } from "@/lib/server-auth";
+import { serverApiFetchIfAuthenticated } from "@/lib/server-api";
 
 export default async function LoginPage() {
   const token = await getAuthToken();
   if (token) {
-    redirect("/");
+    const me = await serverApiFetchIfAuthenticated<{ role: string }>(
+      "auth/me",
+    ).catch(() => null);
+    if (me?.role === "CENTER_ADMIN") {
+      redirect("/center/home");
+    }
+    if (me) {
+      redirect("/home");
+    }
   }
 
   return (

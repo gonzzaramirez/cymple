@@ -1,9 +1,17 @@
 import { BASE_DOMAIN } from "./env";
 
-const RESERVED_INFRA_SUBDOMAINS = new Set(["api", "www"]);
+const RESERVED_INFRA_SUBDOMAINS = new Set(["api", "www", "apitest"]);
+
+function normalizeHostLike(value: string): string {
+  return value.toLowerCase().split(",")[0]?.trim().split(":")[0] ?? "";
+}
+
+function normalizeSlug(value: string | null | undefined): string | null {
+  return value?.trim().toLowerCase() || null;
+}
 
 export function resolveTenantSlugFromHostname(hostname: string): string | null {
-  const normalizedHost = hostname.toLowerCase().split(":")[0];
+  const normalizedHost = normalizeHostLike(hostname);
   const normalizedBase = BASE_DOMAIN.toLowerCase();
 
   if (!normalizedHost) return null;
@@ -16,4 +24,32 @@ export function resolveTenantSlugFromHostname(hostname: string): string | null {
   if (!slug) return null;
   if (RESERVED_INFRA_SUBDOMAINS.has(slug)) return null;
   return slug;
+}
+
+export function resolveTenantContext(options: {
+  tenantHostHeader?: string | null;
+  forwardedHostHeader?: string | null;
+  hostHeader?: string | null;
+  fallbackHost?: string | null;
+  tenantSlugHeader?: string | null;
+}) {
+  const tenantHost = [
+    options.tenantHostHeader,
+    options.forwardedHostHeader,
+    options.hostHeader,
+    options.fallbackHost,
+  ]
+    .map((value) => (value ? value.split(",")[0]?.trim() ?? "" : ""))
+    .find(Boolean) ?? "";
+
+  const hostname = normalizeHostLike(tenantHost);
+  const tenantSlug =
+    normalizeSlug(options.tenantSlugHeader) ??
+    resolveTenantSlugFromHostname(hostname);
+
+  return {
+    tenantHost,
+    hostname,
+    tenantSlug,
+  };
 }

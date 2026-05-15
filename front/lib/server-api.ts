@@ -2,33 +2,40 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { API_BASE_URL } from "./env";
 import { getAuthToken } from "./server-auth";
-import { resolveTenantSlugFromHostname } from "./tenant";
+import { resolveTenantContext } from "./tenant";
 
 type RequestInitWithMethod = RequestInit & { method?: string };
 
-export async function serverApiFetch<T>(
+type ServerApiRequestOptions = {
+  redirectOnUnauthorized?: boolean;
+};
+
+async function performServerApiFetch<T>(
   path: string,
   init?: RequestInitWithMethod,
-): Promise<T> {
+  options?: ServerApiRequestOptions,
+): Promise<T | null> {
+  const redirectOnUnauthorized = options?.redirectOnUnauthorized ?? true;
   const token = await getAuthToken();
+
   if (!token) {
-    redirect("/login");
+    if (redirectOnUnauthorized) {
+      redirect("/login");
+    }
+    return null;
   }
+
   const incomingHeaders = await headers();
-  const tenantHost =
-    incomingHeaders.get("x-tenant-host") ??
-    incomingHeaders.get("x-forwarded-host") ??
-    incomingHeaders.get("host") ??
-    "";
-  const hostname = tenantHost.split(":")[0].toLowerCase();
-  const tenantSlug =
-    incomingHeaders.get("x-tenant-slug") ??
-    resolveTenantSlugFromHostname(hostname) ??
-    hostname.match(/^([a-z0-9-]+)\./)?.[1] ??
-    null;
+  const { tenantHost, tenantSlug } = resolveTenantContext({
+    tenantHostHeader: incomingHeaders.get("x-tenant-host"),
+    forwardedHostHeader: incomingHeaders.get("x-forwarded-host"),
+    hostHeader: incomingHeaders.get("host"),
+    tenantSlugHeader: incomingHeaders.get("x-tenant-slug"),
+  });
+
   if (!tenantSlug) {
     throw new Error(
-      "No se pudo resolver el tenant desde el host. Configura NEXT_PUBLIC_BASE_DOMAIN y accede por un subdominio válido.",
+      "No se pudo resolver el tenant desde el host. Configura NEXT_PUBLIC_BASE_DOMAIN y accede por un subdominio vÃ¡lido.",
     );
   }
 
@@ -37,6 +44,7 @@ export async function serverApiFetch<T>(
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
+      ...(tenantHost ? { "X-Tenant-Host": tenantHost } : {}),
       ...(tenantHost ? { "X-Forwarded-Host": tenantHost } : {}),
       ...(incomingHeaders.get("x-forwarded-proto")
         ? { "X-Forwarded-Proto": incomingHeaders.get("x-forwarded-proto")! }
@@ -48,7 +56,10 @@ export async function serverApiFetch<T>(
   });
 
   if (response.status === 401) {
-    redirect("/login");
+    if (redirectOnUnauthorized) {
+      redirect("/login");
+    }
+    return null;
   }
 
   if (!response.ok) {
@@ -57,4 +68,24 @@ export async function serverApiFetch<T>(
   }
 
   return response.json() as Promise<T>;
+}
+
+export async function serverApiFetch<T>(
+  path: string,
+  init?: RequestInitWithMethod,
+): Promise<T> {
+  const result = await performServerApiFetch<T>(path, init);
+  if (result === null) {
+    throw new Error("Request unauthorized");
+  }
+  return result;
+}
+
+export async function serverApiFetchIfAuthenticated<T>(
+  path: string,
+  init?: RequestInitWithMethod,
+): Promise<T | null> {
+  return performServerApiFetch<T>(path, init, {
+    redirectOnUnauthorized: false,
+  });
 }

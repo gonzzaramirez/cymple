@@ -8,14 +8,15 @@ import { AccountRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 const TENANT_HEADER = 'x-tenant-slug';
+const TENANT_HOST_HEADER = 'x-tenant-host';
 const FORWARDED_HOST_HEADER = 'x-forwarded-host';
 const ORIGIN_HEADER = 'origin';
 const TENANT_SLUG_REGEX = /^[a-z0-9-]+$/;
-const RESERVED_INFRA_SUBDOMAINS = new Set(['api', 'www']);
+const RESERVED_INFRA_SUBDOMAINS = new Set(['api', 'www', 'apitest']);
 
 export interface ResolvedTenant {
   slug: string;
-  /** Slug de la organización cuando el tenant es un profesional miembro (para validar JWT). */
+  /** Slug de la organizaciÃ³n cuando el tenant es un profesional miembro (para validar JWT). */
   organizationSlug?: string | null;
   professionalId: string | null;
   organizationId: string | null;
@@ -60,7 +61,7 @@ export class TenantResolverService {
     });
 
     if (!professional) {
-      throw new UnauthorizedException('Tenant inválido o inactivo');
+      throw new UnauthorizedException('Tenant invÃ¡lido o inactivo');
     }
 
     if (professional.organizationId) {
@@ -83,9 +84,9 @@ export class TenantResolverService {
   }
 
   /**
-   * Detecta si Cloudflare Tunnel (u otro reverse proxy) sobrescribió
+   * Detecta si Cloudflare Tunnel (u otro reverse proxy) sobrescribiÃ³
    * X-Forwarded-Host. Cuando forwardedHost === host header, el valor
-   * original del frontend proxy se perdió.
+   * original del frontend proxy se perdiÃ³.
    */
   private isForwardedHostOverwritten(req: any): boolean {
     const forwardedHost = this.readSingleHeader(
@@ -96,25 +97,14 @@ export class TenantResolverService {
   }
 
   /**
-   * Slug solo desde Host / Origin + BASE_DOMAIN (sin X-Tenant-Slug).
-   * Usar en login para que el cliente no pueda fijar un tenant distinto al host.
-   *
-   * Excepción: cuando x-forwarded-host === host, Cloudflare Tunnel sobrescribió
-   * el header del proxy. En ese caso se usa x-tenant-slug (seteado por nuestro
-   * proxy de confianza en front/app/api/backend/[...path]/route.ts).
+   * Slug solo desde Host / Origin + BASE_DOMAIN (sin confiar en X-Tenant-Slug
+   * salvo fallback controlado cuando el proxy ya detectÃ³ overwrite).
    */
   extractSlugFromHostContextOnly(req: any): string {
     return this.resolveSlugFromHostContext(req);
   }
 
   extractSlugFromRequest(req: any): string {
-    const tenantHeader = this.validateSlug(
-      this.readSingleHeader(req?.headers?.[TENANT_HEADER]),
-      'Header de tenant inválido',
-    );
-    if (tenantHeader) {
-      return tenantHeader;
-    }
     return this.resolveSlugFromHostContext(req);
   }
 
@@ -126,24 +116,32 @@ export class TenantResolverService {
       (this.configService.get<string>('NODE_ENV') ?? '').toLowerCase() ===
       'production';
 
-    // Cloudflare Tunnel sobrescribe X-Forwarded-Host con el dominio del backend.
-    // Cuando detectamos overwrite, usamos x-tenant-slug (seteado por nuestro proxy).
-    if (this.isForwardedHostOverwritten(req)) {
-      const tenantHeader = this.readSingleHeader(req?.headers?.[TENANT_HEADER]);
-      if (tenantHeader) {
-        const validated = this.validateSlug(tenantHeader, 'Tenant inválido');
-        if (validated) return validated;
-      }
-    }
-
+    const tenantHost = this.resolveTenantHostname(req);
     const host = this.resolveHostname(req);
     const originHost = this.resolveOriginHostname(req);
 
+    const tenantHostSlug = this.extractSlugFromHostname(tenantHost, baseDomain);
     const hostSlug = this.extractSlugFromHostname(host, baseDomain);
     const originSlug = this.extractSlugFromHostname(originHost, baseDomain);
 
+    if (tenantHostSlug && originSlug && tenantHostSlug !== originSlug) {
+      throw new BadRequestException('Tenant mismatch');
+    }
+
     if (hostSlug && originSlug && hostSlug !== originSlug) {
       throw new BadRequestException('Tenant mismatch');
+    }
+
+    if (tenantHostSlug) return tenantHostSlug;
+
+    // Cloudflare Tunnel sobrescribe X-Forwarded-Host con el dominio del backend.
+    // Cuando detectamos overwrite, usamos x-tenant-slug solo como fallback.
+    if (this.isForwardedHostOverwritten(req)) {
+      const tenantHeader = this.validateSlug(
+        this.readSingleHeader(req?.headers?.[TENANT_HEADER]),
+        'Tenant invÃ¡lido',
+      );
+      if (tenantHeader) return tenantHeader;
     }
 
     if (hostSlug) return hostSlug;
@@ -159,7 +157,7 @@ export class TenantResolverService {
       !host.endsWith(`.${baseDomain}`) &&
       host !== 'localhost'
     ) {
-      throw new BadRequestException('Host inválido para tenant');
+      throw new BadRequestException('Host invÃ¡lido para tenant');
     }
 
     if (isProd) throw new BadRequestException('No se pudo resolver tenant');
@@ -198,6 +196,12 @@ export class TenantResolverService {
     const rawHost = (forwardedHost || hostHeader || '').trim().toLowerCase();
     if (!rawHost) return null;
     return rawHost.split(',')[0]?.trim().split(':')[0] ?? null;
+  }
+
+  private resolveTenantHostname(req: any): string | null {
+    const tenantHost = this.readSingleHeader(req?.headers?.[TENANT_HOST_HEADER]);
+    if (!tenantHost) return null;
+    return tenantHost.split(',')[0]?.trim().split(':')[0] ?? null;
   }
 
   private resolveOriginHostname(req: any): string | null {
