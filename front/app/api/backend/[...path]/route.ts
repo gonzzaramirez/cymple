@@ -19,8 +19,10 @@ async function proxy(
     url.host;
   const hostname = tenantHost.split(":")[0].toLowerCase();
   const tenantSlug =
+    request.headers.get("x-tenant-slug") ??
     resolveTenantSlugFromHostname(hostname) ??
-    request.headers.get("x-tenant-slug");
+    hostname.match(/^([a-z0-9-]+)\./)?.[1] ??
+    null;
   if (!token) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
