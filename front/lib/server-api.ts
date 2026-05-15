@@ -21,7 +21,9 @@ export async function serverApiFetch<T>(
     incomingHeaders.get("host") ??
     "";
   const hostname = tenantHost.split(":")[0].toLowerCase();
-  const tenantSlug = resolveTenantSlugFromHostname(hostname);
+  const tenantSlug =
+    resolveTenantSlugFromHostname(hostname) ??
+    incomingHeaders.get("x-tenant-slug");
   if (!tenantSlug) {
     throw new Error(
       "No se pudo resolver el tenant desde el host. Configura NEXT_PUBLIC_BASE_DOMAIN y accede por un subdominio válido.",
