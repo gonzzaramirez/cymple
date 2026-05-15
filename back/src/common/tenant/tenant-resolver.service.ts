@@ -83,8 +83,25 @@ export class TenantResolverService {
   }
 
   /**
+   * Detecta si Cloudflare Tunnel (u otro reverse proxy) sobrescribió
+   * X-Forwarded-Host. Cuando forwardedHost === host header, el valor
+   * original del frontend proxy se perdió.
+   */
+  private isForwardedHostOverwritten(req: any): boolean {
+    const forwardedHost = this.readSingleHeader(
+      req?.headers?.[FORWARDED_HOST_HEADER],
+    );
+    const hostHeader = this.readSingleHeader(req?.headers?.host);
+    return !!(forwardedHost && hostHeader && forwardedHost === hostHeader);
+  }
+
+  /**
    * Slug solo desde Host / Origin + BASE_DOMAIN (sin X-Tenant-Slug).
    * Usar en login para que el cliente no pueda fijar un tenant distinto al host.
+   *
+   * Excepción: cuando x-forwarded-host === host, Cloudflare Tunnel sobrescribió
+   * el header del proxy. En ese caso se usa x-tenant-slug (seteado por nuestro
+   * proxy de confianza en front/app/api/backend/[...path]/route.ts).
    */
   extractSlugFromHostContextOnly(req: any): string {
     return this.resolveSlugFromHostContext(req);
@@ -102,14 +119,25 @@ export class TenantResolverService {
   }
 
   private resolveSlugFromHostContext(req: any): string {
-    const host = this.resolveHostname(req);
-    const originHost = this.resolveOriginHostname(req);
     const baseDomain = this.configService
       .get<string>('BASE_DOMAIN')
       ?.toLowerCase();
     const isProd =
       (this.configService.get<string>('NODE_ENV') ?? '').toLowerCase() ===
       'production';
+
+    // Cloudflare Tunnel sobrescribe X-Forwarded-Host con el dominio del backend.
+    // Cuando detectamos overwrite, usamos x-tenant-slug (seteado por nuestro proxy).
+    if (this.isForwardedHostOverwritten(req)) {
+      const tenantHeader = this.readSingleHeader(req?.headers?.[TENANT_HEADER]);
+      if (tenantHeader) {
+        const validated = this.validateSlug(tenantHeader, 'Tenant inválido');
+        if (validated) return validated;
+      }
+    }
+
+    const host = this.resolveHostname(req);
+    const originHost = this.resolveOriginHostname(req);
 
     const hostSlug = this.extractSlugFromHostname(host, baseDomain);
     const originSlug = this.extractSlugFromHostname(originHost, baseDomain);
