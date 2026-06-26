@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Logger,
   Post,
   Query,
   Req,
@@ -15,7 +14,6 @@ import type { Request } from 'express';
 @Controller('webhooks')
 @SkipThrottle()
 export class WebhooksController {
-  private readonly logger = new Logger(WebhooksController.name);
   private readonly expectedToken = process.env.EVOLUTION_WEBHOOK_TOKEN;
 
   constructor(private readonly webhooksService: WebhooksService) {}
@@ -26,14 +24,6 @@ export class WebhooksController {
     @Body() payload: unknown,
     @Query('token') queryToken: string | undefined,
   ) {
-    this.logger.log(
-      `Webhook recibido — payload keys: ${
-        payload && typeof payload === 'object'
-          ? Object.keys(payload).join(', ')
-          : typeof payload
-      }`,
-    );
-
     if (this.expectedToken) {
       const headerToken = req?.headers?.['x-evolution-webhook-token'];
       const candidate =
@@ -41,11 +31,6 @@ export class WebhooksController {
         queryToken;
 
       if (!candidate) {
-        this.logger.warn(
-          `Webhook REJECTED: no token provided. Headers received: ${JSON.stringify(Object.keys(req?.headers ?? {}))}. ` +
-            `Configure Evolution API webhook URL as: https://YOUR_DOMAIN/v1/webhooks/whatsapp?token=YOUR_TOKEN ` +
-            `or set the header x-evolution-webhook-token.`,
-        );
         throw new UnauthorizedException('Missing webhook token');
       }
 
@@ -55,15 +40,8 @@ export class WebhooksController {
           Buffer.from(this.expectedToken, 'utf-8'),
         )
       ) {
-        this.logger.warn(
-          `Webhook REJECTED: token mismatch. Instance: ${this.extractInstance(payload)}`,
-        );
         throw new UnauthorizedException('Invalid webhook token');
       }
-    } else {
-      this.logger.warn(
-        'EVOLUTION_WEBHOOK_TOKEN not configured — webhook endpoint accepts all requests until token is set',
-      );
     }
 
     await this.webhooksService.handleWhatsappPayload(payload);

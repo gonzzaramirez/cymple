@@ -22,6 +22,14 @@ export class ProfessionalService {
         dailyDigestTime: true,
         autoConfirmHours: true,
         paymentAlias: true,
+        publicBookingEnabled: true,
+        publicBookingSlug: true,
+        depositAmount: true,
+        depositWindowHours: true,
+        bookingAutoCancel: true,
+        bookingAutoCancelHours: true,
+        maxActiveBookings: true,
+        waPublicBookingPhone: true,
       },
     });
   }
@@ -42,6 +50,14 @@ export class ProfessionalService {
         dailyDigestTime: true,
         autoConfirmHours: true,
         paymentAlias: true,
+        publicBookingEnabled: true,
+        publicBookingSlug: true,
+        depositAmount: true,
+        depositWindowHours: true,
+        bookingAutoCancel: true,
+        bookingAutoCancelHours: true,
+        maxActiveBookings: true,
+        waPublicBookingPhone: true,
       },
     });
   }

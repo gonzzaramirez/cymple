@@ -26,6 +26,11 @@ const statusConfig: Record<
   CANCELLED: { label: "Cancelado", variant: "secondary" },
 };
 
+function StatusBadge({ status }: { status: Appointment["status"] }) {
+  const cfg = statusConfig[status] ?? { label: status, variant: "secondary" as const };
+  return <Badge variant={cfg.variant}>{cfg.label}</Badge>;
+}
+
 function patientName(appointment: Appointment) {
   return appointment.patient
     ? `${appointment.patient.lastName}, ${appointment.patient.firstName}`
@@ -194,10 +199,6 @@ export function AppointmentsList({
       <div className="space-y-4">
         <div className="space-y-3">
           {items.map((appointment) => {
-            const cfg = statusConfig[appointment.status] ?? {
-              label: appointment.status,
-              variant: "secondary" as const,
-            };
             return (
               <DataCard
                 key={appointment.id}
@@ -215,7 +216,7 @@ export function AppointmentsList({
                   )
                 }
                 description={appointment.reason || "Sin motivo cargado"}
-                meta={<Badge variant={cfg.variant}>{cfg.label}</Badge>}
+                meta={() => <StatusBadge status={appointment.status} />}
                 items={[
                   { label: "Modalidad", value: appointment.modality === "VIRTUAL" ? "Virtual" : "Presencial" },
                   { label: "Duración", value: `${appointment.durationMinutes} min` },

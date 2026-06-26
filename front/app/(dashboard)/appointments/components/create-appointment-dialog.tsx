@@ -19,6 +19,70 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { sileo } from "sileo";
 
+function autoResizeNotes(el: HTMLTextAreaElement) {
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight}px`;
+}
+
+function usePatientSearch(open: boolean, search: string) {
+  const [patients, setPatients] = useState<Patient[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      const url = search
+        ? `/api/backend/patients/search?query=${encodeURIComponent(search)}`
+        : `/api/backend/patients?page=1&limit=10`;
+      const res = await fetch(url, { signal: controller.signal });
+      if (res.ok) {
+        const data = await res.json();
+        setPatients(data.items ?? data);
+      }
+    }, 300);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [search, open]);
+
+  return { patients, setPatients };
+}
+
+function useAvailabilitySlots(open: boolean, selectedDate: Date) {
+  const [slots, setSlots] = useState<SlotItem[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [selectedSlotStartAt, setSelectedSlotStartAt] = useState("");
+
+  useEffect(() => {
+    if (!open || !selectedDate) return;
+    const controller = new AbortController();
+    async function loadSlots() {
+      setSlotsLoading(true);
+      const date = format(selectedDate, "yyyy-MM-dd");
+      const res = await fetch(`/api/backend/availability/slots?date=${date}`, {
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        setSlots([]);
+        setSelectedSlotStartAt("");
+        setSlotsLoading(false);
+        return;
+      }
+      const data = await res.json();
+      const nextSlots: SlotItem[] = data.slots ?? [];
+      setSlots(nextSlots);
+      setSelectedSlotStartAt((prev) => {
+        if (prev && nextSlots.some((slot) => slot.startAt === prev))
+          return prev;
+        return "";
+      });
+      setSlotsLoading(false);
+    }
+    loadSlots();
+    return () => controller.abort();
+  }, [open, selectedDate]);
+
+  return { slots, setSlots, slotsLoading, setSlotsLoading, selectedSlotStartAt, setSelectedSlotStartAt };
+}
+
 const newPatientSchema = z.object({
   firstName: z.string().trim().min(1, "El nombre es requerido").max(100),
   lastName: z.string().trim().min(1, "El apellido es requerido").max(100),
@@ -27,7 +91,7 @@ const newPatientSchema = z.object({
     .regex(/^\+?\d{8,20}$/, "Formato inválido (ej: +5491123456789)")
     .or(z.literal(""))
     .optional(),
-  email: z.string().email("Email inválido").or(z.literal("")).optional(),
+  email: z.email({ message: "Email inválido" }).or(z.literal("")).optional(),
   dni: z.string().max(20, "Máximo 20 caracteres").optional(),
   birthDate: z.string().optional(),
   notes: z.string().max(1000, "Máximo 1000 caracteres").optional(),
@@ -77,10 +141,9 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
-  const [slotsLoading, setSlotsLoading] = useState(false);
 
-  const [patients, setPatients] = useState<Patient[]>([]);
   const [search, setSearch] = useState("");
+  const { patients } = usePatientSearch(open, search);
   const [selectedPatientId, setSelectedPatientId] = useState("");
   const [selectedPatientName, setSelectedPatientName] = useState("");
   const [showNewPatient, setShowNewPatient] = useState(false);
@@ -95,8 +158,7 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
   const [newNotes, setNewNotes] = useState("");
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [slots, setSlots] = useState<SlotItem[]>([]);
-  const [selectedSlotStartAt, setSelectedSlotStartAt] = useState("");
+  const { slots, setSlots, slotsLoading, selectedSlotStartAt, setSelectedSlotStartAt } = useAvailabilitySlots(open, selectedDate);
   const [durationMinutes, setDurationMinutes] = useState("");
   const [fee, setFee] = useState("");
   const [reason, setReason] = useState("");
@@ -112,54 +174,6 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
       setOpen(true);
     },
   }));
-
-  useEffect(() => {
-    if (!open) return;
-    const timer = setTimeout(async () => {
-      const url = search
-        ? `/api/backend/patients/search?query=${encodeURIComponent(search)}`
-        : `/api/backend/patients?page=1&limit=10`;
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        setPatients(data.items ?? data);
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [search, open]);
-
-  useEffect(() => {
-    if (!open || !selectedDate) return;
-    const controller = new AbortController();
-
-    async function loadSlots() {
-      setSlotsLoading(true);
-      const date = format(selectedDate, "yyyy-MM-dd");
-      const res = await fetch(`/api/backend/availability/slots?date=${date}`, {
-        signal: controller.signal,
-      });
-
-      if (!res.ok) {
-        setSlots([]);
-        setSelectedSlotStartAt("");
-        setSlotsLoading(false);
-        return;
-      }
-
-      const data = await res.json();
-      const nextSlots: SlotItem[] = data.slots ?? [];
-      setSlots(nextSlots);
-      setSelectedSlotStartAt((prev) => {
-        if (prev && nextSlots.some((slot) => slot.startAt === prev))
-          return prev;
-        return "";
-      });
-      setSlotsLoading(false);
-    }
-
-    loadSlots();
-    return () => controller.abort();
-  }, [open, selectedDate]);
 
   function resetForm() {
     setStep(1);
@@ -183,10 +197,7 @@ export const CreateAppointmentDialog = forwardRef<CreateAppointmentDialogHandle,
     setPaymentMethod("");
   }
 
-  function autoResizeNotes(el: HTMLTextAreaElement) {
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  }
+
 
   function selectPatient(p: Patient) {
     setSelectedPatientId(p.id);

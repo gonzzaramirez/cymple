@@ -89,18 +89,11 @@ export class EvolutionApiService {
 
         if (RETRYABLE_STATUSES.has(res.status) && attempt < MAX_RETRIES) {
           const backoff = Math.min(INITIAL_BACKOFF_MS * 2 ** attempt, 10_000);
-          this.logger.warn(
-            `Evolution API ${res.status} — retrying in ${backoff}ms (attempt ${attempt + 1}/${MAX_RETRIES})`,
-          );
           await new Promise((r) => setTimeout(r, backoff));
           continue;
         }
 
         if (!res.ok) {
-          this.logger.warn(
-            { url, status: res.status, data },
-            'Evolution error',
-          );
           throw new EvolutionApiError(res.status, data);
         }
 
@@ -111,9 +104,6 @@ export class EvolutionApiService {
 
         if (attempt < MAX_RETRIES) {
           const backoff = Math.min(INITIAL_BACKOFF_MS * 2 ** attempt, 10_000);
-          this.logger.warn(
-            `Evolution request failed — retrying in ${backoff}ms (attempt ${attempt + 1}/${MAX_RETRIES}): ${e instanceof Error ? e.message : String(e)}`,
-          );
           await new Promise((r) => setTimeout(r, backoff));
           continue;
         }

@@ -213,9 +213,6 @@ export class WhatsappMessagingService {
     );
 
     if (!waCtx.isConnected) {
-      this.logger.debug(
-        `Omitiendo WA alta: profesional ${professional.id} no conectado`,
-      );
       return;
     }
     if (!patient.phone) return;
@@ -241,32 +238,7 @@ export class WhatsappMessagingService {
     });
 
     const to = normalizeArWhatsappNumber(patient.phone);
-    try {
-      await this.evolution.sendText(waCtx.instance, to, text);
-    } catch (e) {
-      this.logger.error(e, `Fallo envío WA alta turno ${appointmentId}`);
-      await this.prisma.messageLog
-        .create({
-          data: {
-            professionalId: professional.id,
-            organizationId: waCtx.organizationId,
-            patientId: patient.id,
-            appointmentId: row.id,
-            direction: MessageDirection.OUTBOUND,
-            messageType: MessageType.APPOINTMENT_CREATED,
-            toPhone: to,
-            content: text,
-            sentAt: null,
-          },
-        })
-        .catch((logErr) =>
-          this.logger.error(
-            logErr,
-            `Fallo log de error alta turno ${appointmentId}`,
-          ),
-        );
-      return;
-    }
+    await this.evolution.sendText(waCtx.instance, to, text);
 
     await this.prisma.messageLog
       .create({
@@ -281,9 +253,6 @@ export class WhatsappMessagingService {
           content: text,
           sentAt: new Date(),
         },
-      })
-      .catch((logErr) => {
-        this.logger.error(logErr, `Fallo log de alta turno ${appointmentId}`);
       });
   }
 
@@ -296,15 +265,11 @@ export class WhatsappMessagingService {
       },
     });
     if (!row) {
-      this.logger.warn(
-        `Recordatorio: appointment ${appointmentId} no encontrado`,
-      );
       return false;
     }
 
     const { professional, patient } = row;
     if (!this.evolution.isConfigured()) {
-      this.logger.warn('Recordatorio: Evolution no configurada');
       return false;
     }
 
@@ -313,13 +278,9 @@ export class WhatsappMessagingService {
       row.organizationId,
     );
     if (!waCtx.isConnected) {
-      this.logger.warn(
-        `Recordatorio: WA no conectado para profesional ${professional.id} (orgId: ${waCtx.organizationId ?? 'ninguno'})`,
-      );
       return false;
     }
     if (!patient.phone) {
-      this.logger.warn(`Recordatorio: paciente ${patient.id} sin teléfono`);
       return false;
     }
 
@@ -336,9 +297,6 @@ export class WhatsappMessagingService {
       waCtx.organizationId,
     );
     if (!tpl.isEnabled) {
-      this.logger.warn(
-        `Recordatorio: template deshabilitado para profesional ${professional.id}`,
-      );
       return false;
     }
 
@@ -352,37 +310,9 @@ export class WhatsappMessagingService {
     });
 
     const to = normalizeArWhatsappNumber(patient.phone);
-    try {
-      await this.evolution.sendText(waCtx.instance, to, text);
-    } catch (e) {
-      this.logger.error(e, `Fallo envío recordatorio ${appointmentId}`);
-      await this.prisma.messageLog
-        .create({
-          data: {
-            professionalId: professional.id,
-            organizationId: waCtx.organizationId,
-            patientId: patient.id,
-            appointmentId: row.id,
-            direction: MessageDirection.OUTBOUND,
-            messageType: MessageType.APPOINTMENT_REMINDER,
-            toPhone: to,
-            content: text,
-            sentAt: null,
-          },
-        })
-        .catch((logErr) =>
-          this.logger.error(
-            logErr,
-            `Fallo log de error recordatorio ${appointmentId}`,
-          ),
-        );
-      return false;
-    }
+    await this.evolution.sendText(waCtx.instance, to, text);
 
     const now = new Date();
-    this.logger.log(
-      `Recordatorio enviado: ${appointmentId} → ${to} (${dayPhrase} ${time}hs)`,
-    );
 
     await this.prisma.appointment.update({
       where: { id: row.id },
@@ -408,12 +338,6 @@ export class WhatsappMessagingService {
           content: text,
           sentAt: now,
         },
-      })
-      .catch((logErr) => {
-        this.logger.error(
-          logErr,
-          `Fallo log de recordatorio enviado ${appointmentId}`,
-        );
       });
 
     return true;
@@ -436,33 +360,11 @@ export class WhatsappMessagingService {
     );
     if (!waCtx.isConnected) return;
 
-    try {
-      await this.evolution.sendText(
-        waCtx.instance,
-        params.toPhoneDigits,
-        params.content,
-      );
-    } catch (e) {
-      this.logger.error(e, 'Fallo envío acuse WA');
-      await this.prisma.messageLog
-        .create({
-          data: {
-            professionalId: params.professionalId,
-            organizationId: waCtx.organizationId,
-            patientId: params.patientId,
-            appointmentId: params.appointmentId,
-            direction: MessageDirection.OUTBOUND,
-            messageType: MessageType.SYSTEM,
-            toPhone: params.toPhoneDigits,
-            content: params.content,
-            sentAt: null,
-          },
-        })
-        .catch((logErr) =>
-          this.logger.error(logErr, 'Fallo log de error acuse WA'),
-        );
-      return;
-    }
+    await this.evolution.sendText(
+      waCtx.instance,
+      params.toPhoneDigits,
+      params.content,
+    );
 
     await this.prisma.messageLog
       .create({
@@ -477,9 +379,6 @@ export class WhatsappMessagingService {
           content: params.content,
           sentAt: new Date(),
         },
-      })
-      .catch((logErr) => {
-        this.logger.error(logErr, 'Fallo log de acuse WA');
       });
   }
 
@@ -512,12 +411,7 @@ export class WhatsappMessagingService {
           patientName: `${patient.firstName} ${patient.lastName}`,
           when: `${weekday} ${dayMonth} a las ${time}hs`,
         },
-      })
-      .catch((e) =>
-        this.logger.error(
-          `Failed to create APPOINTMENT_RESCHEDULED notification: ${e}`,
-        ),
-      );
+      });
 
     if (!this.evolution.isConfigured()) return;
 
@@ -541,32 +435,7 @@ export class WhatsappMessagingService {
     });
 
     const to = normalizeArWhatsappNumber(patient.phone);
-    try {
-      await this.evolution.sendText(waCtx.instance, to, text);
-    } catch (e) {
-      this.logger.error(e, `Fallo envío WA reprogramación ${appointmentId}`);
-      await this.prisma.messageLog
-        .create({
-          data: {
-            professionalId: professional.id,
-            organizationId: waCtx.organizationId,
-            patientId: patient.id,
-            appointmentId: row.id,
-            direction: MessageDirection.OUTBOUND,
-            messageType: MessageType.APPOINTMENT_RESCHEDULED,
-            toPhone: to,
-            content: text,
-            sentAt: null,
-          },
-        })
-        .catch((logErr) =>
-          this.logger.error(
-            logErr,
-            `Fallo log de error reprogramación ${appointmentId}`,
-          ),
-        );
-      return;
-    }
+    await this.evolution.sendText(waCtx.instance, to, text);
 
     await this.prisma.messageLog
       .create({
@@ -581,12 +450,6 @@ export class WhatsappMessagingService {
           content: text,
           sentAt: new Date(),
         },
-      })
-      .catch((logErr) => {
-        this.logger.error(
-          logErr,
-          `Fallo log de reprogramación ${appointmentId}`,
-        );
       });
   }
 
@@ -621,12 +484,7 @@ export class WhatsappMessagingService {
           patientName: `${patient.firstName} ${patient.lastName}`,
           when: `${weekday} ${dayMonth} a las ${time}hs`,
         },
-      })
-      .catch((e) =>
-        this.logger.error(
-          `Failed to create APPOINTMENT_CANCELLED_SENT notification: ${e}`,
-        ),
-      );
+      });
 
     if (!this.evolution.isConfigured()) return;
 
@@ -650,32 +508,7 @@ export class WhatsappMessagingService {
     });
 
     const to = normalizeArWhatsappNumber(patient.phone);
-    try {
-      await this.evolution.sendText(waCtx.instance, to, text);
-    } catch (e) {
-      this.logger.error(e, `Fallo envío WA cancelación ${appointmentId}`);
-      await this.prisma.messageLog
-        .create({
-          data: {
-            professionalId: professional.id,
-            organizationId: waCtx.organizationId,
-            patientId: patient.id,
-            appointmentId: row.id,
-            direction: MessageDirection.OUTBOUND,
-            messageType: MessageType.APPOINTMENT_CANCELLED,
-            toPhone: to,
-            content: text,
-            sentAt: null,
-          },
-        })
-        .catch((logErr) =>
-          this.logger.error(
-            logErr,
-            `Fallo log de error cancelación ${appointmentId}`,
-          ),
-        );
-      return;
-    }
+    await this.evolution.sendText(waCtx.instance, to, text);
 
     await this.prisma.messageLog
       .create({
@@ -690,9 +523,6 @@ export class WhatsappMessagingService {
           content: text,
           sentAt: new Date(),
         },
-      })
-      .catch((logErr) => {
-        this.logger.error(logErr, `Fallo log de cancelación ${appointmentId}`);
       });
   }
 
@@ -749,26 +579,22 @@ export class WhatsappMessagingService {
       const text =
         `\u{1F4C5} *Agenda del día — ${humanDate}*\n\n` +
         `No tenés turnos programados para hoy. \u{2615}`;
-      try {
-        await this.evolution.sendText(
-          waCtx.instance,
-          normalizeArWhatsappNumber(professional.phone),
-          text,
-        );
-        await this.prisma.messageLog.create({
-          data: {
-            professionalId,
-            organizationId: waCtx.organizationId,
-            direction: MessageDirection.OUTBOUND,
-            messageType: MessageType.SYSTEM,
-            toPhone: normalizeArWhatsappNumber(professional.phone),
-            content: text,
-            sentAt: new Date(),
-          },
-        });
-      } catch (e) {
-        this.logger.error(e, 'Fallo envío digest diario (sin turnos)');
-      }
+      await this.evolution.sendText(
+        waCtx.instance,
+        normalizeArWhatsappNumber(professional.phone),
+        text,
+      );
+      await this.prisma.messageLog.create({
+        data: {
+          professionalId,
+          organizationId: waCtx.organizationId,
+          direction: MessageDirection.OUTBOUND,
+          messageType: MessageType.SYSTEM,
+          toPhone: normalizeArWhatsappNumber(professional.phone),
+          content: text,
+          sentAt: new Date(),
+        },
+      });
       return true;
     }
 
@@ -790,28 +616,23 @@ export class WhatsappMessagingService {
       lines.join('\n') +
       `\n\n_\u{2705} Confirmado  \u{1F7E1} Pendiente_`;
 
-    try {
-      await this.evolution.sendText(
-        waCtx.instance,
-        normalizeArWhatsappNumber(professional.phone),
-        text,
-      );
-      await this.prisma.messageLog.create({
-        data: {
-          professionalId,
-          organizationId: waCtx.organizationId,
-          direction: MessageDirection.OUTBOUND,
-          messageType: MessageType.SYSTEM,
-          toPhone: normalizeArWhatsappNumber(professional.phone),
-          content: text,
-          sentAt: new Date(),
-        },
-      });
-      return true;
-    } catch (e) {
-      this.logger.error(e, 'Fallo envío digest diario');
-      return false;
-    }
+    await this.evolution.sendText(
+      waCtx.instance,
+      normalizeArWhatsappNumber(professional.phone),
+      text,
+    );
+    await this.prisma.messageLog.create({
+      data: {
+        professionalId,
+        organizationId: waCtx.organizationId,
+        direction: MessageDirection.OUTBOUND,
+        messageType: MessageType.SYSTEM,
+        toPhone: normalizeArWhatsappNumber(professional.phone),
+        content: text,
+        sentAt: new Date(),
+      },
+    });
+    return true;
   }
 
   async sendPaymentReminder(appointmentId: string): Promise<void> {
@@ -860,29 +681,7 @@ export class WhatsappMessagingService {
     });
 
     const to = normalizeArWhatsappNumber(patient.phone);
-    try {
-      await this.evolution.sendText(waCtx.instance, to, text);
-    } catch (e) {
-      this.logger.error(e, `Fallo envío recordatorio pago ${appointmentId}`);
-      await this.prisma.messageLog
-        .create({
-          data: {
-            professionalId: professional.id,
-            organizationId: waCtx.organizationId,
-            patientId: patient.id,
-            appointmentId: row.id,
-            direction: MessageDirection.OUTBOUND,
-            messageType: MessageType.PAYMENT_REMINDER,
-            toPhone: to,
-            content: text,
-            sentAt: null,
-          },
-        })
-        .catch((logErr) =>
-          this.logger.error(logErr, `Fallo log de error pago ${appointmentId}`),
-        );
-      return;
-    }
+    await this.evolution.sendText(waCtx.instance, to, text);
 
     await this.prisma.messageLog
       .create({
@@ -897,12 +696,6 @@ export class WhatsappMessagingService {
           content: text,
           sentAt: new Date(),
         },
-      })
-      .catch((logErr) => {
-        this.logger.error(
-          logErr,
-          `Fallo log de recordatorio pago ${appointmentId}`,
-        );
       });
   }
 
@@ -931,7 +724,6 @@ export class WhatsappMessagingService {
         select: { id: true },
       });
       if (!org) {
-        this.logger.warn(`resolveReplyContext: org ${orgId} not found`);
         return null;
       }
 
@@ -940,9 +732,6 @@ export class WhatsappMessagingService {
         select: { id: true, fullName: true, timezone: true, phone: true },
       });
       if (!profs.length) {
-        this.logger.warn(
-          `resolveReplyContext: no professionals found for org ${orgId}`,
-        );
         return null;
       }
 
@@ -961,10 +750,6 @@ export class WhatsappMessagingService {
         },
       });
 
-      this.logger.debug(
-        `resolveReplyContext[org]: fromJid=${fromJidDigits}, profs=${profs.length}, patients=${patients.length}`,
-      );
-
       const patient = patients.find(
         (p) => p.phone && phonesMatch(p.phone, fromJidDigits),
       );
@@ -972,9 +757,6 @@ export class WhatsappMessagingService {
       if (!patient) {
         const last8 = fromJidDigits.slice(-8);
         const last10 = fromJidDigits.slice(-10);
-        this.logger.warn(
-          `resolveReplyContext[org]: no in-memory match for ${maskPhone(fromJidDigits)}. Trying DB fallback with last8=${last8}, last10=${last10}`,
-        );
         const fallback = await this.prisma.patient.findFirst({
           where: {
             deletedAt: null,
@@ -995,9 +777,6 @@ export class WhatsappMessagingService {
           },
         });
         if (fallback) {
-          this.logger.log(
-            `resolveReplyContext[org]: DB fallback matched patient ${fallback.firstName} ${fallback.lastName} (stored phone: ${maskPhone(fallback.phone!)}) for incoming ${maskPhone(fromJidDigits)}`,
-          );
           let matchedPro = profs.find((p) => p.id === fallback.professionalId);
           if (!matchedPro && (!fallback.professionalId || profs.length > 0)) {
             const recentApt = await this.prisma.appointment.findFirst({
@@ -1033,9 +812,6 @@ export class WhatsappMessagingService {
             }
           }
           if (!matchedPro) {
-            this.logger.warn(
-              `resolveReplyContext: no professional found for fallback patient ${fallback.id}`,
-            );
             return null;
           }
           return {
@@ -1045,12 +821,6 @@ export class WhatsappMessagingService {
           };
         }
 
-        const storedPhones = patients
-          .filter((p) => p.phone)
-          .map((p) => `${p.firstName}:${maskPhone(p.phone!)}`);
-        this.logger.warn(
-          `resolveReplyContext: no patient match at all for incoming=${maskPhone(fromJidDigits)}. Stored phones count: ${storedPhones.length}`,
-        );
         return null;
       }
 
@@ -1096,23 +866,13 @@ export class WhatsappMessagingService {
             }
           }
         } else {
-          this.logger.warn(
-            `resolveReplyContext: professional ${patient.professionalId} not found for patient ${patient.id}`,
-          );
           return null;
         }
       }
 
       if (!professional) {
-        this.logger.warn(
-          `resolveReplyContext[org]: could not resolve professional for patient ${patient.id}`,
-        );
         return null;
       }
-
-      this.logger.log(
-        `resolveReplyContext[org]: matched patient ${patient.firstName} ${patient.lastName} → professional ${professional.fullName}`,
-      );
 
       return {
         professional,
@@ -1137,9 +897,6 @@ export class WhatsappMessagingService {
     });
 
     if (!professional) {
-      this.logger.warn(
-        `resolveReplyContext: no professional found for instance ${instanceName}`,
-      );
       return null;
     }
 
@@ -1151,10 +908,6 @@ export class WhatsappMessagingService {
       select: { id: true, phone: true, firstName: true, lastName: true },
     });
 
-    this.logger.debug(
-      `resolveReplyContext[prof]: fromJid=${fromJidDigits}, professional=${professional.fullName}, patients=${patients.length}`,
-    );
-
     const patient = patients.find(
       (p) => p.phone && phonesMatch(p.phone, fromJidDigits),
     );
@@ -1162,9 +915,6 @@ export class WhatsappMessagingService {
     if (!patient || !patient.phone) {
       const last8 = fromJidDigits.slice(-8);
       const last10 = fromJidDigits.slice(-10);
-      this.logger.warn(
-        `resolveReplyContext[prof]: no in-memory match for ${maskPhone(fromJidDigits)}. Trying DB fallback`,
-      );
       const fallback = await this.prisma.patient.findFirst({
         where: {
           professionalId: professional.id,
@@ -1174,9 +924,6 @@ export class WhatsappMessagingService {
         select: { id: true, phone: true, firstName: true, lastName: true },
       });
       if (fallback && fallback.phone) {
-        this.logger.log(
-          `resolveReplyContext[prof]: DB fallback matched patient ${fallback.firstName} ${fallback.lastName} (stored: ${maskPhone(fallback.phone)}) for incoming ${maskPhone(fromJidDigits)}`,
-        );
         return {
           professional,
           patient: { ...fallback, phone: fallback.phone },
@@ -1184,18 +931,8 @@ export class WhatsappMessagingService {
         };
       }
 
-      const storedPhones = patients
-        .filter((p) => p.phone)
-        .map((p) => `${p.firstName}:${maskPhone(p.phone!)}`);
-      this.logger.warn(
-        `resolveReplyContext: no patient match at all for incoming=${maskPhone(fromJidDigits)} among ${patients.length} patients of ${professional.fullName}. Stored phones count: ${storedPhones.length}`,
-      );
       return null;
     }
-
-    this.logger.log(
-      `resolveReplyContext[prof]: matched patient ${patient.firstName} ${patient.lastName} → professional ${professional.fullName}`,
-    );
 
     return {
       professional,
@@ -1227,9 +964,6 @@ export class WhatsappMessagingService {
       fromJidDigits,
     );
     if (!resolved) {
-      this.logger.warn(
-        `processPatientReply: could not resolve context for instance=${instanceName}, fromJid=${maskPhone(fromJidDigits)}, text="${rawText.substring(0, 50)}"`,
-      );
       let notifyProfessionalId: string | undefined;
       let notifyOrganizationId: string | undefined;
       if (instanceName.startsWith('cymple-org-')) {
@@ -1261,13 +995,7 @@ export class WhatsappMessagingService {
               content: rawText,
               receivedAt: new Date(),
             },
-          })
-          .catch((e) =>
-            this.logger.error(
-              e,
-              'Failed to persist unknown inbound message log entry',
-            ),
-          );
+          });
       }
       if (notifyProfessionalId || notifyOrganizationId) {
         const bodyText = truncateForNotification(
@@ -1288,12 +1016,7 @@ export class WhatsappMessagingService {
               rawText: rawText.substring(0, 2000),
               mediaType: inboundMediaType ?? null,
             },
-          })
-          .catch((e) =>
-            this.logger.error(
-              `Failed to create WA_UNKNOWN_REPLY notification: ${e}`,
-            ),
-          );
+          });
       }
       return false;
     }
@@ -1337,12 +1060,7 @@ export class WhatsappMessagingService {
             rawText: rawText.substring(0, 2000),
             mediaType: inboundMediaType ?? null,
           },
-        })
-        .catch((e) =>
-          this.logger.error(
-            `Failed to create NEW_INBOUND_MESSAGE notification: ${e}`,
-          ),
-        );
+        });
       return true;
     }
 
@@ -1361,11 +1079,7 @@ export class WhatsappMessagingService {
       orderBy: { startAt: 'asc' },
     });
 
-    if (remindedCandidates.length > 1) {
-      this.logger.warn(
-        `Ambiguous reply: patient ${patient.id} has ${remindedCandidates.length} upcoming reminded appointments. Selecting earliest.`,
-      );
-    }
+
 
     let appointment = remindedCandidates[0];
 
@@ -1380,19 +1094,10 @@ export class WhatsappMessagingService {
         orderBy: { startAt: 'asc' },
       });
 
-      if (allCandidates.length > 1) {
-        this.logger.warn(
-          `Ambiguous reply (no reminder): patient ${patient.id} has ${allCandidates.length} upcoming appointments.`,
-        );
-      }
-
       appointment = allCandidates[0];
     }
 
     if (!appointment) {
-      this.logger.warn(
-        `No upcoming appointment found for patient ${patient.id} (${patient.firstName} ${patient.lastName}) from phone ${maskPhone(fromJidDigits)}`,
-      );
       const guidance = `Hola ${patient.firstName}, no hay turnos activos para confirmar o cancelar en este momento.`;
       await this.sendSystemText({
         professionalId: professional.id,
@@ -1458,9 +1163,6 @@ export class WhatsappMessagingService {
       });
 
       if (updateResult.count === 0) {
-        this.logger.warn(
-          `Appointment ${appointment.id} confirm race lost — status is now ${freshAppointment?.status}. Sending already-confirmed reply.`,
-        );
         const fechaCorta = new Intl.DateTimeFormat('es-AR', {
           day: '2-digit',
           month: '2-digit',
@@ -1580,12 +1282,7 @@ export class WhatsappMessagingService {
           appointmentId: appointment.id,
           patientId: patient.id,
           metadata: { patientName, when: notifBody },
-        })
-        .catch((e) =>
-          this.logger.error(
-            `Failed to create PATIENT_CONFIRMED notification: ${e}`,
-          ),
-        );
+        });
 
       return true;
     }
@@ -1621,9 +1318,6 @@ export class WhatsappMessagingService {
     });
 
     if (cancelResult.count === 0) {
-      this.logger.warn(
-        `Appointment ${appointment.id} cancel race lost — status is now ${freshAppointment?.status}. Sending already-processed reply.`,
-      );
       const statusLabel =
         freshAppointment?.status === AppointmentStatus.CANCELLED
           ? 'cancelado'
@@ -1675,12 +1369,7 @@ export class WhatsappMessagingService {
         appointmentId: appointment.id,
         patientId: patient.id,
         metadata: { patientName, when: notifBody },
-      })
-      .catch((e) =>
-        this.logger.error(
-          `Failed to create PATIENT_CANCELLED notification: ${e}`,
-        ),
-      );
+      });
 
     return true;
   }

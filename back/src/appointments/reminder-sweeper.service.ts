@@ -22,9 +22,7 @@ export class ReminderSweeper {
 
     const appointments = await this.prisma.appointment.findMany({
       where: {
-        status: {
-          in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
-        },
+        status: { in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED] },
         reminderScheduledFor: { lte: now },
         reminderSentAt: null,
       },
@@ -46,26 +44,12 @@ export class ReminderSweeper {
 
     if (appointments.length === 0) return;
 
-    this.logger.log(`Found ${appointments.length} pending reminders`);
-
     for (const appointment of appointments) {
-      try {
-        const sent = await this.whatsappMessaging.sendAppointmentReminder(
-          appointment.id,
-        );
-        if (!sent) {
-          this.logger.warn(
-            `Recordatorio no enviado para turno ${appointment.id} (${appointment.patient.firstName} ${appointment.patient.lastName}, profesional: ${appointment.professional.fullName}) — se reintentará en el próximo ciclo`,
-          );
-          continue;
-        }
-        this.logger.log(
-          `Reminder sent for appointment ${appointment.id} (${appointment.patient.firstName} ${appointment.patient.lastName})`,
-        );
-      } catch (error) {
-        this.logger.error(
-          `Failed to send reminder for appointment ${appointment.id}: ${error}`,
-        );
+      const sent = await this.whatsappMessaging.sendAppointmentReminder(
+        appointment.id,
+      );
+      if (!sent) {
+        continue;
       }
     }
   }
@@ -86,8 +70,7 @@ export class ReminderSweeper {
     });
 
     for (const pro of professionals) {
-      try {
-        const dtNow = DateTime.fromJSDate(now).setZone(pro.timezone);
+      const dtNow = DateTime.fromJSDate(now).setZone(pro.timezone);
         const [hStr, mStr] = pro.dailyDigestTime.split(':');
         const targetHour = Number(hStr);
         const targetMinute = Number(mStr);
@@ -117,10 +100,6 @@ export class ReminderSweeper {
         if (alreadySent) continue;
 
         await this.whatsappMessaging.sendDailyDigestToProfessional(pro.id);
-        this.logger.log(`Daily digest sent to professional ${pro.id}`);
-      } catch (error) {
-        this.logger.error(`Failed to send daily digest to ${pro.id}: ${error}`);
-      }
     }
   }
 
@@ -154,39 +133,27 @@ export class ReminderSweeper {
       });
 
       for (const apt of toConfirm) {
-        try {
-          await this.prisma.appointment.update({
-            where: { id: apt.id },
-            data: {
-              status: AppointmentStatus.CONFIRMED,
-              confirmationDeadline: null,
+        await this.prisma.appointment.update({
+          where: { id: apt.id },
+          data: {
+            status: AppointmentStatus.CONFIRMED,
+            confirmationDeadline: null,
+          },
+        });
+        void this.notifications
+          .create({
+            professionalId: apt.professionalId,
+            organizationId: apt.organizationId ?? undefined,
+            type: 'APPOINTMENT_AUTO_CONFIRMED',
+            title: `Turno de ${apt.patient.firstName} ${apt.patient.lastName} auto-confirmado`,
+            body: `El paciente no respondió dentro de la ventana de confirmación — el turno se confirmó automáticamente`,
+            link: `/appointments?id=${apt.id}`,
+            appointmentId: apt.id,
+            patientId: apt.patientId,
+            metadata: {
+              patientName: `${apt.patient.firstName} ${apt.patient.lastName}`,
             },
           });
-          this.logger.log(`Auto-confirmed appointment ${apt.id}`);
-          void this.notifications
-            .create({
-              professionalId: apt.professionalId,
-              organizationId: apt.organizationId ?? undefined,
-              type: 'APPOINTMENT_AUTO_CONFIRMED',
-              title: `Turno de ${apt.patient.firstName} ${apt.patient.lastName} auto-confirmado`,
-              body: `El paciente no respondió dentro de la ventana de confirmación — el turno se confirmó automáticamente`,
-              link: `/appointments?id=${apt.id}`,
-              appointmentId: apt.id,
-              patientId: apt.patientId,
-              metadata: {
-                patientName: `${apt.patient.firstName} ${apt.patient.lastName}`,
-              },
-            })
-            .catch((e) =>
-              this.logger.error(
-                `Failed to create APPOINTMENT_AUTO_CONFIRMED notification: ${e}`,
-              ),
-            );
-        } catch (error) {
-          this.logger.error(
-            `Failed to auto-confirm appointment ${apt.id}: ${error}`,
-          );
-        }
       }
     }
   }
@@ -212,21 +179,12 @@ export class ReminderSweeper {
 
     if (appointments.length === 0) return;
 
-    this.logger.log(`Found ${appointments.length} pending payment reminders`);
-
     for (const apt of appointments) {
-      try {
-        await this.whatsappMessaging.sendPaymentReminder(apt.id);
-        await this.prisma.appointment.update({
-          where: { id: apt.id },
-          data: { paymentReminderSentAt: now },
-        });
-        this.logger.log(`Payment reminder sent for appointment ${apt.id}`);
-      } catch (error) {
-        this.logger.error(
-          `Failed to send payment reminder for appointment ${apt.id}: ${error}`,
-        );
-      }
+      await this.whatsappMessaging.sendPaymentReminder(apt.id);
+      await this.prisma.appointment.update({
+        where: { id: apt.id },
+        data: { paymentReminderSentAt: now },
+      });
     }
   }
 
@@ -258,28 +216,15 @@ export class ReminderSweeper {
 
     if (expired.length === 0) return;
 
-    this.logger.log(
-      `Found ${expired.length} confirmation deadlines expired — re-requesting`,
-    );
-
     for (const apt of expired) {
-      try {
-        await this.prisma.appointment.update({
-          where: { id: apt.id },
-          data: {
-            reminderSentAt: null,
-            reminderScheduledFor: now,
-            confirmationDeadline: null,
-          },
-        });
-        this.logger.log(
-          `Re-request queued for appointment ${apt.id} (${apt.professional.fullName} — ${apt.startAt.toISOString()})`,
-        );
-      } catch (error) {
-        this.logger.error(
-          `Failed to re-request confirmation for appointment ${apt.id}: ${error}`,
-        );
-      }
+      await this.prisma.appointment.update({
+        where: { id: apt.id },
+        data: {
+          reminderSentAt: null,
+          reminderScheduledFor: now,
+          confirmationDeadline: null,
+        },
+      });
     }
   }
 }

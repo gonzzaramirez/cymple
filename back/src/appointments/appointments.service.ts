@@ -128,10 +128,7 @@ export class AppointmentsService {
     }
 
     void this.whatsappMessaging
-      .sendAppointmentCreated(created.id)
-      .catch((e) =>
-        this.logger.error(`Failed to send appointment created message: ${e}`),
-      );
+      .sendAppointmentCreated(created.id);
 
     const previousAppointments = await this.prisma.appointment.count({
       where: {
@@ -151,10 +148,7 @@ export class AppointmentsService {
           patientId: patient.id,
           appointmentId: created.id,
           metadata: { patientName: `${patient.firstName} ${patient.lastName}` },
-        })
-        .catch((e) =>
-          this.logger.error(`Failed to create NEW_PATIENT notification: ${e}`),
-        );
+        });
     }
 
     // Si el recordatorio ya debería haberse enviado (turno cercano), mandarlo ya
@@ -163,11 +157,7 @@ export class AppointmentsService {
     if (reminderTime <= new Date()) {
       setTimeout(
         () =>
-          void this.whatsappMessaging
-            .sendAppointmentReminder(created.id)
-            .catch((e) =>
-              this.logger.error(`Failed to send delayed reminder: ${e}`),
-            ),
+          void this.whatsappMessaging.sendAppointmentReminder(created.id),
         60_000,
       );
     }
@@ -365,7 +355,7 @@ export class AppointmentsService {
       ...this.buildAppointmentWhereFromCtx(
         ctx,
         ctx.role === 'CENTER_ADMIN' && !isMultiProfessional
-          ? professionalId ?? undefined
+          ? (professionalId ?? undefined)
           : undefined,
       ),
       ...(isMultiProfessional && (query.professionalIds?.length ?? 0) > 0
@@ -584,12 +574,7 @@ export class AppointmentsService {
     });
 
     void this.whatsappMessaging
-      .sendAppointmentCancelledByProfessional(appointment.id)
-      .catch((e) =>
-        this.logger.error(
-          `Failed to send cancellation WA for appointment ${appointment.id}: ${e}`,
-        ),
-      );
+      .sendAppointmentCancelledByProfessional(appointment.id);
 
     void this.notifications
       .create({
@@ -604,12 +589,7 @@ export class AppointmentsService {
         appointmentId: appointment.id,
         patientId: appointment.patientId,
         metadata: { reason: dto.reason ?? null },
-      })
-      .catch((e) =>
-        this.logger.error(
-          `Failed to create APPOINTMENT_CANCELLED notification: ${e}`,
-        ),
-      );
+      });
 
     return updated;
   }

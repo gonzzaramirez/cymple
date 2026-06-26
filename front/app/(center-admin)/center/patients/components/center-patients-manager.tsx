@@ -73,7 +73,7 @@ const patientSchema = z.object({
     .regex(/^\+?\d{8,20}$/, "Formato inválido (ej: +5491123456789)")
     .or(z.literal(""))
     .optional(),
-  email: z.string().email("Email inválido").or(z.literal("")).optional(),
+  email: z.email({ message: "Email inválido" }).or(z.literal("")).optional(),
   dni: z.string().max(20, "Máximo 20 caracteres").optional(),
   birthDate: z.string().optional(),
   notes: z.string().max(1000, "Máximo 1000 caracteres").optional(),

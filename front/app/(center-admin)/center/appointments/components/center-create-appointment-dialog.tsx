@@ -57,7 +57,7 @@ const patientSchema = z.object({
   firstName: z.string().trim().min(1, "El nombre es requerido"),
   lastName: z.string().trim().min(1, "El apellido es requerido"),
   phone: z.string().regex(/^\+?\d{8,20}$/, "Formato inválido").or(z.literal("")).optional(),
-  email: z.string().email("Email inválido").or(z.literal("")).optional(),
+  email: z.email({ message: "Email inválido" }).or(z.literal("")).optional(),
   dni: z.string().max(20).optional(),
   notes: z.string().max(1000).optional(),
 });
@@ -70,21 +70,250 @@ function patientLabel(p: PatientOption): string {
   return `${p.lastName}, ${p.firstName}`;
 }
 
+function autoResize(el: HTMLTextAreaElement) {
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight}px`;
+}
+
+function usePatientSearch(open: boolean) {
+  const [patients, setPatients] = useState<PatientOption[]>([]);
+  const [patientsLoading, setPatientsLoading] = useState(false);
+  const [patientQuery, setPatientQuery] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setPatientsLoading(true);
+      const qs = new URLSearchParams({ page: "1", limit: "20" });
+      if (patientQuery.trim()) qs.set("query", patientQuery.trim());
+      const res = await fetch(`/api/backend/patients?${qs.toString()}`, { signal: controller.signal }).catch(() => null);
+      if (!res?.ok) { setPatients([]); setPatientsLoading(false); return; }
+      const payload = await res.json();
+      setPatients(payload.items ?? []);
+      setPatientsLoading(false);
+    }, 250);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [open, patientQuery]);
+
+  return { patients, setPatients, patientsLoading, setPatientsLoading, patientQuery, setPatientQuery };
+}
+
+function useAvailabilitySlots(open: boolean, step: FlowStep, professionalId: string, date: Date) {
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open || step !== 2 || !professionalId) return;
+    const controller = new AbortController();
+    async function loadSlots() {
+      setSlotsLoading(true);
+      setSlots([]);
+      const formattedDate = format(date, "yyyy-MM-dd");
+      const res = await fetch(
+        `/api/backend/availability/slots?date=${formattedDate}&professionalId=${professionalId}`,
+        { signal: controller.signal },
+      ).catch(() => null);
+      if (!res?.ok) { setSlotsLoading(false); return; }
+      const payload = await res.json();
+      setSlots(payload.slots ?? []);
+      setSlotsLoading(false);
+    }
+    void loadSlots();
+    return () => controller.abort();
+  }, [open, step, professionalId, date]);
+
+  return { slots, setSlots, slotsLoading, setSlotsLoading };
+}
+
 const emptyDraft: PatientDraft = { firstName: "", lastName: "", phone: "", email: "", dni: "", notes: "" };
+
+type CenterFormState = {
+  professionalId: string;
+  patientId: string;
+  date: Date;
+  startAt: string;
+  modality: AppointmentModality;
+  durationMinutes: string;
+  fee: string;
+  paymentMethod: PaymentMethod | "";
+  reason: string;
+};
+
+function InlinePatientForm({
+  draft,
+  onChange,
+  errors,
+  loading,
+  onSave,
+}: {
+  draft: PatientDraft;
+  onChange: React.Dispatch<React.SetStateAction<PatientDraft>>;
+  errors: Partial<Record<keyof PatientDraft, string>>;
+  loading: boolean;
+  onSave: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-muted/30 p-4 space-y-3">
+      <p className="text-sm font-semibold">Datos del nuevo paciente</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label>Nombre</Label>
+          <Input value={draft.firstName} onChange={(e) => onChange((p) => ({ ...p, firstName: e.target.value }))} />
+          {errors.firstName && <p className="text-xs text-destructive">{errors.firstName}</p>}
+        </div>
+        <div className="space-y-1.5">
+          <Label>Apellido</Label>
+          <Input value={draft.lastName} onChange={(e) => onChange((p) => ({ ...p, lastName: e.target.value }))} />
+          {errors.lastName && <p className="text-xs text-destructive">{errors.lastName}</p>}
+        </div>
+        <div className="space-y-1.5">
+          <Label>Teléfono <span className="text-xs text-muted-foreground">(opcional)</span></Label>
+          <Input value={draft.phone} onChange={(e) => onChange((p) => ({ ...p, phone: e.target.value }))} />
+          {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
+        </div>
+        <div className="space-y-1.5">
+          <Label>Email <span className="text-xs text-muted-foreground">(opcional)</span></Label>
+          <Input type="email" value={draft.email} onChange={(e) => onChange((p) => ({ ...p, email: e.target.value }))} />
+          {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+        </div>
+        <div className="space-y-1.5">
+          <Label>DNI <span className="text-xs text-muted-foreground">(opcional)</span></Label>
+          <Input value={draft.dni} onChange={(e) => onChange((p) => ({ ...p, dni: e.target.value }))} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Notas <span className="text-xs text-muted-foreground">(opcional)</span></Label>
+          <Input value={draft.notes} onChange={(e) => onChange((p) => ({ ...p, notes: e.target.value }))} />
+        </div>
+      </div>
+      <Button size="sm" disabled={loading} onClick={onSave}>
+        <Check className="size-4" /> {loading ? "Creando..." : "Crear y seleccionar"}
+      </Button>
+    </div>
+  );
+}
+
+function Step2Form({
+  selectedProfessional,
+  selectedPatient,
+  form,
+  setForm,
+  onDateChange,
+  onSubmit,
+  loading,
+  slots,
+  slotsLoading,
+  reasonRef,
+  onAutoResize,
+  onBack,
+}: {
+  selectedProfessional: ProfessionalOption | undefined;
+  selectedPatient: PatientOption | undefined;
+  form: CenterFormState;
+  setForm: React.Dispatch<React.SetStateAction<CenterFormState>>;
+  onDateChange: (date: Date | undefined) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  loading: boolean;
+  slots: Slot[];
+  slotsLoading: boolean;
+  reasonRef: React.RefObject<HTMLTextAreaElement | null>;
+  onAutoResize: (el: HTMLTextAreaElement) => void;
+  onBack: () => void;
+}) {
+  return (
+    <form onSubmit={onSubmit} className="space-y-5">
+      <div className="rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm space-y-0.5">
+        <p>Profesional: <span className="font-medium">{selectedProfessional ? professionalLabel(selectedProfessional) : "—"}</span></p>
+        <p>Paciente: <span className="font-medium">{selectedPatient ? patientLabel(selectedPatient) : "—"}</span></p>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Modalidad</Label>
+        <div className="flex gap-3">
+          {([{ value: "PRESENCIAL" as const, label: "Presencial", icon: MapPin }, { value: "VIRTUAL" as const, label: "Virtual", icon: Video }]).map(({ value, label, icon: Icon }) => (
+            <button key={value} type="button" onClick={() => setForm((p) => ({ ...p, modality: value }))} className={cn("flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors", form.modality === value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground")}>
+              <Icon className="size-4" />{label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Fecha</Label>
+        <div className="rounded-xl border border-border p-2">
+          <Calendar mode="single" selected={form.date} onSelect={onDateChange} locale={es} className="w-full" />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>
+          Horarios disponibles — <span className="font-normal text-muted-foreground">{format(form.date, "EEEE d 'de' MMMM", { locale: es })}</span>
+        </Label>
+        <div className="max-h-48 space-y-2 overflow-y-auto pr-1 rounded-xl border border-border p-3">
+          {slotsLoading ? (
+            <p className="text-sm text-muted-foreground">Cargando horarios...</p>
+          ) : slots.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No hay horarios disponibles para esta fecha</p>
+          ) : (
+            slots.map((slot) => {
+              const selected = form.startAt === slot.startAt;
+              const disabled = slot.hasCapacityLimit && (slot.remainingCapacity ?? 0) <= 0;
+              return (
+                <button key={slot.startAt} type="button" disabled={disabled} onClick={() => setForm((p) => ({ ...p, startAt: slot.startAt }))} className={cn("flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition", selected ? "border-primary bg-primary/10" : "border-border hover:border-primary/40 hover:bg-muted/40", disabled && "cursor-not-allowed opacity-50")}>
+                  <span className="inline-flex items-center gap-2 text-sm font-medium"><Clock3 className="size-3.5 text-muted-foreground" />{format(new Date(slot.startAt), "HH:mm")}</span>
+                  {slot.hasCapacityLimit && <span className="text-xs text-muted-foreground">{slot.remainingCapacity === 0 ? "Completo" : `${slot.remainingCapacity} cupo(s)`}</span>}
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Método de pago <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
+        <div className="flex gap-3">
+          {([{ value: "CASH" as const, label: "Efectivo", icon: Banknote }, { value: "TRANSFER" as const, label: "Transferencia", icon: ArrowLeftRight }]).map(({ value, label, icon: Icon }) => (
+            <button key={value} type="button" onClick={() => setForm((p) => ({ ...p, paymentMethod: p.paymentMethod === value ? "" : value }))} className={cn("flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors", form.paymentMethod === value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground")}>
+              <Icon className="size-4" />{label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="ca-duration">Duración (min) <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
+          <Input id="ca-duration" type="number" value={form.durationMinutes} onChange={(e) => setForm((p) => ({ ...p, durationMinutes: e.target.value }))} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="ca-fee">Honorario <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
+          <Input id="ca-fee" type="number" value={form.fee} onChange={(e) => setForm((p) => ({ ...p, fee: e.target.value }))} />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="ca-reason">Motivo <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
+        <Textarea ref={reasonRef} id="ca-reason" rows={2} className="resize-none overflow-hidden" placeholder="Descripción del motivo de la consulta..." value={form.reason} onInput={(e) => onAutoResize(e.currentTarget)} onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))} />
+      </div>
+
+      <div className="flex items-center justify-between pt-2">
+        <Button type="button" variant="ghost" onClick={onBack}>Volver</Button>
+        <Button disabled={loading || !form.startAt} type="submit" size="lg">
+          {loading ? "Guardando..." : "Crear turno"}
+        </Button>
+      </div>
+    </form>
+  );
+}
 
 export function CenterCreateAppointmentDialog({ professionals }: { professionals: ProfessionalOption[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<FlowStep>(1);
   const [loading, setLoading] = useState(false);
-  const [patientsLoading, setPatientsLoading] = useState(false);
-  const [slotsLoading, setSlotsLoading] = useState(false);
-  const [patients, setPatients] = useState<PatientOption[]>([]);
-  const [patientQuery, setPatientQuery] = useState("");
   const [inlineCreate, setInlineCreate] = useState(false);
   const [patientDraft, setPatientDraft] = useState<PatientDraft>(emptyDraft);
   const [patientErrors, setPatientErrors] = useState<Partial<Record<keyof PatientDraft, string>>>({});
-  const [slots, setSlots] = useState<Slot[]>([]);
   const [form, setForm] = useState({
     professionalId: professionals[0]?.id ?? "",
     patientId: "",
@@ -96,6 +325,8 @@ export function CenterCreateAppointmentDialog({ professionals }: { professionals
     paymentMethod: "" as PaymentMethod | "",
     reason: "",
   });
+  const { patients, setPatients, patientsLoading, setPatientsLoading, patientQuery, setPatientQuery } = usePatientSearch(open);
+  const { slots, setSlots, slotsLoading, setSlotsLoading } = useAvailabilitySlots(open, step, form.professionalId, form.date);
   const reasonRef = useRef<HTMLTextAreaElement>(null);
 
   const selectedPatient = useMemo(() => patients.find((p) => p.id === form.patientId), [patients, form.patientId]);
@@ -116,49 +347,15 @@ export function CenterCreateAppointmentDialog({ professionals }: { professionals
     setForm({ professionalId: professionals[0]?.id ?? "", patientId: "", date: new Date(), startAt: "", modality: "PRESENCIAL", durationMinutes: "", fee: "", paymentMethod: "", reason: "" });
   }
 
-  function autoResize(el: HTMLTextAreaElement) {
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  }
 
-  // Load patients
-  useEffect(() => {
-    if (!open) return;
-    const controller = new AbortController();
-    const timer = window.setTimeout(async () => {
-      setPatientsLoading(true);
-      const qs = new URLSearchParams({ page: "1", limit: "20" });
-      if (patientQuery.trim()) qs.set("query", patientQuery.trim());
-      const res = await fetch(`/api/backend/patients?${qs.toString()}`, { signal: controller.signal }).catch(() => null);
-      if (!res?.ok) { setPatients([]); setPatientsLoading(false); return; }
-      const payload = await res.json();
-      setPatients(payload.items ?? []);
-      setPatientsLoading(false);
-    }, 250);
-    return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [open, patientQuery]);
 
-  // Load slots when moving to step 2
+  // Clear selected slot when date changes in step 2
   useEffect(() => {
-    if (!open || step !== 2 || !form.professionalId) return;
-    const controller = new AbortController();
-    async function loadSlots() {
-      setSlotsLoading(true);
-      setSlots([]);
+    if (step === 2 && form.startAt) {
       setForm((prev) => ({ ...prev, startAt: "" }));
-      const date = format(form.date, "yyyy-MM-dd");
-      const res = await fetch(
-        `/api/backend/availability/slots?date=${date}&professionalId=${form.professionalId}`,
-        { signal: controller.signal },
-      ).catch(() => null);
-      if (!res?.ok) { setSlotsLoading(false); return; }
-      const payload = await res.json();
-      setSlots(payload.slots ?? []);
-      setSlotsLoading(false);
     }
-    void loadSlots();
-    return () => controller.abort();
-  }, [open, step, form.professionalId, form.date]);
+    // eslint-disable-next-line react-doctor/no-derived-state-effect
+  }, [form.date]);
 
   // Reload slots when date changes in step 2
   function handleDateChange(date: Date | undefined) {
@@ -304,44 +501,14 @@ export function CenterCreateAppointmentDialog({ professionals }: { professionals
               </Button>
             </div>
 
-            {/* Inline create */}
             {inlineCreate && (
-              <div className="rounded-2xl border border-border bg-muted/30 p-4 space-y-3">
-                <p className="text-sm font-semibold">Datos del nuevo paciente</p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label>Nombre</Label>
-                    <Input value={patientDraft.firstName} onChange={(e) => setPatientDraft((p) => ({ ...p, firstName: e.target.value }))} />
-                    {patientErrors.firstName && <p className="text-xs text-destructive">{patientErrors.firstName}</p>}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Apellido</Label>
-                    <Input value={patientDraft.lastName} onChange={(e) => setPatientDraft((p) => ({ ...p, lastName: e.target.value }))} />
-                    {patientErrors.lastName && <p className="text-xs text-destructive">{patientErrors.lastName}</p>}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Teléfono <span className="text-xs text-muted-foreground">(opcional)</span></Label>
-                    <Input value={patientDraft.phone} onChange={(e) => setPatientDraft((p) => ({ ...p, phone: e.target.value }))} />
-                    {patientErrors.phone && <p className="text-xs text-destructive">{patientErrors.phone}</p>}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Email <span className="text-xs text-muted-foreground">(opcional)</span></Label>
-                    <Input type="email" value={patientDraft.email} onChange={(e) => setPatientDraft((p) => ({ ...p, email: e.target.value }))} />
-                    {patientErrors.email && <p className="text-xs text-destructive">{patientErrors.email}</p>}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>DNI <span className="text-xs text-muted-foreground">(opcional)</span></Label>
-                    <Input value={patientDraft.dni} onChange={(e) => setPatientDraft((p) => ({ ...p, dni: e.target.value }))} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Notas <span className="text-xs text-muted-foreground">(opcional)</span></Label>
-                    <Input value={patientDraft.notes} onChange={(e) => setPatientDraft((p) => ({ ...p, notes: e.target.value }))} />
-                  </div>
-                </div>
-                <Button size="sm" disabled={loading} onClick={() => void createInlinePatient()}>
-                  <Check className="size-4" /> {loading ? "Creando..." : "Crear y seleccionar"}
-                </Button>
-              </div>
+              <InlinePatientForm
+                draft={patientDraft}
+                onChange={setPatientDraft}
+                errors={patientErrors}
+                loading={loading}
+                onSave={() => void createInlinePatient()}
+              />
             )}
 
             <Button
@@ -355,98 +522,21 @@ export function CenterCreateAppointmentDialog({ professionals }: { professionals
           </div>
         )}
 
-        {/* ── PASO 2 ─────────────────────────────────────────── */}
         {step === 2 && (
-          <form onSubmit={submit} className="space-y-5">
-            {/* Resumen */}
-            <div className="rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm space-y-0.5">
-              <p>Profesional: <span className="font-medium">{selectedProfessional ? professionalLabel(selectedProfessional) : "—"}</span></p>
-              <p>Paciente: <span className="font-medium">{selectedPatient ? patientLabel(selectedPatient) : "—"}</span></p>
-            </div>
-
-            {/* Modalidad */}
-            <div className="space-y-2">
-              <Label>Modalidad</Label>
-              <div className="flex gap-3">
-                {([{ value: "PRESENCIAL" as const, label: "Presencial", icon: MapPin }, { value: "VIRTUAL" as const, label: "Virtual", icon: Video }]).map(({ value, label, icon: Icon }) => (
-                  <button key={value} type="button" onClick={() => setForm((p) => ({ ...p, modality: value }))} className={cn("flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors", form.modality === value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground")}>
-                    <Icon className="size-4" />{label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Fecha */}
-            <div className="space-y-2">
-              <Label>Fecha</Label>
-              <div className="rounded-xl border border-border p-2">
-                <Calendar mode="single" selected={form.date} onSelect={handleDateChange} locale={es} className="w-full" />
-              </div>
-            </div>
-
-            {/* Horarios */}
-            <div className="space-y-2">
-              <Label>
-                Horarios disponibles — <span className="font-normal text-muted-foreground">{format(form.date, "EEEE d 'de' MMMM", { locale: es })}</span>
-              </Label>
-              <div className="max-h-48 space-y-2 overflow-y-auto pr-1 rounded-xl border border-border p-3">
-                {slotsLoading ? (
-                  <p className="text-sm text-muted-foreground">Cargando horarios...</p>
-                ) : slots.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No hay horarios disponibles para esta fecha</p>
-                ) : (
-                  slots.map((slot) => {
-                    const selected = form.startAt === slot.startAt;
-                    const disabled = slot.hasCapacityLimit && (slot.remainingCapacity ?? 0) <= 0;
-                    return (
-                      <button key={slot.startAt} type="button" disabled={disabled} onClick={() => setForm((p) => ({ ...p, startAt: slot.startAt }))} className={cn("flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition", selected ? "border-primary bg-primary/10" : "border-border hover:border-primary/40 hover:bg-muted/40", disabled && "cursor-not-allowed opacity-50")}>
-                        <span className="inline-flex items-center gap-2 text-sm font-medium"><Clock3 className="size-3.5 text-muted-foreground" />{format(new Date(slot.startAt), "HH:mm")}</span>
-                        {slot.hasCapacityLimit && <span className="text-xs text-muted-foreground">{slot.remainingCapacity === 0 ? "Completo" : `${slot.remainingCapacity} cupo(s)`}</span>}
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            {/* Método de pago */}
-            <div className="space-y-2">
-              <Label>Método de pago <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
-              <div className="flex gap-3">
-                {([{ value: "CASH" as const, label: "Efectivo", icon: Banknote }, { value: "TRANSFER" as const, label: "Transferencia", icon: ArrowLeftRight }]).map(({ value, label, icon: Icon }) => (
-                  <button key={value} type="button" onClick={() => setForm((p) => ({ ...p, paymentMethod: p.paymentMethod === value ? "" : value }))} className={cn("flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors", form.paymentMethod === value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground")}>
-                    <Icon className="size-4" />{label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Duración y honorario */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="ca-duration">Duración (min) <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
-                <Input id="ca-duration" type="number" value={form.durationMinutes} onChange={(e) => setForm((p) => ({ ...p, durationMinutes: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="ca-fee">Honorario <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
-                <Input id="ca-fee" type="number" value={form.fee} onChange={(e) => setForm((p) => ({ ...p, fee: e.target.value }))} />
-              </div>
-            </div>
-
-            {/* Motivo */}
-            <div className="space-y-2">
-              <Label htmlFor="ca-reason">Motivo <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
-              <Textarea ref={reasonRef} id="ca-reason" rows={2} className="resize-none overflow-hidden" placeholder="Descripción del motivo de la consulta..." value={form.reason} onInput={(e) => autoResize(e.currentTarget)} onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))} />
-            </div>
-
-            {/* Botones */}
-            <div className="flex items-center justify-between pt-2">
-              <Button type="button" variant="ghost" onClick={() => setStep(1)}>Volver</Button>
-              <Button disabled={loading || !form.startAt} type="submit" size="lg">
-                {loading ? "Guardando..." : "Crear turno"}
-              </Button>
-            </div>
-          </form>
+          <Step2Form
+            selectedProfessional={selectedProfessional}
+            selectedPatient={selectedPatient}
+            form={form}
+            setForm={setForm}
+            onDateChange={handleDateChange}
+            onSubmit={submit}
+            loading={loading}
+            slots={slots}
+            slotsLoading={slotsLoading}
+            reasonRef={reasonRef}
+            onAutoResize={autoResize}
+            onBack={() => setStep(1)}
+          />
         )}
       </DialogContent>
     </Dialog>

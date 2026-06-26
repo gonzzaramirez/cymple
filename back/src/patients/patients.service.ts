@@ -253,7 +253,13 @@ export class PatientsService {
       })
     ).items;
 
-    return { patient, appointments, summary: totals, messages, clinicalRecords };
+    return {
+      patient,
+      appointments,
+      summary: totals,
+      messages,
+      clinicalRecords,
+    };
   }
 
   private buildWhereClause(

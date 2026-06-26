@@ -109,6 +109,35 @@ function getProfessionalColor(professionalId: string, indexMap: Map<string, numb
   return PROFESSIONAL_COLORS[idx % PROFESSIONAL_COLORS.length];
 }
 
+function useClinicalReason(selectedAppointment: Appointment | null) {
+  const [reasonInitialContent, setReasonInitialContent] = useState<Record<string, unknown> | null>(null);
+
+  useEffect(() => {
+    if (!selectedAppointment) return;
+    const controller = new AbortController();
+    const loadReason = async () => {
+      const response = await fetch(
+        `/api/backend/patients/${selectedAppointment.patientId}/clinical-records?recordType=APPOINTMENT_REASON&limit=200`,
+        { signal: controller.signal }
+      );
+      if (!response.ok) return;
+      const payload = (await response.json()) as {
+        items?: Array<{ appointmentId?: string | null; content?: Record<string, unknown> }>;
+      };
+      const reasonRecord = payload.items?.find(
+        (item) => item.appointmentId === selectedAppointment.id,
+      );
+      if (reasonRecord?.content) {
+        setReasonInitialContent(reasonRecord.content);
+      }
+    };
+    void loadReason();
+    return () => controller.abort();
+  }, [selectedAppointment]);
+
+  return { reasonInitialContent, setReasonInitialContent };
+}
+
 function getHour(date: Date): number {
   return date.getHours() + date.getMinutes() / 60;
 }
@@ -264,7 +293,7 @@ export function CenterScheduleCalendar({
   const [pendingAttended, setPendingAttended] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [reasonInitialContent, setReasonInitialContent] = useState<Record<string, unknown> | null>(null);
+  const { reasonInitialContent, setReasonInitialContent } = useClinicalReason(selectedAppointment);
 
   useEffect(() => {
     const d = new Date(selectedDate);
@@ -373,26 +402,6 @@ export function CenterScheduleCalendar({
     setSelectedPayment(null);
     setReasonInitialContent(null);
   }
-
-  useEffect(() => {
-    if (!selectedAppointment) return;
-    const loadReason = async () => {
-      const response = await fetch(
-        `/api/backend/patients/${selectedAppointment.patientId}/clinical-records?recordType=APPOINTMENT_REASON&limit=200`,
-      );
-      if (!response.ok) return;
-      const payload = (await response.json()) as {
-        items?: Array<{ appointmentId?: string | null; content?: Record<string, unknown> }>;
-      };
-      const reasonRecord = payload.items?.find(
-        (item) => item.appointmentId === selectedAppointment.id,
-      );
-      if (reasonRecord?.content) {
-        setReasonInitialContent(reasonRecord.content);
-      }
-    };
-    void loadReason();
-  }, [selectedAppointment]);
 
   async function changeStatus(status: string, paymentMethod?: PaymentMethod) {
     if (!selectedAppointment) return;

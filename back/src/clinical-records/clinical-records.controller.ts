@@ -25,7 +25,9 @@ import { UpsertAppointmentReasonDto } from './dto/upsert-appointment-reason.dto'
 @Controller()
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class ClinicalRecordsController {
-  constructor(private readonly clinicalRecordsService: ClinicalRecordsService) {}
+  constructor(
+    private readonly clinicalRecordsService: ClinicalRecordsService,
+  ) {}
 
   @Post('patients/:id/clinical-records')
   createGeneralNote(
@@ -63,7 +65,10 @@ export class ClinicalRecordsController {
 
   @Get('notes')
   listNotes(@Req() req: Request, @Query() query: ListNotesDto) {
-    return this.clinicalRecordsService.listNotes(buildAccessContext(req), query);
+    return this.clinicalRecordsService.listNotes(
+      buildAccessContext(req),
+      query,
+    );
   }
 
   @Put('appointments/:id/reason')

@@ -1,5 +1,12 @@
 import { Transform } from 'class-transformer';
-import { IsDateString, IsEnum, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 import { NoteType } from '@prisma/client';
 
 export class ListNotesDto {

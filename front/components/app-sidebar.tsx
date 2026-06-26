@@ -11,6 +11,7 @@ import {
   NotebookPen,
   MessageSquareText,
   Calendar,
+  CalendarCheck,
   DollarSign,
   Clock,
   Settings,
@@ -41,10 +42,37 @@ const baseNavItems = [
     icon: Calendar,
     badgeKey: "appointments" as const,
   },
+  { href: "/bookings", label: "Reservas", icon: CalendarCheck },
   { href: "/finance", label: "Finanzas", icon: DollarSign },
   { href: "/availability", label: "Disponibilidad", icon: Clock },
   { href: "/settings", label: "Configuración", icon: Settings },
 ];
+
+function usePendingStats(initialPending: number) {
+  const [pendingCount, setPendingCount] = useState(initialPending);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    async function fetchPending() {
+      try {
+        const res = await fetch("/api/backend/dashboard/stats", {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setPendingCount(data.pendingNext24h ?? 0);
+      } catch {
+        // silently ignore
+      }
+    }
+    fetchPending();
+    const interval = setInterval(fetchPending, 2 * 60 * 1000);
+    return () => { clearInterval(interval); controller.abort(); };
+  }, []);
+
+  return { pendingCount, setPendingCount };
+}
 
 type AppSidebarProps = {
   professionalName: string;
@@ -59,31 +87,12 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const pathname = usePathname();
   const { setOpenMobile } = useSidebar();
-  const [pendingCount, setPendingCount] = useState(initialPending);
+  const { pendingCount, setPendingCount } = usePendingStats(initialPending);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => setMounted(true));
     return () => cancelAnimationFrame(id);
-  }, []);
-
-  useEffect(() => {
-    async function fetchPending() {
-      try {
-        const res = await fetch("/api/backend/dashboard/stats", {
-          cache: "no-store",
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        setPendingCount(data.pendingNext24h ?? 0);
-      } catch {
-        // silently ignore
-      }
-    }
-
-    fetchPending();
-    const interval = setInterval(fetchPending, 2 * 60 * 1000);
-    return () => clearInterval(interval);
   }, []);
 
   const initials = useMemo(() => {

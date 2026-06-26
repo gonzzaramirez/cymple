@@ -99,7 +99,7 @@ export function AppointmentsView({
   );
 
   return (
-    <div className="flex flex-col gap-5 md:gap-6">
+    <div className="flex flex-col gap-3 md:gap-3">
       <AppointmentFilters
         view={mode === "list" ? "table" : "calendar"}
         onCreateAppointment={handleCreateFromPreview}

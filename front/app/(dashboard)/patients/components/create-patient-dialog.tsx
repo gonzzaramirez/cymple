@@ -29,6 +29,11 @@ import {
 import { AppointmentModality, PaymentMethod } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+function autoResize(el: HTMLTextAreaElement) {
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight}px`;
+}
+
 const patientSchema = z.object({
   firstName: z.string().trim().min(1, "El nombre es requerido").max(100),
   lastName: z.string().trim().min(1, "El apellido es requerido").max(100),
@@ -37,7 +42,7 @@ const patientSchema = z.object({
     .regex(/^\+?\d{8,20}$/, "Formato inválido (ej: +5491123456789)")
     .or(z.literal(""))
     .optional(),
-  email: z.string().email("Email inválido").or(z.literal("")).optional(),
+  email: z.email({ message: "Email inválido" }).or(z.literal("")).optional(),
   dni: z.string().max(20, "Máximo 20 caracteres").optional(),
   birthDate: z.string().optional(),
   notes: z.string().max(1000, "Máximo 1000 caracteres").optional(),
@@ -90,10 +95,7 @@ export function CreatePatientDialog({ onSuccess }: CreatePatientDialogProps) {
   });
   const notesRef = useRef<HTMLTextAreaElement>(null);
 
-  function autoResize(el: HTMLTextAreaElement) {
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  }
+
 
   function resetFlow() {
     setOpen(false);

@@ -199,7 +199,9 @@ export class TenantResolverService {
   }
 
   private resolveTenantHostname(req: any): string | null {
-    const tenantHost = this.readSingleHeader(req?.headers?.[TENANT_HOST_HEADER]);
+    const tenantHost = this.readSingleHeader(
+      req?.headers?.[TENANT_HOST_HEADER],
+    );
     if (!tenantHost) return null;
     return tenantHost.split(',')[0]?.trim().split(':')[0] ?? null;
   }

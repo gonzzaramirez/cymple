@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell } from "lucide-react";
+import { Bell, ChevronRight } from "lucide-react";
 import { formatDistanceToNow, isToday, isYesterday, subDays, isAfter } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -131,7 +131,9 @@ export function NotificationBell() {
     };
   }, [fetchNotifications]);
 
-  const groups = groupByDay(data.items);
+  const DISPLAY_LIMIT = 3;
+  const capped = data.items.slice(0, DISPLAY_LIMIT);
+  const groups = groupByDay(capped);
 
   return (
     <>
@@ -233,6 +235,15 @@ export function NotificationBell() {
                     </div>
                   </div>
                 ))
+              )}
+              {data.items.length > DISPLAY_LIMIT && (
+                <button
+                  onClick={() => setOpen(false)}
+                  className="flex w-full items-center justify-center gap-1 py-2.5 text-xs font-medium text-primary hover:bg-muted/40 transition-colors border-t border-border"
+                >
+                  Ver todas ({data.items.length})
+                  <ChevronRight className="size-3.5" />
+                </button>
               )}
             </div>
           </div>

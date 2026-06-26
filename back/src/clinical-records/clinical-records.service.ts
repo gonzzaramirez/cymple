@@ -186,7 +186,12 @@ export class ClinicalRecordsService {
         id: appointmentId,
         ...this.appointmentScopeFilter(ctx),
       },
-      select: { id: true, patientId: true, organizationId: true, professionalId: true },
+      select: {
+        id: true,
+        patientId: true,
+        organizationId: true,
+        professionalId: true,
+      },
     });
     if (!appointment) {
       throw new NotFoundException('Turno no encontrado');
@@ -214,7 +219,9 @@ export class ClinicalRecordsService {
     return { professionalId: ctx.professionalId };
   }
 
-  private appointmentScopeFilter(ctx: AccessContext): Prisma.AppointmentWhereInput {
+  private appointmentScopeFilter(
+    ctx: AccessContext,
+  ): Prisma.AppointmentWhereInput {
     if (ctx.role === 'CENTER_ADMIN') {
       return { organizationId: ctx.organizationId };
     }

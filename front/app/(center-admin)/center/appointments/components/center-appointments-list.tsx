@@ -44,6 +44,11 @@ function professionalLabelFromAppointment(appointment: Appointment, professional
   return option?.fullName?.trim() || option?.email?.trim() || appointment.professionalId;
 }
 
+function StatusBadge({ status }: { status: Appointment["status"] }) {
+  const cfg = statusConfig[status] ?? { label: status, variant: "secondary" as const };
+  return <Badge variant={cfg.variant}>{cfg.label}</Badge>;
+}
+
 function formatAppointmentDate(value: string) {
   return format(new Date(value), "EEE dd/MM HH:mm", { locale: es });
 }
@@ -145,14 +150,13 @@ export function CenterAppointmentsList({ data, professionals }: Props) {
       <div className="space-y-4">
         <div className="space-y-3">
           {data.items.map((appointment) => {
-            const cfg = statusConfig[appointment.status] ?? { label: appointment.status, variant: "secondary" as const };
             return (
               <DataCard
                 key={appointment.id}
                 eyebrow={formatAppointmentDate(appointment.startAt)}
                 title={patientName(appointment)}
                 description={appointment.reason || "Sin motivo cargado"}
-                meta={<Badge variant={cfg.variant}>{cfg.label}</Badge>}
+                meta={() => <StatusBadge status={appointment.status} />}
                 items={[
                   { label: "Profesional", value: professionalLabelFromAppointment(appointment, professionals) },
                   { label: "Modalidad", value: appointment.modality === "VIRTUAL" ? "Virtual" : "Presencial" },

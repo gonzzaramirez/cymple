@@ -22,6 +22,38 @@ import {
   ChevronRight,
 } from "lucide-react";
 
+function usePatientSearch(search: string) {
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!search.trim()) {
+      setPatients([]);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(
+          `/api/backend/patients?query=${encodeURIComponent(search.trim())}&page=1&limit=8`,
+          { signal: controller.signal }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setPatients(data.items ?? []);
+        }
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+    return () => { clearTimeout(timer); controller.abort(); };
+    // eslint-disable-next-line react-doctor/no-adjust-state-on-prop-change
+  }, [search]);
+
+  return { patients, setPatients, loading };
+}
+
 const statusConfig: Record<
   string,
   {
@@ -51,33 +83,9 @@ export function PatientSearchPreview({
 }: PatientSearchPreviewProps) {
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { patients, setPatients, loading } = usePatientSearch(search);
   const [selected, setSelected] = useState<PatientWithAppointments | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-
-  useEffect(() => {
-    if (!search.trim()) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setPatients([]);
-      return;
-    }
-    const timer = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(
-          `/api/backend/patients?query=${encodeURIComponent(search.trim())}&page=1&limit=8`
-        );
-        if (res.ok) {
-          const data = await res.json();
-          setPatients(data.items ?? []);
-        }
-      } finally {
-        setLoading(false);
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [search]);
 
   const selectPatient = useCallback(async (patient: Patient) => {
     setSearch("");

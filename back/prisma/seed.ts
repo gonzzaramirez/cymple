@@ -32,6 +32,13 @@ async function main() {
       minRescheduleHours: 4,
       reminderHours: 24,
       timezone: 'America/Argentina/Buenos_Aires',
+      publicBookingEnabled: true,
+      publicBookingSlug: 'demo',
+      depositAmount: new Prisma.Decimal(5000),
+      depositWindowHours: 24,
+      paymentAlias: 'demo.mp',
+      bookingAutoCancel: true,
+      maxActiveBookings: 3,
     },
   });
 

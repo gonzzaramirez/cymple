@@ -206,6 +206,97 @@ function MessageRow({ message }: { message: PatientMessage }) {
   );
 }
 
+const INTAKE_LABELS: Record<string, string> = {
+  alcohol: "Alcohol",
+  cigarettes: "Cigarrillo",
+  drugs: "Drogas",
+  coffee: "Café",
+  cleaning: "Limpieza",
+  exfoliation: "Exfoliación",
+  moisturizers: "Hidratantes",
+  hydratants: "Hidratación profunda",
+  sunProtection: "Protector solar",
+  none: "Ninguno",
+  nose: "Nariz",
+  cheeks: "Mejillas",
+  forehead: "Frente",
+  erythema: "Eritema",
+  irritation: "Irritación",
+  cuperosity: "Cuperosis",
+  pustules: "Pústulas",
+  papules: "Pápulas",
+  hyperplasia: "Hiperplasia",
+  comedones: "Comedones",
+  milium: "Milium",
+  hyperpigmentation: "Hiperpigmentación",
+  hypopigmentation: "Hipopigmentación",
+};
+
+function boolItems(obj: unknown) {
+  return Object.entries(obj as Record<string, boolean>).filter(([, v]) => v);
+}
+
+function IntakeFormContent({ content }: { content: Record<string, unknown> }) {
+  function Section({ title, items }: { title: string; items: [string, boolean][] }) {
+    const active = items.filter(([, v]) => v);
+    if (active.length === 0) return null;
+    return (
+      <div className="mt-3 space-y-1">
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{title}</p>
+        <div className="flex flex-wrap gap-1.5">
+          {active.map(([key]) => (
+            <span key={key} className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+              {INTAKE_LABELS[key] ?? key}
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 space-y-2 rounded-xl bg-slate-50 p-4 text-sm">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <p className="text-xs text-slate-400">Nombre</p>
+          <p className="font-medium text-slate-800">{content.firstName as string} {content.lastName as string}</p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-400">Edad</p>
+          <p className="font-medium text-slate-800">{content.age as string} años</p>
+        </div>
+      </div>
+
+      {(content.birthDate as string) && (
+        <div>
+          <p className="text-xs text-slate-400">Fecha de nacimiento</p>
+          <p className="font-medium text-slate-800">{format(new Date(content.birthDate as string), "dd/MM/yyyy")}</p>
+        </div>
+      )}
+
+      {(content.lastTreatmentDate as string) && (
+        <div>
+          <p className="text-xs text-slate-400">Último tratamiento</p>
+          <p className="font-medium text-slate-800">{format(new Date(content.lastTreatmentDate as string), "dd/MM/yyyy")}</p>
+        </div>
+      )}
+
+      {(content.avoidAreas as string) && (
+        <div>
+          <p className="text-xs text-slate-400">Zonas a evitar</p>
+          <p className="font-medium text-slate-800">{content.avoidAreas as string}</p>
+        </div>
+      )}
+
+      <Section title="Hábitos" items={boolItems(content.habits).map(([k]) => [k, true] as [string, boolean])} />
+      <Section title="Cuidados en casa" items={boolItems(content.homeCare).map(([k]) => [k, true] as [string, boolean])} />
+      <Section title="Vasos capilares" items={boolItems(content.visibleCapillaries).map(([k]) => [k, true] as [string, boolean])} />
+      <Section title="Condición sebácea" items={boolItems(content.sebaceousCondition).map(([k]) => [k, true] as [string, boolean])} />
+      <Section title="Pigmentación" items={boolItems(content.pigmentation).map(([k]) => [k, true] as [string, boolean])} />
+    </div>
+  );
+}
+
 /* ──────────────────────────────────────────────
    Main Component
    ────────────────────────────────────────────── */
@@ -222,6 +313,7 @@ export function PatientDetail({
   const backUrl = pathname.startsWith("/center/") ? "/center/patients" : "/patients";
   const createApptRef = useRef<CreateAppointmentDialogHandle>(null);
   const [activeGeneralNoteId, setActiveGeneralNoteId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"history" | "intake">("history");
 
   const upcoming = appointments
     .filter((a) => a.status === "PENDING" || a.status === "CONFIRMED")
@@ -281,6 +373,11 @@ export function PatientDetail({
   const latestGeneralNote = useMemo(
     () =>
       clinicalRecords.find((record) => record.recordType === "GENERAL_NOTE") ?? null,
+    [clinicalRecords],
+  );
+  const intakeRecord = useMemo(
+    () =>
+      clinicalRecords.find((record) => record.recordType === "INTAKE_FORM") ?? null,
     [clinicalRecords],
   );
 
@@ -476,138 +573,203 @@ export function PatientDetail({
           </aside>
 
           {/* Right Column */}
-          <main className="space-y-8">
-            {/* Upcoming Appointments */}
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-900">
-                    Próximos turnos
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Requieren atención
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="text-xs text-slate-500"
-                  onClick={() =>
-                    createApptRef.current?.openWithPatient(
-                      patient.id,
-                      `${patient.lastName}, ${patient.firstName}`,
-                    )
-                  }
-                >
-                  + Agendar
-                </Button>
-              </div>
-
-              <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden divide-y divide-slate-100">
-                {upcoming.length === 0 ? (
-                  <p className="px-4 py-8 text-center text-sm text-slate-400">
-                    Sin turnos programados
-                  </p>
-                ) : (
-                  upcoming.slice(0, 4).map((a) => (
-                    <AppointmentRow key={a.id} appointment={a} />
-                  ))
+          <main className="space-y-6">
+            {/* Tabs */}
+            <div className="flex gap-1 rounded-2xl border border-slate-100 bg-white p-1 shadow-sm">
+              <button
+                onClick={() => setActiveTab("history")}
+                className={cn(
+                  "flex-1 rounded-xl px-4 py-2 text-sm font-medium transition-all",
+                  activeTab === "history"
+                    ? "bg-slate-900 text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-800",
                 )}
-              </div>
-            </section>
+              >
+                Historial
+              </button>
+              <button
+                onClick={() => setActiveTab("intake")}
+                className={cn(
+                  "flex-1 rounded-xl px-4 py-2 text-sm font-medium transition-all",
+                  activeTab === "intake"
+                    ? "bg-slate-900 text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-800",
+                )}
+              >
+                Ficha de ingreso
+              </button>
+            </div>
 
-            {/* Unified Timeline */}
-            <section>
-              <div className="mb-3">
-                <h2 className="text-sm font-semibold text-slate-900">
-                  Timeline clínica
-                </h2>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Turnos + notas generales + motivos de turno
-                </p>
-              </div>
+            {activeTab === "history" ? (
+              <>
+                {/* Upcoming Appointments */}
+                <section>
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h2 className="text-sm font-semibold text-slate-900">
+                        Próximos turnos
+                      </h2>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Requieren atención
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-xs text-slate-500"
+                      onClick={() =>
+                        createApptRef.current?.openWithPatient(
+                          patient.id,
+                          `${patient.lastName}, ${patient.firstName}`,
+                        )
+                      }
+                    >
+                      + Agendar
+                    </Button>
+                  </div>
 
-              <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden divide-y divide-slate-100">
-                {unifiedTimeline.length === 0 ? (
-                  <p className="px-4 py-8 text-center text-sm text-slate-400">
-                    Sin historial
-                  </p>
-                ) : (
-                  unifiedTimeline.slice(0, 16).map((item) => {
-                    if (item.type === "appointment") {
-                      return <AppointmentRow key={item.id} appointment={item.appointment} isPast />;
-                    }
-                    const record = item.record;
-                    const isReason = record.recordType === "APPOINTMENT_REASON";
-                    return (
-                      <div key={item.id} className="px-4 py-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Stethoscope className="size-4 text-slate-400" />
-                            <p className="text-sm font-medium text-slate-800 truncate">
-                              {isReason ? "Motivo de turno" : "Nota general"}
-                            </p>
-                            <Badge variant="secondary">
-                              {isReason ? "Turno" : "Paciente"}
-                            </Badge>
-                            {record.appointment?.status === "CANCELLED" && (
-                              <Badge variant="destructive">Turno cancelado</Badge>
+                  <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden divide-y divide-slate-100">
+                    {upcoming.length === 0 ? (
+                      <p className="px-4 py-8 text-center text-sm text-slate-400">
+                        Sin turnos programados
+                      </p>
+                    ) : (
+                      upcoming.slice(0, 4).map((a) => (
+                        <AppointmentRow key={a.id} appointment={a} />
+                      ))
+                    )}
+                  </div>
+                </section>
+
+                {/* Unified Timeline */}
+                <section>
+                  <div className="mb-3">
+                    <h2 className="text-sm font-semibold text-slate-900">
+                      Timeline clínica
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Turnos + fichas de ingreso + notas
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden divide-y divide-slate-100">
+                    {unifiedTimeline.length === 0 ? (
+                      <p className="px-4 py-8 text-center text-sm text-slate-400">
+                        Sin historial
+                      </p>
+                    ) : (
+                      unifiedTimeline.slice(0, 16).map((item) => {
+                        if (item.type === "appointment") {
+                          return <AppointmentRow key={item.id} appointment={item.appointment} isPast />;
+                        }
+                        const record = item.record;
+                        const isReason = record.recordType === "APPOINTMENT_REASON";
+                        const isIntake = record.recordType === "INTAKE_FORM";
+                        return (
+                          <div key={item.id} className="px-4 py-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <Stethoscope className="size-4 text-slate-400" />
+                                <p className="text-sm font-medium text-slate-800 truncate">
+                                  {isIntake ? "Ficha de ingreso" : isReason ? "Motivo de turno" : "Nota general"}
+                                </p>
+                                <Badge variant="secondary">
+                                  {isIntake ? "Paciente" : isReason ? "Turno" : "Paciente"}
+                                </Badge>
+                                {record.appointment?.status === "CANCELLED" && (
+                                  <Badge variant="destructive">Turno cancelado</Badge>
+                                )}
+                              </div>
+                              <span className="text-xs text-slate-400">
+                                {format(new Date(record.createdAt), "dd/MM HH:mm", { locale: es })}
+                              </span>
+                            </div>
+                            {isIntake ? (
+                              <IntakeFormContent content={record.content} />
+                            ) : (
+                              <>
+                                <p className="mt-2 text-sm text-slate-600 whitespace-pre-wrap">
+                                  {record.plainTextPreview || "Sin contenido"}
+                                </p>
+                                {record.professional && (
+                                  <p className="mt-1 text-xs text-slate-400">
+                                    {record.professional.fullName}
+                                  </p>
+                                )}
+                              </>
                             )}
                           </div>
-                          <span className="text-xs text-slate-400">
-                            {format(new Date(record.createdAt), "dd/MM HH:mm", { locale: es })}
-                          </span>
-                        </div>
-                        <p className="mt-2 text-sm text-slate-600 whitespace-pre-wrap">
-                          {record.plainTextPreview || "Sin contenido"}
-                        </p>
-                        {record.professional && (
-                          <p className="mt-1 text-xs text-slate-400">
-                            {record.professional.fullName}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </section>
+                        );
+                      })
+                    )}
+                  </div>
+                </section>
 
-            {/* Messages */}
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                    <MessageSquareText className="size-4 text-slate-400" strokeWidth={2} />
-                    Mensajes recientes
+                {/* Messages */}
+                <section>
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                        <MessageSquareText className="size-4 text-slate-400" strokeWidth={2} />
+                        Mensajes recientes
+                      </h2>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        WhatsApp y automatizaciones
+                      </p>
+                    </div>
+                    <Link
+                      href={`${pathname.startsWith("/center/") ? "/center" : ""}/messages?patientId=${patient.id}`}
+                      className={cn(
+                        buttonVariants({ variant: "ghost", size: "sm" }),
+                        "text-xs text-slate-500"
+                      )}
+                    >
+                      Ver bandeja
+                    </Link>
+                  </div>
+
+                  {latestMessages.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/40 px-4 py-8 text-center text-sm text-slate-400">
+                      Sin mensajes registrados
+                    </div>
+                  ) : (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {latestMessages.map((m) => (
+                        <MessageRow key={m.id} message={m} />
+                      ))}
+                    </div>
+                  )}
+                </section>
+              </>
+            ) : (
+              <section>
+                <div className="mb-3">
+                  <h2 className="text-sm font-semibold text-slate-900">
+                    Ficha de ingreso
                   </h2>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    WhatsApp y automatizaciones
+                    Datos completados por el paciente al reservar
                   </p>
                 </div>
-                <Link
-                  href={`${pathname.startsWith("/center/") ? "/center" : ""}/messages?patientId=${patient.id}`}
-                  className={cn(
-                    buttonVariants({ variant: "ghost", size: "sm" }),
-                    "text-xs text-slate-500"
-                  )}
-                >
-                  Ver bandeja
-                </Link>
-              </div>
 
-              {latestMessages.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/40 px-4 py-8 text-center text-sm text-slate-400">
-                  Sin mensajes registrados
-                </div>
-              ) : (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {latestMessages.map((m) => (
-                    <MessageRow key={m.id} message={m} />
-                  ))}
-                </div>
-              )}
-            </section>
+                {intakeRecord ? (
+                  <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-100">
+                      <span className="text-xs text-slate-400">
+                        Completada el {format(new Date(intakeRecord.createdAt), "dd/MM/yyyy 'a las' HH:mm", { locale: es })}
+                      </span>
+                    </div>
+                    <div className="px-4 py-3">
+                      <IntakeFormContent content={intakeRecord.content} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/40 px-4 py-12 text-center">
+                    <p className="text-sm text-slate-400">Este paciente aún no completó la ficha de ingreso</p>
+                  </div>
+                )}
+              </section>
+            )}
           </main>
         </div>
       </div>

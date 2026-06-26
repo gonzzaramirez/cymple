@@ -10,7 +10,7 @@ type DataCardProps = {
   title: ReactNode;
   description?: ReactNode;
   eyebrow?: ReactNode;
-  meta?: ReactNode;
+  meta?: ReactNode | (() => ReactNode);
   items?: DataCardItem[];
   footer?: ReactNode;
   className?: string;
@@ -25,6 +25,8 @@ export function DataCard({
   footer,
   className,
 }: DataCardProps) {
+  const renderedMeta = typeof meta === "function" ? meta() : meta;
+
   return (
     <Card
       size="sm"
@@ -47,7 +49,7 @@ export function DataCard({
               </div>
             ) : null}
           </div>
-          {meta ? <div className="shrink-0">{meta}</div> : null}
+          {renderedMeta ? <div className="shrink-0">{renderedMeta}</div> : null}
         </div>
       </CardHeader>
       <CardContent className="space-y-3">

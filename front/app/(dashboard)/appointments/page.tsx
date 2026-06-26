@@ -20,11 +20,7 @@ function buildCalendarQuery(sp: {
   patientId?: string;
 }): string {
   const params = new URLSearchParams();
-  const view =
-    sp.view === "day" || sp.view === "month" || sp.view === "week"
-      ? sp.view
-      : "week";
-  params.set("view", view);
+  params.set("view", sp.view === "day" || sp.view === "week" ? sp.view : "week");
   params.set("date", sp.date ?? new Date().toISOString());
   if (sp.status?.trim()) {
     for (const s of sp.status.split(",").map((x) => x.trim()).filter(Boolean)) {
@@ -120,15 +116,11 @@ export default async function AppointmentsPage({
   );
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4">
       <div>
-        <h1 className="font-display text-3xl font-semibold tracking-[-0.02em] md:text-4xl">
+        <h1 className="font-display text-xl font-semibold tracking-[-0.02em] md:text-2xl">
           Agenda
         </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Vistá y gestioná turnos. Usá la lista para buscar en todo el historial y paginar
-          resultados.
-        </p>
       </div>
       <AppointmentsView
         mode="calendar"

@@ -22,7 +22,7 @@ async function main() {
     where: { email: 'test@gmail.com' },
     update: {},
     create: {
-      slug: 'demo2',
+      slug: 'demo',
       fullName: 'Demo Professional',
       email: 'test@gmail.com',
       passwordHash,
@@ -33,6 +33,14 @@ async function main() {
       minRescheduleHours: 4,
       reminderHours: 24,
       timezone: 'America/Argentina/Buenos_Aires',
+      // Public booking
+      publicBookingEnabled: true,
+      publicBookingSlug: 'demo',
+      depositAmount: new Prisma.Decimal(5000),
+      depositWindowHours: 24,
+      paymentAlias: 'demo.mp',
+      bookingAutoCancel: true,
+      maxActiveBookings: 3,
     },
   });
 
@@ -40,7 +48,7 @@ async function main() {
   console.log('  Cuenta creada:');
   console.log(`  → Email:    test@gmail.com`);
   console.log(`  → Password: test123`);
-  console.log(`  → Slug:     demo2`);
+  console.log(`  → Slug:     ${professional.slug}`);
   console.log(`  → ID:       ${professional.id}`);
   console.log('\n  Ingresar en: /login  (redirige a /home)\n');
 }

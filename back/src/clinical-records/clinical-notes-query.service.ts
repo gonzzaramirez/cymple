@@ -30,7 +30,9 @@ export class ClinicalNotesQueryService {
         take: query.limit,
         orderBy: { createdAt: 'desc' },
         include: {
-          professional: { select: { id: true, fullName: true, specialty: true } },
+          professional: {
+            select: { id: true, fullName: true, specialty: true },
+          },
           appointment: { select: { id: true, status: true, startAt: true } },
         },
       }),
@@ -87,7 +89,9 @@ export class ClinicalNotesQueryService {
         take: query.limit,
         orderBy: { createdAt: 'desc' },
         include: {
-          professional: { select: { id: true, fullName: true, specialty: true } },
+          professional: {
+            select: { id: true, fullName: true, specialty: true },
+          },
           patient: { select: { id: true, firstName: true, lastName: true } },
           appointment: { select: { id: true, status: true, startAt: true } },
         },
@@ -118,7 +122,10 @@ export class ClinicalNotesQueryService {
     }
   }
 
-  private async ensureOwnedAppointment(ctx: AccessContext, appointmentId: string) {
+  private async ensureOwnedAppointment(
+    ctx: AccessContext,
+    appointmentId: string,
+  ) {
     const appointment = await this.prisma.appointment.findFirst({
       where: {
         id: appointmentId,
@@ -144,7 +151,9 @@ export class ClinicalNotesQueryService {
     return { professionalId: ctx.professionalId };
   }
 
-  private appointmentScopeFilter(ctx: AccessContext): Prisma.AppointmentWhereInput {
+  private appointmentScopeFilter(
+    ctx: AccessContext,
+  ): Prisma.AppointmentWhereInput {
     if (ctx.role === 'CENTER_ADMIN') {
       return { organizationId: ctx.organizationId };
     }

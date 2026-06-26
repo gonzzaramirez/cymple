@@ -49,6 +49,28 @@ enum MessageType {
   PATIENT_REPLY
   PAYMENT_REMINDER
   SYSTEM
+  BOOKING_CONFIRMED
+  BOOKING_UNCONFIRMED_WARNING
+  DEPOSIT_REMINDER
+  DEPOSIT_EXPIRED
+}
+
+enum BookingStatus {
+  PENDING_WA_CONFIRMATION
+  WA_CONTACTED
+  BOOKED
+  INTAKE_SENT
+  INTAKE_COMPLETED
+  CANCELLED
+  EXPIRED
+  NO_SHOW
+}
+
+enum DepositStatus {
+  NOT_REQUIRED
+  PENDING
+  PAID
+  REFUNDED
 }
 
 enum AppointmentModality {
@@ -64,6 +86,7 @@ enum PaymentMethod {
 enum NoteType {
   GENERAL_NOTE
   APPOINTMENT_REASON
+  INTAKE_FORM
 }
 
 enum AccountRole {
@@ -118,6 +141,14 @@ model Professional {
   autoConfirmHours         Int?
   confirmationWindowMinutes Int      @default(60)
   paymentAlias             String?
+  publicBookingEnabled     Boolean                  @default(false)
+  publicBookingSlug        String?                  @unique
+  depositAmount            Decimal?                 @db.Decimal(10, 2)
+  depositWindowHours       Int                      @default(24)
+  waPublicBookingPhone     String?
+  bookingAutoCancel        Boolean                  @default(true)
+  bookingAutoCancelHours   Int                      @default(8)
+  maxActiveBookings        Int                      @default(5)
   waInstanceName      String?
   waStatus            WaStatus @default(DISCONNECTED)
   isActive            Boolean  @default(true)
@@ -137,6 +168,7 @@ model Professional {
   notifications      Notification[]
   messageTemplates   MessageTemplate[]
   clinicalRecords    ClinicalRecord[]
+  publicBookings     PublicBooking[]
 
   @@index([organizationId])
 }
@@ -224,6 +256,7 @@ model Patient {
   messageLogs  MessageLog[]
   notifications Notification[]
   clinicalRecords ClinicalRecord[]
+  publicBookings  PublicBooking[]
 
   // Solo professionals: unique phone/dni per professional
   @@unique([professionalId, phone])
@@ -269,12 +302,59 @@ model Appointment {
   messageLogs  MessageLog[]
   notifications Notification[]
   clinicalRecords ClinicalRecord[]
+  publicBooking   PublicBooking?
 
   @@index([professionalId, startAt])
   @@index([professionalId, status, startAt])
   @@index([patientId, startAt])
   @@index([organizationId, startAt])
   @@index([organizationId, status, startAt])
+}
+
+model PublicBooking {
+  id              String        @id @default(cuid())
+  professionalId  String
+  patientId       String?
+  appointmentId   String?       @unique
+
+  slotDate        DateTime      @db.Date
+  slotStart       String
+  slotEnd         String
+
+  patientName     String
+  patientPhone    String
+
+  token           String        @unique
+  intakeToken     String?       @unique
+
+  status          BookingStatus @default(PENDING_WA_CONFIRMATION)
+  depositStatus   DepositStatus @default(PENDING)
+  depositAmount   Decimal?      @db.Decimal(10, 2)
+  depositPaidAt   DateTime?
+  depositPaidBy   String?
+  intakeCompleted Boolean       @default(false)
+
+  expiresAt       DateTime
+  waContactedAt   DateTime?
+  cancelledAt     DateTime?
+  cancelReason    String?
+  waMessageId     String?
+  notes           String?
+  notifiedExpiry          Boolean       @default(false)
+  unconfirmedWarningSentAt DateTime?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  patient      Patient?     @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  appointment  Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([professionalId, status, slotDate])
+  @@index([token])
+  @@index([intakeToken])
+  @@index([expiresAt])
+  @@index([professionalId, slotDate])
 }
 
 model Revenue {

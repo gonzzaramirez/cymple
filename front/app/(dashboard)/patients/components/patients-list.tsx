@@ -28,6 +28,14 @@ type PatientsListProps = {
   query: string;
 };
 
+function AppointmentBadge({ summary }: { summary: Patient["summary"] }) {
+  return summary?.nextAppointment ? (
+    <Badge variant="info">Próximo turno</Badge>
+  ) : (
+    <Badge variant="secondary">Sin turno</Badge>
+  );
+}
+
 export function PatientsList({
   patients,
   page,
@@ -66,13 +74,7 @@ export function PatientsList({
                 </Link>
               }
               description={patient.phone || patient.email || "Sin contacto cargado"}
-              meta={
-                patient.summary?.nextAppointment ? (
-                  <Badge variant="info">Próximo turno</Badge>
-                ) : (
-                  <Badge variant="secondary">Sin turno</Badge>
-                )
-              }
+              meta={() => <AppointmentBadge summary={patient.summary} />}
               items={[
                 {
                   label: "DNI",

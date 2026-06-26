@@ -29,7 +29,7 @@ import { ClinicalRichTextEditor } from "@/components/clinical/clinical-rich-text
 
 const DAY_START_HOUR = 7;
 const DAY_END_HOUR = 21;
-const HOUR_HEIGHT = 64; // px per hour
+const HOUR_HEIGHT = 52; // px per hour — enough room for name + time in 30min slots
 
 const PROFESSIONAL_COLORS = [
   { bg: "#ede9fe", text: "#5b21b6", border: "#c4b5fd", dot: "#7c3aed" }, // Purple
@@ -90,6 +90,35 @@ function hashString(str: string): number {
 
 function getProfessionalColor(professionalId: string) {
   return PROFESSIONAL_COLORS[hashString(professionalId) % PROFESSIONAL_COLORS.length];
+}
+
+function useClinicalReason(selectedAppointment: Appointment | null) {
+  const [reasonInitialContent, setReasonInitialContent] = useState<Record<string, unknown> | null>(null);
+
+  useEffect(() => {
+    if (!selectedAppointment) return;
+    const controller = new AbortController();
+    const loadReason = async () => {
+      const response = await fetch(
+        `/api/backend/patients/${selectedAppointment.patientId}/clinical-records?recordType=APPOINTMENT_REASON&limit=200`,
+        { signal: controller.signal }
+      );
+      if (!response.ok) return;
+      const payload = (await response.json()) as {
+        items?: Array<{ appointmentId?: string | null; content?: Record<string, unknown> }>;
+      };
+      const reasonRecord = payload.items?.find(
+        (item) => item.appointmentId === selectedAppointment.id,
+      );
+      if (reasonRecord?.content) {
+        setReasonInitialContent(reasonRecord.content);
+      }
+    };
+    void loadReason();
+    return () => controller.abort();
+  }, [selectedAppointment]);
+
+  return { reasonInitialContent, setReasonInitialContent };
 }
 
 function getHour(date: Date): number {
@@ -206,13 +235,13 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
     const d = new Date(selectedDate);
     return Number.isNaN(d.getTime()) ? new Date() : d;
   });
-  const [view, setView] = useState<"day" | "week">("day");
+  const [view, setView] = useState<"day" | "week">("week");
   const [selectedProfessional, setSelectedProfessional] = useState<string>("all");
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [pendingAttended, setPendingAttended] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [reasonInitialContent, setReasonInitialContent] = useState<Record<string, unknown> | null>(null);
+  const { reasonInitialContent, setReasonInitialContent } = useClinicalReason(selectedAppointment);
 
   useEffect(() => {
     const d = new Date(selectedDate);
@@ -291,26 +320,6 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
     setReasonInitialContent(null);
   }
 
-  useEffect(() => {
-    if (!selectedAppointment) return;
-    const loadReason = async () => {
-      const response = await fetch(
-        `/api/backend/patients/${selectedAppointment.patientId}/clinical-records?recordType=APPOINTMENT_REASON&limit=200`,
-      );
-      if (!response.ok) return;
-      const payload = (await response.json()) as {
-        items?: Array<{ appointmentId?: string | null; content?: Record<string, unknown> }>;
-      };
-      const reasonRecord = payload.items?.find(
-        (item) => item.appointmentId === selectedAppointment.id,
-      );
-      if (reasonRecord?.content) {
-        setReasonInitialContent(reasonRecord.content);
-      }
-    };
-    void loadReason();
-  }, [selectedAppointment]);
-
   async function changeStatus(status: string, paymentMethod?: PaymentMethod) {
     if (!selectedAppointment) return;
     setActionLoading(true);
@@ -369,7 +378,6 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
 
   function renderAppointmentCard(
     appointment: Appointment,
-    isWeekView = false,
     layout?: LayoutSlot,
   ) {
     const statusColor = getStatusColor(appointment.status);
@@ -383,69 +391,31 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
       : "Sin paciente";
     const start = new Date(appointment.startAt);
     const end = new Date(appointment.endAt);
-
-    if (isWeekView) {
-      return (
-        <button
-          key={appointment.id}
-          onClick={() => handleAppointmentClick(appointment)}
-          className={cn(
-            "w-full rounded-md border-l-[3px] px-1.5 py-1 text-left text-[11px] leading-tight transition-all hover:shadow-sm",
-            isCancelled && "line-through opacity-60",
-            hasConflict && "ring-1 ring-red-400",
-          )}
-          style={{
-            backgroundColor: statusColor.bg,
-            borderColor: profColor?.dot ?? "#cbd5e1",
-            color: statusColor.text,
-          }}
-        >
-          <span className="font-semibold truncate block">{patientName}</span>
-          <span className="opacity-75">{formatHm(start)}</span>
-        </button>
-      );
-    }
-
     const startHour = getHour(start);
     const endHour = getHour(end);
     const top = (startHour - DAY_START_HOUR) * HOUR_HEIGHT;
     const rawHeight = (endHour - startHour) * HOUR_HEIGHT;
-    const height = Math.max(22, rawHeight);
+    const height = Math.max(28, rawHeight);
     const durationMin = Math.round((endHour - startHour) * 60);
 
     const cols = layout?.totalColumns ?? 1;
     const multiColumn = cols > 1;
 
-    const tier = height < 28 ? 0 : height < 44 ? 1 : height < 72 ? 2 : height < 100 ? 3 : 4;
+    const baseSize = cols >= 4 ? 9 : cols >= 3 ? 10 : 11;
+    const nameSize = height < 34 ? `${baseSize - 1}` : `${baseSize}`;
+    const detailSize = height < 34 ? `${baseSize - 1}` : `${baseSize - 1}`;
+    const padY = height < 34 ? "py-0.5" : height < 44 ? "py-1" : "py-1.5";
 
-    const nameCls = cn(
-      "font-semibold truncate block leading-tight",
-      isCancelled && "line-through",
-      cols >= 4 ? "text-[9px]" : cols >= 3 ? "text-[10px]" : cols >= 2 ? "text-[11px]" : tier <= 0 ? "text-[11px]" : "text-[13px]",
-    );
-    const detailCls = cn(
-      "opacity-80",
-      isCancelled && "line-through",
-      cols >= 3 ? "text-[8px]" : "text-[9px]",
-    );
-    const iconCls = cn("shrink-0", cols >= 3 ? "size-2" : "size-2.5");
-
-    const showTime = tier >= 1 || !multiColumn;
-    const showDuration = tier >= 2 && durationMin > 0;
-    const showProfessional = tier >= 3 && appointment.professional && hasProfessional && multiColumn;
-    const showFee = tier >= 3 && appointment.fee && !multiColumn;
-
-    const padCls = cn(
-      tier <= 0 ? "px-1 py-px" : tier <= 1 ? "px-1.5 py-0.5" : tier <= 2 ? "px-1.5 py-1" : "px-2 py-1.5",
-    );
+    const showTime = true;
+    const showFee = height >= 44 && appointment.fee && !multiColumn;
 
     return (
       <button
         key={appointment.id}
         onClick={() => handleAppointmentClick(appointment)}
         className={cn(
-          "absolute rounded-lg border-l-[3px] text-left transition-colors hover:shadow-md z-10 overflow-hidden",
-          padCls,
+          "absolute rounded-md border-l-[3px] text-left transition-colors hover:shadow-md z-10",
+          `px-1 ${padY}`,
           isCancelled && "opacity-60",
           hasConflict && "ring-2 ring-red-400",
         )}
@@ -456,37 +426,40 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
           width: multiColumn ? `calc(${layout!.width} - 2px)` : "calc(100% - 0.5rem)",
           backgroundColor: statusColor.bg,
           borderColor: profColor?.dot ?? "#cbd5e1",
-          color: statusColor.text,
         }}
       >
-        <span className={nameCls}>{patientName}</span>
+        <span
+          className={cn("font-semibold truncate block leading-tight", isCancelled && "line-through")}
+          style={{ color: statusColor.text, fontSize: `${nameSize}px` }}
+        >
+          {patientName}
+        </span>
 
         {showTime && (
-          <div className={cn("mt-px flex items-center gap-1", detailCls)}>
-            <Clock className={iconCls} />
-            <span className="truncate">{formatHm(start)} - {formatHm(end)}</span>
-            {showDuration && (
-              <span className="shrink-0 opacity-60 tabular-nums">· {durationMin}m</span>
-            )}
-          </div>
-        )}
-
-        {showProfessional && (
-          <div className={cn("mt-px flex items-center gap-1", detailCls)}>
-            <span className={cn(iconCls, "rounded-full")} style={{ backgroundColor: profColor?.dot }} />
-            <span className="truncate">{appointment.professional!.fullName.split(" ")[0]}</span>
+          <div
+            className="flex items-center gap-1 leading-tight mt-px"
+            style={{ color: statusColor.text, fontSize: `${detailSize}px`, opacity: 0.75 }}
+          >
+            <Clock className="shrink-0" style={{ width: `${detailSize}px`, height: `${detailSize}px` }} />
+            <span className="truncate tabular-nums">{formatHm(start)}</span>
+            <span className="opacity-50">-</span>
+            <span className="tabular-nums">{formatHm(end)}</span>
+            <span className="opacity-50">· {durationMin}m</span>
           </div>
         )}
 
         {showFee && (
-          <div className={cn("mt-px flex items-center gap-1 opacity-70", detailCls)}>
-            <DollarSign className={iconCls} />
+          <div
+            className="flex items-center gap-1 leading-tight"
+            style={{ color: statusColor.text, fontSize: `${detailSize}px`, opacity: 0.65 }}
+          >
+            <DollarSign className="shrink-0" style={{ width: `${detailSize}px`, height: `${detailSize}px` }} />
             <span>${appointment.fee}</span>
           </div>
         )}
 
         {hasConflict && (
-          <span className="absolute top-0.5 right-0.5 rounded-full bg-red-100 px-1 py-px text-[8px] font-bold text-red-700 leading-none">
+          <span className="absolute top-0.5 right-0.5 flex size-3.5 items-center justify-center rounded-full bg-red-100 text-[8px] font-bold text-red-700 leading-none">
             !
           </span>
         )}
@@ -502,7 +475,7 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
     const layout = computeHorizontalLayout(dayAppointments);
 
     return (
-      <div className="relative" style={{ minHeight: `${(DAY_END_HOUR - DAY_START_HOUR) * HOUR_HEIGHT}px` }}>
+      <div className="relative" style={{ height: `${(DAY_END_HOUR - DAY_START_HOUR) * HOUR_HEIGHT}px` }}>
         {hours.map((hour) => (
           <div
             key={hour}
@@ -510,7 +483,7 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
             style={{ height: `${HOUR_HEIGHT}px` }}
           />
         ))}
-        {dayAppointments.map((a) => renderAppointmentCard(a, false, layout.get(a.id)))}
+        {dayAppointments.map((a) => renderAppointmentCard(a, layout.get(a.id)))}
       </div>
     );
   }
@@ -522,20 +495,20 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
     : null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {/* Header controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-card">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card px-3 py-2 shadow-card">
+        <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon-sm" onClick={() => navigateDate(-1)}>
-            <ChevronLeft className="size-4" />
+            <ChevronLeft className="size-3.5" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={goToToday}>
+          <Button variant="ghost" size="xs" onClick={goToToday}>
             Hoy
           </Button>
           <Button variant="ghost" size="icon-sm" onClick={() => navigateDate(1)}>
-            <ChevronRight className="size-4" />
+            <ChevronRight className="size-3.5" />
           </Button>
-          <h2 className="ml-2 text-sm font-semibold">
+          <h2 className="ml-1 text-xs font-semibold">
             {view === "day"
               ? format(focusedDate, "EEEE d 'de' MMMM", { locale: es })
               : `${format(weekDays[0], "d MMM", { locale: es })} - ${format(weekDays[weekDays.length - 1], "d MMM yyyy", { locale: es })}`}
@@ -545,17 +518,17 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
           <button
             onClick={() => setView("day")}
             className={cn(
-              "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+              "rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
               view === "day" ? "bg-muted text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
             )}
           >
-            <Calendar className="mr-1 inline size-3" />
+            <Calendar className="mr-1 inline size-2.5" />
             Día
           </button>
           <button
             onClick={() => setView("week")}
             className={cn(
-              "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+              "rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
               view === "week" ? "bg-muted text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
             )}
           >
@@ -566,8 +539,8 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
 
       {/* Professional filter */}
       {hasProfessional && professionals.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 shadow-card">
-          <span className="text-xs font-medium text-muted-foreground mr-1">Profesional:</span>
+        <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 shadow-card">
+          <span className="text-[11px] font-medium text-muted-foreground mr-1">Profesional:</span>
           <button
             onClick={() => setSelectedProfessional("all")}
             className={cn(
@@ -614,10 +587,10 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
               {hours.map((hour) => (
                 <div
                   key={hour}
-                  className="flex items-start justify-end border-t border-border/50 pr-2 pt-1"
+                  className="flex items-start justify-end border-t border-border/50 pr-1.5 pt-0.5"
                   style={{ height: `${HOUR_HEIGHT}px` }}
                 >
-                  <span className="text-[11px] font-medium text-muted-foreground">
+                  <span className="text-[10px] font-medium text-muted-foreground tabular-nums">
                     {String(hour).padStart(2, "0")}:00
                   </span>
                 </div>
@@ -626,11 +599,11 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
 
             {/* Appointments column */}
             <div className="flex-1">
-              <div className="h-10 border-b border-border px-3 flex items-center">
-                <span className="text-sm font-semibold">
+              <div className="h-8 border-b border-border px-2 flex items-center">
+                <span className="text-xs font-semibold">
                   {format(focusedDate, "EEEE d", { locale: es })}
                   {isToday(focusedDate) && (
-                    <Badge variant="info" className="ml-2 text-[10px]">Hoy</Badge>
+                    <Badge variant="info" className="ml-1.5 text-[9px] py-px">Hoy</Badge>
                   )}
                 </span>
               </div>
@@ -640,15 +613,15 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
         ) : (
           <div className="flex min-w-[900px]">
             {/* Time column */}
-            <div className="w-16 shrink-0 border-r border-border bg-muted/50">
-              <div className="h-10" />
+            <div className="w-14 shrink-0 border-r border-border bg-muted/50">
+              <div className="h-8" />
               {hours.map((hour) => (
                 <div
                   key={hour}
-                  className="flex items-start justify-end border-t border-border/50 pr-2 pt-1"
+                  className="flex items-start justify-end border-t border-border/50 pr-1.5 pt-0.5"
                   style={{ height: `${HOUR_HEIGHT}px` }}
                 >
-                  <span className="text-[11px] font-medium text-muted-foreground">
+                  <span className="text-[10px] font-medium text-muted-foreground tabular-nums">
                     {String(hour).padStart(2, "0")}:00
                   </span>
                 </div>
@@ -658,9 +631,9 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
             {/* Day columns */}
             {weekDays.map((day) => (
               <div key={day.toISOString()} className="flex-1 border-r border-border last:border-r-0">
-                <div className="h-10 border-b border-border px-2 flex items-center justify-center">
+                <div className="h-8 border-b border-border px-1 flex items-center justify-center">
                   <span className={cn(
-                    "text-xs font-semibold",
+                    "text-[11px] font-semibold",
                     isToday(day) && "text-primary",
                   )}>
                     {format(day, "EEE d", { locale: es })}

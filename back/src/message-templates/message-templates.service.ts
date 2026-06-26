@@ -9,6 +9,10 @@ export const TEMPLATABLE_TYPES = [
   MessageType.APPOINTMENT_RESCHEDULED,
   MessageType.APPOINTMENT_CANCELLED,
   MessageType.PAYMENT_REMINDER,
+  MessageType.BOOKING_CONFIRMED,
+  MessageType.BOOKING_UNCONFIRMED_WARNING,
+  MessageType.DEPOSIT_REMINDER,
+  MessageType.DEPOSIT_EXPIRED,
 ] as const;
 
 export type TemplatableType = (typeof TEMPLATABLE_TYPES)[number];
@@ -44,6 +48,31 @@ export const DEFAULT_TEMPLATES: Record<TemplatableType, string> = {
     '💳 Alias: *{{aliasPago}}*\n\n' +
     '_Si ya realizaste la transferencia, por favor ignorá este mensaje. 🙏_\n\n' +
     '❤️ Hasta la próxima, {{nombreProfesional}}',
+
+  [MessageType.BOOKING_CONFIRMED]:
+    `¡Hola {{nombrePaciente}}! 👋\n\n` +
+    `✅ Tu turno quedó reservado:\n` +
+    `📅 {{fechaHumana}} a las {{horario}}hs\n` +
+    `👤 Con {{nombreProfesional}}\n\n` +
+    `{{detalleSena}}` +
+    `{{detalleFicha}}` +
+    `Tu código de reserva es: {{codigoReserva}}\n\n` +
+    `¡Te esperamos!`,
+
+  [MessageType.BOOKING_UNCONFIRMED_WARNING]:
+    `⏰ Recordatorio: tenés un turno pendiente de confirmación para el {{fechaHumana}} a las {{horario}}hs.\n\n` +
+    'Por favor confirmá tu reserva respondiendo el mensaje de WhatsApp que te enviamos.\n' +
+    `Si no confirmás, el turno será cancelado automáticamente.\n\n` +
+    `¡Gracias!`,
+
+  [MessageType.DEPOSIT_REMINDER]:
+    `⏳ Recordatorio: tu turno del {{fechaHumana}} a las {{horario}}hs está confirmado pero requiere seña.\n\n` +
+    '💰 Alias: {{aliasPago}} - ${{montoSena}}\n\n' +
+    `Si no abonás la seña a tiempo, el turno será cancelado automáticamente.`,
+
+  [MessageType.DEPOSIT_EXPIRED]:
+    `⏹️ Tu turno del {{fechaHumana}} a las {{horario}}hs fue cancelado porque no se recibió la seña a tiempo.\n\n` +
+    `Si querés reservar de nuevo, ingresá a nuestro sitio web.`,
 };
 
 export interface ResolvedTemplate {

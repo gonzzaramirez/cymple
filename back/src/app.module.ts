@@ -24,6 +24,8 @@ import { TenantModule } from './common/tenant/tenant.module';
 import { AuditModule } from './common/audit/audit.module';
 import { OrganizationModule } from './organization/organization.module';
 import { ClinicalRecordsModule } from './clinical-records/clinical-records.module';
+import { PublicBookingModule } from './public-booking/public-booking.module';
+import { IntakeFormModule } from './intake-form/intake-form.module';
 
 @Module({
   imports: [
@@ -75,6 +77,8 @@ import { ClinicalRecordsModule } from './clinical-records/clinical-records.modul
     MessageTemplatesModule,
     OrganizationModule,
     ClinicalRecordsModule,
+    PublicBookingModule,
+    IntakeFormModule,
   ],
   controllers: [AppController],
   providers: [

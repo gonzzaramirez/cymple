@@ -80,17 +80,9 @@ export class WhatsappConnectionService {
   private async ensureWebhook(instanceName: string): Promise<void> {
     const webhook = this.webhookUrl();
     if (!webhook) {
-      this.logger.warn(
-        `APP_PUBLIC_URL not configured — skipping webhook setup for ${instanceName}`,
-      );
       return;
     }
-    try {
-      await this.evolution.setWebhook(instanceName, webhook);
-      this.logger.log(`Webhook set for ${instanceName} → ${webhook}`);
-    } catch (e) {
-      this.logger.warn(`Failed to set webhook for ${instanceName}: ${e}`);
-    }
+    await this.evolution.setWebhook(instanceName, webhook);
   }
 
   private ensureEvolution() {

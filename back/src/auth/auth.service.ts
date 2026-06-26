@@ -21,9 +21,8 @@ export class AuthService {
   async login(dto: LoginDto, req: Request) {
     let requestTenantSlug: string;
     try {
-      requestTenantSlug = this.tenantResolver.extractSlugFromHostContextOnly(
-        req,
-      );
+      requestTenantSlug =
+        this.tenantResolver.extractSlugFromHostContextOnly(req);
     } catch {
       throw new UnauthorizedException('Credenciales inválidas');
     }

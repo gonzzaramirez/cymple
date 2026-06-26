@@ -11,6 +11,14 @@ type Props = {
   professionals: MemberProfessional[];
 };
 
+function ActiveBadge({ isActive }: { isActive: boolean }) {
+  return isActive ? (
+    <Badge variant="success">Activo</Badge>
+  ) : (
+    <Badge variant="secondary">Inactivo</Badge>
+  );
+}
+
 export function ProfessionalsList({ professionals }: Props) {
   const isMobile = useIsMobile();
 
@@ -34,13 +42,7 @@ export function ProfessionalsList({ professionals }: Props) {
             eyebrow={pro.specialty ?? "Profesional"}
             title={pro.fullName}
             description={pro.email}
-            meta={
-              pro.isActive ? (
-                <Badge variant="success">Activo</Badge>
-              ) : (
-                <Badge variant="secondary">Inactivo</Badge>
-              )
-            }
+            meta={() => <ActiveBadge isActive={pro.isActive} />}
             items={[
               { label: "Teléfono", value: pro.phone ?? "—" },
               { label: "Turnos", value: `${pro.totalAppointments}` },

@@ -94,7 +94,7 @@ export type ClinicalRecord = {
   patientId: string;
   professionalId: string;
   appointmentId?: string | null;
-  recordType: "GENERAL_NOTE" | "APPOINTMENT_REASON";
+  recordType: "GENERAL_NOTE" | "APPOINTMENT_REASON" | "INTAKE_FORM";
   title?: string | null;
   content: Record<string, unknown>;
   plainTextPreview: string;
@@ -176,6 +176,15 @@ export type ProfessionalSettings = {
   dailyDigestTime: string;
   autoConfirmHours: number | null;
   paymentAlias: string | null;
+  // Public booking
+  publicBookingEnabled: boolean;
+  publicBookingSlug: string | null;
+  depositAmount: string | number | null;
+  depositWindowHours: number;
+  bookingAutoCancel: boolean;
+  bookingAutoCancelHours: number;
+  maxActiveBookings: number;
+  waPublicBookingPhone: string | null;
 };
 
 export type MessageLogEntry = {
@@ -215,7 +224,11 @@ export type MessageTemplateType =
   | "APPOINTMENT_REMINDER"
   | "APPOINTMENT_RESCHEDULED"
   | "APPOINTMENT_CANCELLED"
-  | "PAYMENT_REMINDER";
+  | "PAYMENT_REMINDER"
+  | "BOOKING_CONFIRMED"
+  | "BOOKING_UNCONFIRMED_WARNING"
+  | "DEPOSIT_REMINDER"
+  | "DEPOSIT_EXPIRED";
 
 export type MessageTemplate = {
   messageType: MessageTemplateType;
