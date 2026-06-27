@@ -50,33 +50,6 @@ export class UpdateProfessionalSettingsDto {
   timezone?: string;
 
   @IsOptional()
-  @Transform(({ value }) =>
-    value === 'true' || value === true
-      ? true
-      : value === 'false' || value === false
-        ? false
-        : value,
-  )
-  @IsBoolean()
-  dailyDigestEnabled?: boolean;
-
-  @IsOptional()
-  @IsString()
-  @Matches(/^\d{2}:\d{2}$/, {
-    message: 'dailyDigestTime debe tener formato HH:MM',
-  })
-  dailyDigestTime?: string;
-
-  @IsOptional()
-  @Transform(({ value }) =>
-    value === null || value === '' ? null : Number(value),
-  )
-  @IsInt()
-  @Min(1)
-  @Max(72)
-  autoConfirmHours?: number | null;
-
-  @IsOptional()
   @IsString()
   paymentAlias?: string;
 

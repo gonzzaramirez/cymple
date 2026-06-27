@@ -21,7 +21,7 @@ import { EvolutionApiService } from '../whatsapp/evolution-api.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MessageTemplatesService } from '../message-templates/message-templates.service';
 import { normalizeArWhatsappNumber } from '../common/utils/phone.utils';
-import { addMinutes } from '../common/utils/date.utils';
+import { addMinutes, formatDateOnly } from '../common/utils/date.utils';
 import { generateBookingToken, extractBookingToken } from './booking-token.util';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { BookingQueryDto } from './dto/booking-query.dto';
@@ -674,13 +674,7 @@ export class PublicBookingService {
       },
     });
 
-    const slotDateHuman = new Intl.DateTimeFormat('es-AR', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      timeZone: booking.professional.timezone,
-    }).format(booking.slotDate);
+    const slotDateHuman = formatDateOnly(booking.slotDate);
 
     // Send WA confirmation using template (with intake link for new patients)
     if (this.evolution.isConfigured()) {

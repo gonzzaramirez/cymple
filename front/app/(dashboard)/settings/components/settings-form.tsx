@@ -13,12 +13,6 @@ import { ProfessionalSettings } from "@/lib/types";
 export function SettingsForm({ settings }: { settings: ProfessionalSettings }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [digestEnabled, setDigestEnabled] = useState(
-    settings.dailyDigestEnabled,
-  );
-  const [autoConfirmEnabled, setAutoConfirmEnabled] = useState(
-    settings.autoConfirmHours !== null,
-  );
   const [bookingEnabled, setBookingEnabled] = useState(
     settings.publicBookingEnabled,
   );
@@ -36,11 +30,6 @@ export function SettingsForm({ settings }: { settings: ProfessionalSettings }) {
       standardFee: Number(formData.get("standardFee")),
       reminderHours: Number(formData.get("reminderHours")),
       timezone: formData.get("timezone"),
-      dailyDigestEnabled: digestEnabled,
-      dailyDigestTime: formData.get("dailyDigestTime") || "08:00",
-      autoConfirmHours: autoConfirmEnabled
-        ? Number(formData.get("autoConfirmHours"))
-        : null,
       paymentAlias: rawAlias || null,
       // Public booking
       publicBookingEnabled: bookingEnabled,
@@ -125,73 +114,6 @@ export function SettingsForm({ settings }: { settings: ProfessionalSettings }) {
             />
           </div>
         </CardContent>
-      </Card>
-
-      {/* Digest diario */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <CardTitle className="text-sm font-semibold uppercase tracking-[0.05em] text-muted-foreground">
-                Resumen diario por WhatsApp
-              </CardTitle>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Recibí un mensaje con tus turnos del día a la hora que elijas
-              </p>
-            </div>
-            <Switch
-              checked={digestEnabled}
-              onCheckedChange={setDigestEnabled}
-            />
-          </div>
-        </CardHeader>
-        {digestEnabled && (
-          <CardContent>
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Field
-                label="Hora de envío"
-                name="dailyDigestTime"
-                type="time"
-                defaultValue={settings.dailyDigestTime}
-                hint="Se envía a tu número de WhatsApp personal"
-              />
-            </div>
-          </CardContent>
-        )}
-      </Card>
-
-      {/* Auto-confirmación */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <CardTitle className="text-sm font-semibold uppercase tracking-[0.05em] text-muted-foreground">
-                Auto-confirmación de turnos
-              </CardTitle>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Confirma automáticamente los turnos pendientes que ya recibieron
-                recordatorio
-              </p>
-            </div>
-            <Switch
-              checked={autoConfirmEnabled}
-              onCheckedChange={setAutoConfirmEnabled}
-            />
-          </div>
-        </CardHeader>
-        {autoConfirmEnabled && (
-          <CardContent>
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Field
-                label="Confirmar si faltan menos de (horas)"
-                name="autoConfirmHours"
-                type="number"
-                defaultValue={settings.autoConfirmHours ?? 2}
-                hint="Ej: 2 = si en 2h el paciente no respondió, se confirma solo"
-              />
-            </div>
-          </CardContent>
-        )}
       </Card>
 
       {/* Reservas online */}

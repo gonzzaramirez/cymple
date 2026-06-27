@@ -4,7 +4,6 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import * as Joi from 'joi';
-import { LoggerModule } from 'nestjs-pino';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './common/prisma/prisma.module';
@@ -43,15 +42,6 @@ import { IntakeFormModule } from './intake-form/intake-form.module';
         TRUST_PROXY: Joi.boolean().truthy('true').falsy('false').default(false),
         PORT: Joi.number().default(3080),
       }),
-    }),
-    LoggerModule.forRoot({
-      pinoHttp: {
-        autoLogging: process.env.NODE_ENV !== 'production',
-        transport:
-          process.env.NODE_ENV === 'production'
-            ? undefined
-            : { target: 'pino-pretty' },
-      },
     }),
     ThrottlerModule.forRoot([
       {

@@ -6,6 +6,7 @@ import { EvolutionApiService } from '../whatsapp/evolution-api.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MessageTemplatesService } from '../message-templates/message-templates.service';
+import { formatDateOnly, formatDateOnlyShort } from '../common/utils/date.utils';
 @Injectable()
 export class BookingCronService {
   private readonly logger = new Logger(BookingCronService.name);
@@ -36,13 +37,7 @@ export class BookingCronService {
       // Send WA notification using template
       const waInstance = await this.resolveWaInstance(professional.id);
       if (waInstance) {
-        const slotDateHuman = new Intl.DateTimeFormat('es-AR', {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
-          timeZone: professional.timezone,
-        }).format(booking.slotDate);
+        const slotDateHuman = formatDateOnly(booking.slotDate);
 
         const tpl = await this.messageTemplates.getOne(
           professional.id,
@@ -67,7 +62,7 @@ export class BookingCronService {
           organizationId: professional.organizationId ?? undefined,
           type: 'BOOKING_EXPIRED',
           title: 'Reserva vencida por seña no pagada',
-          body: `${booking.patientName} — ${booking.slotStart}hs del ${booking.slotDate.toLocaleDateString('es-AR')}`,
+          body: `${booking.patientName} — ${booking.slotStart}hs del ${formatDateOnlyShort(booking.slotDate)}`,
           link: `/bookings?id=${booking.id}`,
           metadata: { bookingToken: booking.token },
         });
@@ -86,13 +81,7 @@ export class BookingCronService {
       const waInstance = await this.resolveWaInstance(professional.id);
       if (!waInstance) continue;
 
-      const slotDateHuman = new Intl.DateTimeFormat('es-AR', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-        timeZone: professional.timezone,
-      }).format(booking.slotDate);
+      const slotDateHuman = formatDateOnly(booking.slotDate);
 
       const tpl = await this.messageTemplates.getOne(
         professional.id,
@@ -127,13 +116,7 @@ export class BookingCronService {
       const waInstance = await this.resolveWaInstance(professional.id);
       if (!waInstance) continue;
 
-      const slotDateHuman = new Intl.DateTimeFormat('es-AR', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-        timeZone: professional.timezone,
-      }).format(booking.slotDate);
+      const slotDateHuman = formatDateOnly(booking.slotDate);
 
       const tpl = await this.messageTemplates.getOne(
         professional.id,
@@ -176,7 +159,7 @@ export class BookingCronService {
           organizationId: professional.organizationId ?? undefined,
           type: 'BOOKING_EXPIRED',
           title: 'Reserva cancelada por falta de confirmación',
-          body: `${booking.patientName} — ${booking.slotStart}hs del ${booking.slotDate.toLocaleDateString('es-AR')}`,
+          body: `${booking.patientName} — ${booking.slotStart}hs del ${formatDateOnlyShort(booking.slotDate)}`,
           link: `/bookings?id=${booking.id}`,
           metadata: { bookingToken: booking.token },
         });

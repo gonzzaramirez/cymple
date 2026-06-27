@@ -32,7 +32,7 @@ export default async function CenterLayout({
     <SidebarProvider>
       <CenterSidebar centerName={me.name} />
       <SidebarInset>
-        <header className="sticky top-0 z-30 flex h-12 items-center gap-3 border-b border-[var(--border-light)] bg-[var(--col-bg13)]/95 px-5 backdrop-blur-md supports-[backdrop-filter]:bg-[var(--col-bg13)]/80">
+        <header className="sticky top-0 z-30 flex h-10 items-center gap-3 border-b border-[var(--border-light)] bg-[var(--col-bg13)]/95 px-4 backdrop-blur-md supports-[backdrop-filter]:bg-[var(--col-bg13)]/80">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="h-5!" />
           <div className="ml-auto">
@@ -41,7 +41,7 @@ export default async function CenterLayout({
         </header>
         <main
           id="main-content"
-          className="flex-1 overflow-y-auto p-5 md:p-6"
+          className="flex-1 overflow-y-auto bg-content-bg p-5 md:p-6"
         >
           {children}
         </main>

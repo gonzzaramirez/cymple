@@ -1,8 +1,12 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
+
+// ── Force Argentina timezone at process level ──────────────────────
+// This ensures Date.toString(), getHours(), getDay(), etc. use
+// America/Argentina/Buenos_Aires (UTC-3) regardless of system TZ.
+process.env.TZ = 'America/Argentina/Buenos_Aires';
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -102,7 +106,6 @@ async function bootstrap() {
     ],
   });
 
-  app.useLogger(app.get(Logger));
   app.setGlobalPrefix('v1');
   app.useGlobalPipes(
     new ValidationPipe({

@@ -65,43 +65,42 @@ export default function BookingsPage() {
     }
   }, []);
 
+  const refreshWithPage = useCallback(
+    (currentPage: number) => {
+      void listBookings({ status, month, year, page: currentPage, limit: 10 }).then(
+        (data) => setBookings(data.items),
+      );
+    },
+    [status, month, year],
+  );
+
   const handleDepositPaid = useCallback(() => {
     // Refresh detail and list
     if (selectedBooking) {
       getBookingDetail(selectedBooking.id).then(setDetailData).catch(() => {});
     }
-    void listBookings({ status, month, year }).then((data) =>
-      setBookings(data.items),
-    );
-  }, [selectedBooking, status, month, year]);
+    refreshWithPage(page);
+  }, [selectedBooking, page, refreshWithPage]);
 
-  const handleCancel = useCallback(
-    () => {
-      if (selectedBooking) {
-        getBookingDetail(selectedBooking.id).then(setDetailData).catch(() => {});
-      }
-      void listBookings({ status, month, year }).then((data) =>
-        setBookings(data.items),
-      );
-    },
-    [selectedBooking, status, month, year],
-  );
+  const handleCancel = useCallback(() => {
+    if (selectedBooking) {
+      getBookingDetail(selectedBooking.id).then(setDetailData).catch(() => {});
+    }
+    refreshWithPage(page);
+  }, [selectedBooking, page, refreshWithPage]);
 
-  const handleNotesChange = useCallback(
-    () => {
-      if (selectedBooking) {
-        getBookingDetail(selectedBooking.id).then(setDetailData).catch(() => {});
-      }
-    },
-    [selectedBooking],
-  );
+  const handleNotesChange = useCallback(() => {
+    if (selectedBooking) {
+      getBookingDetail(selectedBooking.id).then(setDetailData).catch(() => {});
+    }
+  }, [selectedBooking]);
 
   const handleManualConfirm = useCallback(() => {
     if (selectedBooking) {
       getBookingDetail(selectedBooking.id).then(setDetailData).catch(() => {});
     }
-    void loadBookings();
-  }, [selectedBooking]);
+    refreshWithPage(page);
+  }, [selectedBooking, page, refreshWithPage]);
 
   const handleStatusChange = useCallback((newStatus: BookingStatus | "ALL") => {
     setStatus(newStatus);

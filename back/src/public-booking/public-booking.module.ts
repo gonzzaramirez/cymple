@@ -1,5 +1,6 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { AvailabilityModule } from '../availability/availability.module';
+import { MessageTemplatesModule } from '../message-templates/message-templates.module';
 import { WhatsappModule } from '../whatsapp/whatsapp.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import {
@@ -14,6 +15,7 @@ import { BookingCronService } from './booking-cron.service';
     forwardRef(() => AvailabilityModule),
     forwardRef(() => WhatsappModule),
     NotificationsModule,
+    MessageTemplatesModule,
   ],
   controllers: [PublicBookingController, BookingDashboardController],
   providers: [PublicBookingService, BookingCronService],

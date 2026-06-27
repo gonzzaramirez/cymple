@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { AppointmentStatus, PaymentMethod } from '@prisma/client';
-import { DateTime } from 'luxon';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { WhatsappMessagingService } from '../whatsapp/whatsapp-messaging.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -50,110 +49,6 @@ export class ReminderSweeper {
       );
       if (!sent) {
         continue;
-      }
-    }
-  }
-
-  /** Envía digest diario al profesional a la hora configurada (ventana de 5 min). */
-  @Cron('*/5 * * * *')
-  async checkDailyDigest() {
-    const now = new Date();
-
-    const professionals = await this.prisma.professional.findMany({
-      where: { isActive: true, dailyDigestEnabled: true },
-      select: {
-        id: true,
-        timezone: true,
-        dailyDigestTime: true,
-        phone: true,
-      },
-    });
-
-    for (const pro of professionals) {
-      const dtNow = DateTime.fromJSDate(now).setZone(pro.timezone);
-        const [hStr, mStr] = pro.dailyDigestTime.split(':');
-        const targetHour = Number(hStr);
-        const targetMinute = Number(mStr);
-
-        // Ventana de 5 min: la hora/minuto del profesional cae dentro de la ventana actual
-        const currentMinutes = dtNow.hour * 60 + dtNow.minute;
-        const targetMinutes = targetHour * 60 + targetMinute;
-        if (
-          currentMinutes < targetMinutes ||
-          currentMinutes >= targetMinutes + 5
-        ) {
-          continue;
-        }
-
-        // Verificar que no se haya enviado ya hoy
-        const todayStart = dtNow.startOf('day').toJSDate();
-        const alreadySent = await this.prisma.messageLog.findFirst({
-          where: {
-            professionalId: pro.id,
-            messageType: 'SYSTEM',
-            toPhone: pro.phone ?? undefined,
-            sentAt: { gte: todayStart },
-            content: { contains: 'Agenda del día' },
-          },
-        });
-
-        if (alreadySent) continue;
-
-        await this.whatsappMessaging.sendDailyDigestToProfessional(pro.id);
-    }
-  }
-
-  /** Auto-confirma citas PENDING que ya recibieron recordatorio y están a menos de X horas. */
-  @Cron('*/5 * * * *')
-  async checkAutoConfirm() {
-    const now = new Date();
-
-    const professionals = await this.prisma.professional.findMany({
-      where: { isActive: true, autoConfirmHours: { not: null } },
-      select: { id: true, autoConfirmHours: true },
-    });
-
-    for (const pro of professionals) {
-      if (!pro.autoConfirmHours) continue;
-
-      const cutoff = new Date(
-        now.getTime() + pro.autoConfirmHours * 60 * 60 * 1000,
-      );
-
-      const toConfirm = await this.prisma.appointment.findMany({
-        where: {
-          professionalId: pro.id,
-          status: AppointmentStatus.PENDING,
-          reminderSentAt: { not: null },
-          startAt: { gte: now, lte: cutoff },
-        },
-        include: {
-          patient: { select: { firstName: true, lastName: true } },
-        },
-      });
-
-      for (const apt of toConfirm) {
-        await this.prisma.appointment.update({
-          where: { id: apt.id },
-          data: {
-            status: AppointmentStatus.CONFIRMED,
-            confirmationDeadline: null,
-          },
-        });
-        void this.notifications
-          .create({
-            professionalId: apt.professionalId,
-            organizationId: apt.organizationId ?? undefined,
-            type: 'APPOINTMENT_AUTO_CONFIRMED',
-            title: `Turno de ${apt.patient.firstName} ${apt.patient.lastName} auto-confirmado`,
-            body: `El paciente no respondió dentro de la ventana de confirmación — el turno se confirmó automáticamente`,
-            link: `/appointments?id=${apt.id}`,
-            appointmentId: apt.id,
-            patientId: apt.patientId,
-            metadata: {
-              patientName: `${apt.patient.firstName} ${apt.patient.lastName}`,
-            },
-          });
       }
     }
   }

@@ -149,6 +149,7 @@ export function BookingsList({
   // Desktop table
   return (
     <div className="space-y-4">
+      <div className="overflow-hidden rounded-2xl bg-card shadow-card">
       <Table>
         <TableHeader>
           <TableRow>
@@ -208,6 +209,7 @@ export function BookingsList({
           })}
         </TableBody>
       </Table>
+      </div>
 
       <PaginationControls
         page={page}

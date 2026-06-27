@@ -22,7 +22,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -34,8 +33,6 @@ import { LogoutButton } from "@/components/logout-button";
 const baseNavItems = [
   { href: "/home", label: "Inicio", icon: Home },
   { href: "/patients", label: "Pacientes", icon: Users },
-  { href: "/clinical", label: "Clínica", icon: NotebookPen },
-  { href: "/messages", label: "Mensajes", icon: MessageSquareText },
   {
     href: "/appointments",
     label: "Agenda",
@@ -43,7 +40,9 @@ const baseNavItems = [
     badgeKey: "appointments" as const,
   },
   { href: "/bookings", label: "Reservas", icon: CalendarCheck },
+  { href: "/clinical", label: "Clínica", icon: NotebookPen },
   { href: "/finance", label: "Finanzas", icon: DollarSign },
+  { href: "/messages", label: "Mensajes", icon: MessageSquareText },
   { href: "/availability", label: "Disponibilidad", icon: Clock },
   { href: "/settings", label: "Configuración", icon: Settings },
 ];
@@ -167,25 +166,13 @@ export function AppSidebar({
         {/* ── Logo ── */}
         <SidebarHeader className="px-5 pt-7 pb-5">
           <div className="relative flex items-center justify-center">
-            <Link
-              href="/home"
-              onClick={() => setOpenMobile(false)}
-              className="absolute left-0 flex size-8 items-center justify-center rounded-lg bg-[#181e25] shadow-[var(--shadow-subtle)] transition-transform duration-200 hover:scale-105"
-            >
-              <Image
-                src="/favicon-96x96.png"
-                alt="Cymple"
-                width={20}
-                height={20}
-                className="size-5"
-              />
-            </Link>
+            
             <Link
               href="/home"
               onClick={() => setOpenMobile(false)}
               className="outline-none"
             >
-              <span className="font-display text-[19px] font-semibold tracking-tight text-[#0a0a0a] dark:text-foreground">
+              <span className="font-display text-[23px] font-semibold tracking-tight text-[#0a0a0a] dark:text-foreground">
                 Cymple
               </span>
             </Link>
@@ -195,9 +182,6 @@ export function AppSidebar({
         {/* ── Navigation ── */}
         <SidebarContent className="px-3 pb-2 pt-1">
           <SidebarGroup className="py-0">
-            <SidebarGroupLabel className="px-3 pb-2 pt-0 font-mid text-[11px] font-medium uppercase tracking-[0.1em] text-[#1d1d1f]">
-              Menú
-            </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="gap-1">
                 {baseNavItems.map((item, index) => {

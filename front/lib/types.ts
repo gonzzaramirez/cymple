@@ -172,9 +172,6 @@ export type ProfessionalSettings = {
   standardFee: string;
   reminderHours: number;
   timezone: string;
-  dailyDigestEnabled: boolean;
-  dailyDigestTime: string;
-  autoConfirmHours: number | null;
   paymentAlias: string | null;
   // Public booking
   publicBookingEnabled: boolean;

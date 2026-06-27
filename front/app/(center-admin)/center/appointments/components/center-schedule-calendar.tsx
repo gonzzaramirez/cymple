@@ -789,65 +789,65 @@ export function CenterScheduleCalendar({
 
       {/* Appointment detail modal */}
       {selectedAppointment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={closeModal}>
-          <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-elevated ring-border mx-4" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-4 flex items-start justify-between">
-              <div>
-                <h3 className="font-display text-lg font-semibold">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4" onClick={closeModal}>
+          <div className="w-full max-w-md rounded-2xl bg-card p-4 sm:p-6 shadow-elevated ring-border max-h-[85dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 sm:mb-4 flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="font-display text-base sm:text-lg font-semibold truncate">
                   {selectedAppointment.patient ? `${selectedAppointment.patient.lastName}, ${selectedAppointment.patient.firstName}` : "Sin paciente"}
                 </h3>
                 {selectedAppointment.professional && (
-                  <p className="mt-1 text-sm text-muted-foreground flex items-center gap-1.5">
-                    <span className="size-2 rounded-full" style={{ backgroundColor: selectedColor?.dot }} />
-                    {selectedAppointment.professional.fullName}
+                  <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5">
+                    <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: selectedColor?.dot }} />
+                    <span className="truncate">{selectedAppointment.professional.fullName}</span>
                   </p>
                 )}
               </div>
-              {selectedCfg && <Badge variant={selectedCfg.variant}>{selectedCfg.label}</Badge>}
+              <div className="shrink-0">{selectedCfg && <Badge variant={selectedCfg.variant}>{selectedCfg.label}</Badge>}</div>
             </div>
 
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-3 py-2.5">
-                <Clock className="size-4 text-muted-foreground" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Fecha y hora</p>
-                  <p className="font-medium">{format(new Date(selectedAppointment.startAt), "EEE dd/MM HH:mm", { locale: es })} - {formatHm(new Date(selectedAppointment.endAt))}</p>
+            <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm">
+              <div className="flex items-center gap-2 sm:gap-3 rounded-lg bg-muted/50 px-2.5 sm:px-3 py-2 sm:py-2.5">
+                <Clock className="size-3.5 sm:size-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0">
+                  <p className="text-[11px] sm:text-xs text-muted-foreground">Fecha y hora</p>
+                  <p className="font-medium truncate">{format(new Date(selectedAppointment.startAt), "EEE dd/MM HH:mm", { locale: es })} - {formatHm(new Date(selectedAppointment.endAt))}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-3 py-2.5">
-                <DollarSign className="size-4 text-muted-foreground" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Honorario</p>
+              <div className="flex items-center gap-2 sm:gap-3 rounded-lg bg-muted/50 px-2.5 sm:px-3 py-2 sm:py-2.5">
+                <DollarSign className="size-3.5 sm:size-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0">
+                  <p className="text-[11px] sm:text-xs text-muted-foreground">Honorario</p>
                   <p className="font-mono font-medium">$ {selectedAppointment.fee}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-3 py-2.5">
-                {selectedAppointment.modality === "VIRTUAL" ? <Video className="size-4 text-muted-foreground" /> : <MapPin className="size-4 text-muted-foreground" />}
-                <div>
-                  <p className="text-xs text-muted-foreground">Modalidad</p>
+              <div className="flex items-center gap-2 sm:gap-3 rounded-lg bg-muted/50 px-2.5 sm:px-3 py-2 sm:py-2.5">
+                {selectedAppointment.modality === "VIRTUAL" ? <Video className="size-3.5 sm:size-4 shrink-0 text-muted-foreground" /> : <MapPin className="size-3.5 sm:size-4 shrink-0 text-muted-foreground" />}
+                <div className="min-w-0">
+                  <p className="text-[11px] sm:text-xs text-muted-foreground">Modalidad</p>
                   <p className="font-medium">{selectedAppointment.modality === "VIRTUAL" ? "Virtual" : "Presencial"}</p>
                 </div>
               </div>
               {selectedAppointment.reason && (
-                <div className="flex items-start gap-3 rounded-lg bg-muted/50 px-3 py-2.5">
-                  <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Motivo</p>
-                    <p className="font-medium whitespace-pre-wrap">{selectedAppointment.reason}</p>
+                <div className="flex items-start gap-2 sm:gap-3 rounded-lg bg-muted/50 px-2.5 sm:px-3 py-2 sm:py-2.5">
+                  <FileText className="mt-0.5 size-3.5 sm:size-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0">
+                    <p className="text-[11px] sm:text-xs text-muted-foreground">Motivo</p>
+                    <p className="font-medium whitespace-pre-wrap text-xs sm:text-sm">{selectedAppointment.reason}</p>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="mt-4">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground">
+            <div className="mt-3 sm:mt-4">
+              <div className="mb-1.5 sm:mb-2 flex items-center justify-between gap-2">
+                <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground">
                   Motivo de turno (historial clínico)
                 </p>
                 {selectedAppointment.patientId && (
                   <Link
                     href={`/center/patients/${selectedAppointment.patientId}`}
-                    className="text-xs text-primary hover:underline"
+                    className="text-[11px] sm:text-xs text-primary hover:underline shrink-0"
                   >
                     Ver historial
                   </Link>
@@ -893,20 +893,20 @@ export function CenterScheduleCalendar({
 
             {/* Payment selector */}
             {pendingAttended && (
-              <div className="mt-4 rounded-xl border border-border bg-muted/30 p-4 space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground">¿Cómo pagó el paciente?</p>
-                <div className="flex gap-3">
-                  <button type="button" onClick={() => setSelectedPayment("CASH")} className={cn("flex flex-1 items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors", selectedPayment === "CASH" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground")}>
-                    <Banknote className="size-4" />Efectivo
+              <div className="mt-3 sm:mt-4 rounded-xl border border-border bg-muted/30 p-3 sm:p-4 space-y-2 sm:space-y-3">
+                <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground">¿Cómo pagó el paciente?</p>
+                <div className="flex gap-2 sm:gap-3">
+                  <button type="button" onClick={() => setSelectedPayment("CASH")} className={cn("flex flex-1 items-center justify-center gap-1.5 rounded-xl border px-2.5 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm font-medium transition-colors", selectedPayment === "CASH" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground")}>
+                    <Banknote className="size-3.5 sm:size-4" />Efectivo
                   </button>
-                  <button type="button" onClick={() => setSelectedPayment("TRANSFER")} className={cn("flex flex-1 items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors", selectedPayment === "TRANSFER" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground")}>
-                    <ArrowLeftRight className="size-4" />Transferencia
+                  <button type="button" onClick={() => setSelectedPayment("TRANSFER")} className={cn("flex flex-1 items-center justify-center gap-1.5 rounded-xl border px-2.5 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm font-medium transition-colors", selectedPayment === "TRANSFER" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground")}>
+                    <ArrowLeftRight className="size-3.5 sm:size-4" />Transferencia
                   </button>
                 </div>
-                <div className="flex gap-2 pt-1">
-                  <Button variant="ghost" size="sm" className="flex-1" onClick={() => { setPendingAttended(false); setSelectedPayment(null); }}>Cancelar</Button>
-                  <Button size="sm" className="flex-1 bg-[#34c759]/10 text-[#248a3d] hover:bg-[#34c759]/20" disabled={!selectedPayment || actionLoading} onClick={() => selectedPayment && void changeStatus("ATTENDED", selectedPayment)}>
-                    <CheckCircle2 className="size-4" />{actionLoading ? "Guardando..." : "Confirmar asistencia"}
+                <div className="flex gap-2 pt-0.5 sm:pt-1">
+                  <Button variant="ghost" size="sm" className="flex-1 text-xs sm:text-sm" onClick={() => { setPendingAttended(false); setSelectedPayment(null); }}>Cancelar</Button>
+                  <Button size="sm" className="flex-1 bg-[#34c759]/10 text-[#248a3d] hover:bg-[#34c759]/20 text-xs sm:text-sm" disabled={!selectedPayment || actionLoading} onClick={() => selectedPayment && void changeStatus("ATTENDED", selectedPayment)}>
+                    <CheckCircle2 className="size-3.5 sm:size-4" />{actionLoading ? "Guardando..." : "Confirmar asistencia"}
                   </Button>
                 </div>
               </div>
@@ -914,19 +914,20 @@ export function CenterScheduleCalendar({
 
             {/* Actions */}
             {!pendingAttended && allowedActions.length > 0 && (
-              <div className="mt-4 space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground">Acciones</p>
-                <div className="flex flex-wrap gap-2">
+              <div className="mt-3 sm:mt-4 space-y-1.5 sm:space-y-2">
+                <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground">Acciones</p>
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
                   {allowedActions.map((action) => {
                     const Icon = action.icon;
                     return (
                       <Button key={action.status} variant="ghost" size="sm" className={cn(
+                        "text-xs sm:text-sm",
                         action.status === "CONFIRMED" && "bg-primary/10 text-primary hover:bg-primary/20",
                         action.status === "ATTENDED" && "bg-[#34c759]/10 text-[#248a3d] hover:bg-[#34c759]/20",
                         action.status === "ABSENT" && "bg-[#ff9500]/10 text-[#c77700] hover:bg-[#ff9500]/20",
                         action.status === "CANCELLED" && "bg-destructive/10 text-destructive hover:bg-destructive/20",
                       )} onClick={() => handleActionClick(action.status)}>
-                        <Icon className="size-4" />{action.label}
+                        <Icon className="size-3.5 sm:size-4" />{action.label}
                       </Button>
                     );
                   })}
@@ -934,7 +935,7 @@ export function CenterScheduleCalendar({
               </div>
             )}
 
-            <Button variant="ghost" size="sm" className="w-full mt-4" onClick={closeModal}>Cerrar</Button>
+            <Button variant="ghost" size="sm" className="w-full mt-3 sm:mt-4 text-xs sm:text-sm" onClick={closeModal}>Cerrar</Button>
           </div>
         </div>
       )}

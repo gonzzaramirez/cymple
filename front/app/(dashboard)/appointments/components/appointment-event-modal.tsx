@@ -129,72 +129,74 @@ export function AppointmentEventModal({
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-3">
-            <span className="font-display">
+          <DialogTitle className="flex flex-wrap items-center gap-2">
+            <span className="font-display text-sm sm:text-base truncate max-w-[180px] sm:max-w-none">
               {appointment.patient
                 ? `${appointment.patient.lastName}, ${appointment.patient.firstName}`
                 : "Sin paciente"}
             </span>
-            <Badge variant={cfg.variant}>{cfg.label}</Badge>
-            {(appointment.patient as { absentCount?: number })?.absentCount ? (
-              <span className="flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-700 dark:bg-orange-950 dark:text-orange-400">
-                <AlertCircle className="size-3" />
-                {(appointment.patient as { absentCount?: number }).absentCount} ausencia{(appointment.patient as { absentCount?: number }).absentCount! > 1 ? "s" : ""}
-              </span>
-            ) : null}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge variant={cfg.variant}>{cfg.label}</Badge>
+              {(appointment.patient as { absentCount?: number })?.absentCount ? (
+                <span className="flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-700 dark:bg-orange-950 dark:text-orange-400">
+                  <AlertCircle className="size-3" />
+                  {(appointment.patient as { absentCount?: number }).absentCount} ausencia{(appointment.patient as { absentCount?: number }).absentCount! > 1 ? "s" : ""}
+                </span>
+              ) : null}
+            </div>
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex items-center gap-2.5 rounded-xl bg-muted/50 px-3 py-2.5">
-              <Clock className="size-4 text-muted-foreground" />
-              <div>
-                <p className="text-xs text-muted-foreground">Fecha</p>
-                <p className="text-sm font-medium">
+        <div className="space-y-3 sm:space-y-4 py-1 sm:py-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+            <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-2.5 sm:px-3 py-2 sm:py-2.5">
+              <Clock className="size-3.5 sm:size-4 shrink-0 text-muted-foreground" />
+              <div className="min-w-0">
+                <p className="text-[11px] sm:text-xs text-muted-foreground">Fecha</p>
+                <p className="text-xs sm:text-sm font-medium truncate">
                   {format(new Date(appointment.startAt), "EEE dd/MM HH:mm", {
                     locale: es,
                   })}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2.5 rounded-xl bg-muted/50 px-3 py-2.5">
-              <Clock className="size-4 text-muted-foreground" />
-              <div>
-                <p className="text-xs text-muted-foreground">Duración</p>
-                <p className="text-sm font-medium">
+            <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-2.5 sm:px-3 py-2 sm:py-2.5">
+              <Clock className="size-3.5 sm:size-4 shrink-0 text-muted-foreground" />
+              <div className="min-w-0">
+                <p className="text-[11px] sm:text-xs text-muted-foreground">Duración</p>
+                <p className="text-xs sm:text-sm font-medium">
                   {appointment.durationMinutes} min
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2.5 rounded-xl bg-muted/50 px-3 py-2.5">
-              <DollarSign className="size-4 text-muted-foreground" />
-              <div>
-                <p className="text-xs text-muted-foreground">Honorario</p>
-                <p className="text-sm font-mono font-medium">
+            <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-2.5 sm:px-3 py-2 sm:py-2.5">
+              <DollarSign className="size-3.5 sm:size-4 shrink-0 text-muted-foreground" />
+              <div className="min-w-0">
+                <p className="text-[11px] sm:text-xs text-muted-foreground">Honorario</p>
+                <p className="text-xs sm:text-sm font-mono font-medium">
                   $ {appointment.fee}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2.5 rounded-xl bg-muted/50 px-3 py-2.5">
+            <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-2.5 sm:px-3 py-2 sm:py-2.5">
               {isVirtual ? (
-                <Video className="size-4 text-muted-foreground" />
+                <Video className="size-3.5 sm:size-4 shrink-0 text-muted-foreground" />
               ) : (
-                <MapPin className="size-4 text-muted-foreground" />
+                <MapPin className="size-3.5 sm:size-4 shrink-0 text-muted-foreground" />
               )}
-              <div>
-                <p className="text-xs text-muted-foreground">Modalidad</p>
-                <p className="text-sm font-medium">
+              <div className="min-w-0">
+                <p className="text-[11px] sm:text-xs text-muted-foreground">Modalidad</p>
+                <p className="text-xs sm:text-sm font-medium">
                   {isVirtual ? "Virtual" : "Presencial"}
                 </p>
               </div>
             </div>
             {appointment.reason && (
-              <div className="col-span-2 flex items-start gap-2.5 rounded-xl bg-muted/50 px-3 py-2.5">
-                <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+              <div className="col-span-1 sm:col-span-2 flex items-start gap-2 rounded-xl bg-muted/50 px-2.5 sm:px-3 py-2 sm:py-2.5">
+                <FileText className="mt-0.5 size-3.5 sm:size-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">Motivo</p>
-                  <p className="text-sm font-medium leading-relaxed wrap-break-word whitespace-pre-wrap">
+                  <p className="text-[11px] sm:text-xs text-muted-foreground">Motivo</p>
+                  <p className="text-xs sm:text-sm font-medium leading-relaxed break-words whitespace-pre-wrap">
                     {appointment.reason}
                   </p>
                 </div>
@@ -204,46 +206,46 @@ export function AppointmentEventModal({
 
           {/* Selector de pago inline al marcar ATENDIDO */}
           {pendingAttended && (
-            <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground">
+            <div className="rounded-xl border border-border bg-muted/30 p-3 sm:p-4 space-y-2 sm:space-y-3">
+              <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground">
                 ¿Cómo pagó el paciente?
               </p>
-              <div className="flex gap-3">
+              <div className="flex gap-2 sm:gap-3">
                 <button
                   type="button"
                   onClick={() => setSelectedPayment("CASH")}
                   className={cn(
-                    "flex flex-1 items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors",
+                    "flex flex-1 items-center justify-center gap-1.5 rounded-xl border px-2.5 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm font-medium transition-colors",
                     selectedPayment === "CASH"
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
                   )}
                 >
-                  <Banknote className="size-4" />
+                  <Banknote className="size-3.5 sm:size-4" />
                   Efectivo
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedPayment("TRANSFER")}
                   className={cn(
-                    "flex flex-1 items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors",
+                    "flex flex-1 items-center justify-center gap-1.5 rounded-xl border px-2.5 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm font-medium transition-colors",
                     selectedPayment === "TRANSFER"
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
                   )}
                 >
-                  <ArrowLeftRight className="size-4" />
+                  <ArrowLeftRight className="size-3.5 sm:size-4" />
                   Transferencia
                 </button>
               </div>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[10px] sm:text-[11px] text-muted-foreground">
                 Si pagó por transferencia, se enviará un recordatorio automático de pago a las 24hs.
               </p>
-              <div className="flex gap-2 pt-1">
+              <div className="flex gap-2 pt-0.5 sm:pt-1">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="flex-1"
+                  className="flex-1 text-xs sm:text-sm"
                   onClick={() => {
                     setPendingAttended(false);
                     setSelectedPayment(null);
@@ -253,11 +255,11 @@ export function AppointmentEventModal({
                 </Button>
                 <Button
                   size="sm"
-                  className="flex-1 bg-[#34c759]/10 text-[#248a3d] hover:bg-[#34c759]/20"
+                  className="flex-1 bg-[#34c759]/10 text-[#248a3d] hover:bg-[#34c759]/20 text-xs sm:text-sm"
                   disabled={!selectedPayment || actionLoading}
                   onClick={() => selectedPayment && void setStatus("ATTENDED", selectedPayment)}
                 >
-                  <CheckCircle2 className="size-4" />
+                  <CheckCircle2 className="size-3.5 sm:size-4" />
                   {actionLoading ? "Guardando..." : "Confirmar asistencia"}
                 </Button>
               </div>
@@ -265,30 +267,30 @@ export function AppointmentEventModal({
           )}
 
           {!pendingAttended && allowed.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground">
+            <div className="space-y-1.5 sm:space-y-2">
+              <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground">
                 Acciones
               </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5 sm:gap-2">
                 {allowed.map((action) => (
                   <Button
                     key={action.status}
                     variant="ghost"
                     size="sm"
-                    className={actionStyles[action.status] ?? ""}
+                    className={cn(actionStyles[action.status] ?? "", "text-xs sm:text-sm")}
                     onClick={() => handleActionClick(action.status)}
                   >
                     {action.status === "ATTENDED" && (
-                      <CheckCircle2 className="size-4" />
+                      <CheckCircle2 className="size-3.5 sm:size-4" />
                     )}
                     {action.status === "ABSENT" && (
-                      <AlertCircle className="size-4" />
+                      <AlertCircle className="size-3.5 sm:size-4" />
                     )}
                     {action.status === "CANCELLED" && (
-                      <XCircle className="size-4" />
+                      <XCircle className="size-3.5 sm:size-4" />
                     )}
                     {action.status === "CONFIRMED" && (
-                      <CheckCircle2 className="size-4" />
+                      <CheckCircle2 className="size-3.5 sm:size-4" />
                     )}
                     {action.label}
                   </Button>

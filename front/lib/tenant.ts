@@ -45,11 +45,14 @@ export function resolveTenantContext(options: {
     .find(Boolean) ?? "";
 
   const hostname = normalizeHostLike(tenantHost);
+  const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1";
+
   const tenantSlug =
     normalizeSlug(options.tenantSlugHeader) ??
     resolveTenantSlugFromHostname(hostname) ??
-    // Fallback local: si no hay BASE_DOMAIN y no es producción, usar "demo"
-    (!BASE_DOMAIN && !IS_PROD ? "demo" : null);
+    // Fallback local: si no hay BASE_DOMAIN y no es producción, usar "demo".
+    // También aplica para localhost aunque BASE_DOMAIN esté definido (desarrollo local)
+    ((!BASE_DOMAIN && !IS_PROD) || (isLocalhost && !IS_PROD) ? "demo" : null);
 
   return {
     tenantHost,
