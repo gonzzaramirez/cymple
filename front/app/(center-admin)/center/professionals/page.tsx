@@ -8,9 +8,22 @@ export const metadata: Metadata = {
   title: "Profesionales | Centro Médico | Cymple",
 };
 
-export default async function ProfessionalsPage() {
+type Props = {
+  searchParams: Promise<{ query?: string; status?: string }>;
+};
+
+export default async function ProfessionalsPage({ searchParams }: Props) {
+  const sp = await searchParams;
+
+  const qs = new URLSearchParams();
+  if (sp.query?.trim()) qs.set("search", sp.query.trim());
+  if (sp.status && sp.status !== "all") qs.set("status", sp.status);
+
+  const queryString = qs.toString();
+  const endpoint = `organization/professionals${queryString ? `?${queryString}` : ""}`;
+
   const professionals = await serverApiFetch<MemberProfessional[]>(
-    "organization/professionals",
+    endpoint,
   ).catch(() => [] as MemberProfessional[]);
 
   return (
@@ -28,7 +41,11 @@ export default async function ProfessionalsPage() {
         <ProfessionalCreateDialog />
       </div>
 
-      <ProfessionalsList professionals={professionals} />
+      <ProfessionalsList
+        professionals={professionals}
+        initialQuery={sp.query ?? ""}
+        initialStatus={sp.status ?? "all"}
+      />
     </section>
   );
 }

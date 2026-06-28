@@ -69,6 +69,15 @@ export function getProfessionalColumns(): ColumnDef<MemberProfessional>[] {
         ),
     },
     {
+      id: "publicBookingEnabled",
+      accessorKey: "publicBookingEnabled",
+      header: "Turnos online",
+      cell: ({ row }) =>
+        row.original.publicBookingEnabled ? (
+          <Badge variant="outline">Turnos online</Badge>
+        ) : null,
+    },
+    {
       id: "actions",
       header: "",
       cell: ({ row }) => (

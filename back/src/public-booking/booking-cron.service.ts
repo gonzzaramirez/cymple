@@ -6,7 +6,10 @@ import { EvolutionApiService } from '../whatsapp/evolution-api.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MessageTemplatesService } from '../message-templates/message-templates.service';
-import { formatDateOnly, formatDateOnlyShort } from '../common/utils/date.utils';
+import {
+  formatDateOnly,
+  formatDateOnlyShort,
+} from '../common/utils/date.utils';
 @Injectable()
 export class BookingCronService {
   private readonly logger = new Logger(BookingCronService.name);
@@ -51,21 +54,24 @@ export class BookingCronService {
             horario: booking.slotStart,
           });
 
-          await this.evolution.sendText(waInstance, booking.patientPhone, message);
+          await this.evolution.sendText(
+            waInstance,
+            booking.patientPhone,
+            message,
+          );
         }
       }
 
       // In-app notification
-      void this.notifications
-        .create({
-          professionalId: professional.id,
-          organizationId: professional.organizationId ?? undefined,
-          type: 'BOOKING_EXPIRED',
-          title: 'Reserva vencida por seña no pagada',
-          body: `${booking.patientName} — ${booking.slotStart}hs del ${formatDateOnlyShort(booking.slotDate)}`,
-          link: `/bookings?id=${booking.id}`,
-          metadata: { bookingToken: booking.token },
-        });
+      void this.notifications.create({
+        professionalId: professional.id,
+        organizationId: professional.organizationId ?? undefined,
+        type: 'BOOKING_EXPIRED',
+        title: 'Reserva vencida por seña no pagada',
+        body: `${booking.patientName} — ${booking.slotStart}hs del ${formatDateOnlyShort(booking.slotDate)}`,
+        link: `/bookings?id=${booking.id}`,
+        metadata: { bookingToken: booking.token },
+      });
     }
   }
 
@@ -94,10 +100,16 @@ export class BookingCronService {
           fechaHumana: slotDateHuman,
           horario: booking.slotStart,
           aliasPago: professional.paymentAlias ?? '—',
-          montoSena: Number(professional.depositAmount ?? 0).toLocaleString('es-AR'),
+          montoSena: Number(professional.depositAmount ?? 0).toLocaleString(
+            'es-AR',
+          ),
         });
 
-        await this.evolution.sendText(waInstance, booking.patientPhone, message);
+        await this.evolution.sendText(
+          waInstance,
+          booking.patientPhone,
+          message,
+        );
       }
 
       await this.publicBookingService.markNotifiedExpiry(booking.id);
@@ -153,16 +165,15 @@ export class BookingCronService {
       await this.publicBookingService.expireUnconfirmedBooking(booking.id);
 
       // In-app notification for the professional
-      void this.notifications
-        .create({
-          professionalId: professional.id,
-          organizationId: professional.organizationId ?? undefined,
-          type: 'BOOKING_EXPIRED',
-          title: 'Reserva cancelada por falta de confirmación',
-          body: `${booking.patientName} — ${booking.slotStart}hs del ${formatDateOnlyShort(booking.slotDate)}`,
-          link: `/bookings?id=${booking.id}`,
-          metadata: { bookingToken: booking.token },
-        });
+      void this.notifications.create({
+        professionalId: professional.id,
+        organizationId: professional.organizationId ?? undefined,
+        type: 'BOOKING_EXPIRED',
+        title: 'Reserva cancelada por falta de confirmación',
+        body: `${booking.patientName} — ${booking.slotStart}hs del ${formatDateOnlyShort(booking.slotDate)}`,
+        link: `/bookings?id=${booking.id}`,
+        metadata: { bookingToken: booking.token },
+      });
     }
   }
 

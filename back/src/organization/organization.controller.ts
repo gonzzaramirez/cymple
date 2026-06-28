@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -34,8 +35,16 @@ export class OrganizationController {
   }
 
   @Get('professionals')
-  listProfessionals(@CurrentOrganizationId() organizationId: string) {
-    return this.organizationService.listProfessionals(organizationId);
+  listProfessionals(
+    @CurrentOrganizationId() organizationId: string,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.organizationService.listProfessionals(
+      organizationId,
+      search,
+      status,
+    );
   }
 
   @Post('professionals')

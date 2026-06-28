@@ -14,6 +14,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import { MemberProfessional } from "@/lib/types";
 
 type FormValues = {
@@ -23,6 +25,15 @@ type FormValues = {
   consultationMinutes: string;
   bufferMinutes: string;
   standardFee: string;
+  publicBookingEnabled: boolean;
+  publicBookingSlug: string;
+  depositAmount: string;
+  depositWindowHours: string;
+  paymentAlias: string;
+  bookingAutoCancel: boolean;
+  bookingAutoCancelHours: string;
+  maxActiveBookings: string;
+  waPublicBookingPhone: string;
 };
 
 type FieldError = Partial<Record<keyof FormValues, string>>;
@@ -41,6 +52,21 @@ function validate(values: FormValues): FieldError {
     (isNaN(Number(values.bufferMinutes)) || Number(values.bufferMinutes) < 0)
   )
     errors.bufferMinutes = "Valor inválido";
+  if (
+    values.publicBookingSlug !== "" &&
+    !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(values.publicBookingSlug)
+  )
+    errors.publicBookingSlug = "Formato inválido (solo minúsculas, números y guiones)";
+  if (
+    values.maxActiveBookings !== "" &&
+    (isNaN(Number(values.maxActiveBookings)) || Number(values.maxActiveBookings) < 1)
+  )
+    errors.maxActiveBookings = "Mínimo 1 turno activo";
+  if (
+    values.depositAmount !== "" &&
+    (isNaN(Number(values.depositAmount)) || Number(values.depositAmount) < 0)
+  )
+    errors.depositAmount = "El valor debe ser 0 o mayor";
   return errors;
 }
 
@@ -55,7 +81,7 @@ export function ProfessionalEditDialog({ professional }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
 
-  const { register, handleSubmit } = useForm<FormValues>({
+  const { register, handleSubmit, watch } = useForm<FormValues>({
     defaultValues: {
       fullName: professional.fullName,
       phone: professional.phone ?? "",
@@ -63,6 +89,15 @@ export function ProfessionalEditDialog({ professional }: Props) {
       consultationMinutes: String(professional.consultationMinutes ?? 30),
       bufferMinutes: String(professional.bufferMinutes ?? 10),
       standardFee: String(Number(professional.standardFee) ?? 0),
+      publicBookingEnabled: professional.publicBookingEnabled ?? false,
+      publicBookingSlug: professional.publicBookingSlug ?? "",
+      depositAmount: professional.depositAmount ? String(Number(professional.depositAmount)) : "",
+      depositWindowHours: String(professional.depositWindowHours ?? 24),
+      paymentAlias: professional.paymentAlias ?? "",
+      bookingAutoCancel: professional.bookingAutoCancel ?? true,
+      bookingAutoCancelHours: String(professional.bookingAutoCancelHours ?? 8),
+      maxActiveBookings: String(professional.maxActiveBookings ?? 5),
+      waPublicBookingPhone: professional.waPublicBookingPhone ?? "",
     },
   });
 
@@ -93,6 +128,23 @@ export function ProfessionalEditDialog({ professional }: Props) {
             bufferMinutes: values.bufferMinutes
               ? Number(values.bufferMinutes)
               : undefined,
+            publicBookingEnabled: values.publicBookingEnabled,
+            publicBookingSlug: values.publicBookingSlug || null,
+            depositAmount: values.depositAmount !== ""
+              ? Number(values.depositAmount)
+              : null,
+            depositWindowHours: values.depositWindowHours !== ""
+              ? Number(values.depositWindowHours)
+              : undefined,
+            paymentAlias: values.paymentAlias || null,
+            bookingAutoCancel: values.bookingAutoCancel,
+            bookingAutoCancelHours: values.bookingAutoCancelHours !== ""
+              ? Number(values.bookingAutoCancelHours)
+              : undefined,
+            maxActiveBookings: values.maxActiveBookings !== ""
+              ? Number(values.maxActiveBookings)
+              : undefined,
+            waPublicBookingPhone: values.waPublicBookingPhone || null,
           }),
         },
       );
@@ -180,6 +232,125 @@ export function ProfessionalEditDialog({ professional }: Props) {
                 <p className="text-sm text-destructive">{fieldErrors.bufferMinutes}</p>
               )}
             </div>
+          </div>
+
+          {/* Public Booking Section */}
+          <Separator className="my-2" />
+          <h3 className="text-sm font-semibold text-foreground">
+            Configuración de turnos online
+          </h3>
+
+          <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+            <div>
+              <Label htmlFor="publicBookingEnabled" className="text-sm font-medium">
+                Turnos online habilitados
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Permitir que pacientes reserven turnos por la web
+              </p>
+            </div>
+            <Switch
+              id="publicBookingEnabled"
+              {...register("publicBookingEnabled")}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="publicBookingSlug">
+              Slug de turnos online
+              <span className="text-xs font-normal text-muted-foreground ml-1">
+                (ej: dr-smith)
+              </span>
+            </Label>
+            <Input id="publicBookingSlug" placeholder="dr-smith" {...register("publicBookingSlug")} />
+            {fieldErrors.publicBookingSlug && (
+              <p className="text-sm text-destructive">{fieldErrors.publicBookingSlug}</p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="maxActiveBookings">Turnos activos máximos</Label>
+              <Input
+                id="maxActiveBookings"
+                type="number"
+                min={1}
+                {...register("maxActiveBookings")}
+              />
+              {fieldErrors.maxActiveBookings && (
+                <p className="text-sm text-destructive">{fieldErrors.maxActiveBookings}</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="depositWindowHours">Plazo seña (horas)</Label>
+              <Input
+                id="depositWindowHours"
+                type="number"
+                min={0}
+                {...register("depositWindowHours")}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="depositAmount">Seña requerida ($)</Label>
+            <Input
+              id="depositAmount"
+              type="number"
+              min={0}
+              step={0.01}
+              placeholder="0.00"
+              {...register("depositAmount")}
+            />
+            {fieldErrors.depositAmount && (
+              <p className="text-sm text-destructive">{fieldErrors.depositAmount}</p>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+            <div>
+              <Label htmlFor="bookingAutoCancel" className="text-sm font-medium">
+                Cancelación automática
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Cancelar turnos no confirmados automáticamente
+              </p>
+            </div>
+            <Switch
+              id="bookingAutoCancel"
+              {...register("bookingAutoCancel")}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="bookingAutoCancelHours">
+              Horas para cancelación automática
+            </Label>
+            <Input
+              id="bookingAutoCancelHours"
+              type="number"
+              min={0}
+              {...register("bookingAutoCancelHours")}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="paymentAlias">Alias de pago</Label>
+            <Input id="paymentAlias" placeholder="alias.mp" {...register("paymentAlias")} />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="waPublicBookingPhone">
+              WhatsApp de turnos online
+              <span className="text-xs font-normal text-muted-foreground ml-1">
+                (ej: +5491122334455)
+              </span>
+            </Label>
+            <Input
+              id="waPublicBookingPhone"
+              placeholder="+549..."
+              {...register("waPublicBookingPhone")}
+            />
           </div>
 
           {serverError && (

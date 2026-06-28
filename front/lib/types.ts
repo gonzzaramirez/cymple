@@ -12,6 +12,16 @@ export type MemberProfessional = {
   createdAt: string;
   totalAppointments: number;
   totalPatients: number;
+  // Public booking fields
+  publicBookingEnabled: boolean;
+  publicBookingSlug: string | null;
+  depositAmount: string | null;
+  depositWindowHours: number;
+  paymentAlias: string | null;
+  bookingAutoCancel: boolean;
+  bookingAutoCancelHours: number;
+  maxActiveBookings: number;
+  waPublicBookingPhone: string | null;
 };
 
 export type ApiList<T> = {

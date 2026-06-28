@@ -83,6 +83,11 @@ export class PublicBookingController {
     return status;
   }
 
+  @Get('organizations/:slug/professionals')
+  async getOrganizationProfessionals(@Param('slug') slug: string) {
+    return this.publicBookingService.getOrganizationProfessionals(slug);
+  }
+
   @Get('professionals/:slug/intake-status')
   async checkIntakeStatus(
     @Param('slug') slug: string,

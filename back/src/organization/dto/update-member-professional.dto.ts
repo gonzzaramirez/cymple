@@ -4,7 +4,9 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   Min,
+  MinLength,
 } from 'class-validator';
 
 export class UpdateMemberProfessionalDto {
@@ -42,4 +44,46 @@ export class UpdateMemberProfessionalDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  publicBookingEnabled?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @Matches(/^[a-z0-9]+(-[a-z0-9]+)*$/)
+  publicBookingSlug?: string;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  depositAmount?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  depositWindowHours?: number;
+
+  @IsOptional()
+  @IsString()
+  paymentAlias?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  bookingAutoCancel?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  bookingAutoCancelHours?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxActiveBookings?: number;
+
+  @IsOptional()
+  @IsString()
+  waPublicBookingPhone?: string;
 }

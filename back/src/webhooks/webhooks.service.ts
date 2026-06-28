@@ -61,8 +61,6 @@ export class WebhooksService {
     const instanceName = extractInstanceName(payload);
     const eventType = detectEventType(payload);
 
-
-
     // ── CONNECTION_UPDATE: update waStatus in DB ──
     if (eventType === 'CONNECTION_UPDATE') {
       await this.handleConnectionUpdate(payload, instanceName);

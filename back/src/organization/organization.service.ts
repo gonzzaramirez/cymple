@@ -30,9 +30,25 @@ export class OrganizationService {
     });
   }
 
-  async listProfessionals(organizationId: string) {
+  async listProfessionals(
+    organizationId: string,
+    search?: string,
+    status?: string,
+  ) {
+    const where: any = { organizationId };
+
+    if (search?.trim()) {
+      where.fullName = { contains: search.trim(), mode: 'insensitive' };
+    }
+
+    if (status === 'active') {
+      where.isActive = true;
+    } else if (status === 'inactive') {
+      where.isActive = false;
+    }
+
     const professionals = await this.prisma.professional.findMany({
-      where: { organizationId },
+      where,
       orderBy: { fullName: 'asc' },
       select: {
         id: true,
@@ -46,6 +62,15 @@ export class OrganizationService {
         standardFee: true,
         isActive: true,
         createdAt: true,
+        publicBookingEnabled: true,
+        publicBookingSlug: true,
+        depositAmount: true,
+        depositWindowHours: true,
+        paymentAlias: true,
+        bookingAutoCancel: true,
+        bookingAutoCancelHours: true,
+        maxActiveBookings: true,
+        waPublicBookingPhone: true,
       },
     });
 
@@ -160,6 +185,38 @@ export class OrganizationService {
             ? { standardFee: new Prisma.Decimal(dto.standardFee) }
             : {}),
           ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+          ...(dto.publicBookingEnabled !== undefined
+            ? { publicBookingEnabled: dto.publicBookingEnabled }
+            : {}),
+          ...(dto.publicBookingSlug !== undefined
+            ? { publicBookingSlug: dto.publicBookingSlug || null }
+            : {}),
+          ...(dto.depositAmount !== undefined
+            ? {
+                depositAmount:
+                  dto.depositAmount !== null
+                    ? new Prisma.Decimal(dto.depositAmount)
+                    : null,
+              }
+            : {}),
+          ...(dto.depositWindowHours !== undefined
+            ? { depositWindowHours: dto.depositWindowHours }
+            : {}),
+          ...(dto.paymentAlias !== undefined
+            ? { paymentAlias: dto.paymentAlias || null }
+            : {}),
+          ...(dto.bookingAutoCancel !== undefined
+            ? { bookingAutoCancel: dto.bookingAutoCancel }
+            : {}),
+          ...(dto.bookingAutoCancelHours !== undefined
+            ? { bookingAutoCancelHours: dto.bookingAutoCancelHours }
+            : {}),
+          ...(dto.maxActiveBookings !== undefined
+            ? { maxActiveBookings: dto.maxActiveBookings }
+            : {}),
+          ...(dto.waPublicBookingPhone !== undefined
+            ? { waPublicBookingPhone: dto.waPublicBookingPhone || null }
+            : {}),
         },
         select: {
           id: true,
@@ -174,6 +231,15 @@ export class OrganizationService {
           standardFee: true,
           isActive: true,
           updatedAt: true,
+          publicBookingEnabled: true,
+          publicBookingSlug: true,
+          depositAmount: true,
+          depositWindowHours: true,
+          paymentAlias: true,
+          bookingAutoCancel: true,
+          bookingAutoCancelHours: true,
+          maxActiveBookings: true,
+          waPublicBookingPhone: true,
         },
       });
     } catch (error) {
@@ -277,6 +343,12 @@ export class OrganizationService {
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2002'
     ) {
+      const target = error.meta?.target as string[] | undefined;
+      if (target?.includes('publicBookingSlug')) {
+        throw new ConflictException(
+          'El slug de turnos online ya está en uso',
+        );
+      }
       throw new ConflictException('Ya existe un profesional con ese email');
     }
     throw error;

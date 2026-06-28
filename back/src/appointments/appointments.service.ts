@@ -127,8 +127,7 @@ export class AppointmentsService {
       });
     }
 
-    void this.whatsappMessaging
-      .sendAppointmentCreated(created.id);
+    void this.whatsappMessaging.sendAppointmentCreated(created.id);
 
     const previousAppointments = await this.prisma.appointment.count({
       where: {
@@ -137,18 +136,17 @@ export class AppointmentsService {
       },
     });
     if (previousAppointments <= 1) {
-      void this.notifications
-        .create({
-          professionalId,
-          organizationId: professional.organizationId ?? undefined,
-          type: 'NEW_PATIENT',
-          title: `Nuevo paciente: ${patient.firstName} ${patient.lastName}`,
-          body: patient.phone ? `Tel: ${patient.phone}` : undefined,
-          link: `/patients?id=${patient.id}`,
-          patientId: patient.id,
-          appointmentId: created.id,
-          metadata: { patientName: `${patient.firstName} ${patient.lastName}` },
-        });
+      void this.notifications.create({
+        professionalId,
+        organizationId: professional.organizationId ?? undefined,
+        type: 'NEW_PATIENT',
+        title: `Nuevo paciente: ${patient.firstName} ${patient.lastName}`,
+        body: patient.phone ? `Tel: ${patient.phone}` : undefined,
+        link: `/patients?id=${patient.id}`,
+        patientId: patient.id,
+        appointmentId: created.id,
+        metadata: { patientName: `${patient.firstName} ${patient.lastName}` },
+      });
     }
 
     // Si el recordatorio ya debería haberse enviado (turno cercano), mandarlo ya
@@ -156,8 +154,7 @@ export class AppointmentsService {
     const reminderTime = addMinutes(startAt, -professional.reminderHours * 60);
     if (reminderTime <= new Date()) {
       setTimeout(
-        () =>
-          void this.whatsappMessaging.sendAppointmentReminder(created.id),
+        () => void this.whatsappMessaging.sendAppointmentReminder(created.id),
         60_000,
       );
     }
@@ -573,23 +570,23 @@ export class AppointmentsService {
       },
     });
 
-    void this.whatsappMessaging
-      .sendAppointmentCancelledByProfessional(appointment.id);
+    void this.whatsappMessaging.sendAppointmentCancelledByProfessional(
+      appointment.id,
+    );
 
-    void this.notifications
-      .create({
-        professionalId: appointment.professionalId,
-        organizationId: appointment.organizationId ?? undefined,
-        type: 'APPOINTMENT_CANCELLED',
-        title: `Turno cancelado`,
-        body: dto.reason
-          ? `Motivo: ${dto.reason}`
-          : 'Turno cancelado por el profesional',
-        link: `/appointments?id=${appointment.id}`,
-        appointmentId: appointment.id,
-        patientId: appointment.patientId,
-        metadata: { reason: dto.reason ?? null },
-      });
+    void this.notifications.create({
+      professionalId: appointment.professionalId,
+      organizationId: appointment.organizationId ?? undefined,
+      type: 'APPOINTMENT_CANCELLED',
+      title: `Turno cancelado`,
+      body: dto.reason
+        ? `Motivo: ${dto.reason}`
+        : 'Turno cancelado por el profesional',
+      link: `/appointments?id=${appointment.id}`,
+      appointmentId: appointment.id,
+      patientId: appointment.patientId,
+      metadata: { reason: dto.reason ?? null },
+    });
 
     return updated;
   }

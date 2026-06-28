@@ -526,13 +526,13 @@ export function CenterScheduleCalendar({
   function renderResourceView() {
     return (
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
-        <div className="flex min-w-[900px]">
+        <div className="flex">
           {/* Time column */}
-          <div className="w-16 shrink-0 border-r border-border bg-muted/50">
-            <div className="h-12" />
+          <div className="w-10 shrink-0 border-r border-border bg-muted/50 lg:w-12">
+            <div className="h-10 lg:h-12" />
             {hours.map((hour) => (
-              <div key={hour} className="flex items-start justify-end border-t border-border/50 pr-2 pt-1" style={{ height: `${HOUR_HEIGHT}px` }}>
-                <span className="text-[11px] font-medium text-muted-foreground">{String(hour).padStart(2, "0")}:00</span>
+              <div key={hour} className="flex items-start justify-end border-t border-border/50 pr-1 pt-1 lg:pr-2" style={{ height: `${HOUR_HEIGHT}px` }}>
+                <span className="text-[10px] font-medium text-muted-foreground lg:text-[11px]">{String(hour).padStart(2, "0")}:00</span>
               </div>
             ))}
           </div>
@@ -542,14 +542,16 @@ export function CenterScheduleCalendar({
             const color = getProfessionalColor(prof.id, professionalColorIndex);
             const profItems = dayItems.filter((a) => a.professionalId === prof.id);
             const layout = computeHorizontalLayout(profItems);
+            const colCount = activeProfessionals.length;
+            const colMinW = colCount > 4 ? "min-w-[120px]" : colCount > 2 ? "min-w-[150px]" : "min-w-[180px]";
             return (
-              <div key={prof.id} className="flex-1 border-r border-border last:border-r-0 min-w-[200px]">
-                <div className="h-12 border-b border-border px-3 flex items-center gap-2">
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold text-white" style={{ backgroundColor: color.dot }}>
+              <div key={prof.id} className={cn("flex-1 border-r border-border last:border-r-0", colMinW)}>
+                <div className="h-10 lg:h-12 border-b border-border px-2 lg:px-3 flex items-center gap-1.5 lg:gap-2">
+                  <span className="inline-flex h-5 w-5 lg:h-6 lg:w-6 items-center justify-center rounded-full text-[9px] lg:text-[11px] font-semibold text-white shrink-0" style={{ backgroundColor: color.dot }}>
                     {professionalInitials(professionalDisplayName(prof))}
                   </span>
-                  <span className="text-sm font-semibold truncate">{professionalDisplayName(prof)}</span>
-                  <span className="text-xs text-muted-foreground ml-auto">{profItems.length}</span>
+                  <span className="text-xs lg:text-sm font-semibold truncate">{professionalDisplayName(prof)}</span>
+                  <span className="text-[10px] lg:text-xs text-muted-foreground ml-auto">{profItems.length}</span>
                 </div>
                 <div className="relative" style={{ minHeight: `${(DAY_END_HOUR - DAY_START_HOUR) * HOUR_HEIGHT}px` }}>
                   {hours.map((hour) => (
@@ -568,22 +570,20 @@ export function CenterScheduleCalendar({
   function renderWeekView() {
     const weekDays = getWeekDays(focusedDate).slice(0, 5); // Mon-Fri
     const colCount = activeProfessionals.length || 1;
-    const subColW = colCount <= 2 ? 120 : colCount <= 3 ? 100 : 85;
-    const minW = 64 + colCount * 5 * subColW;
 
     return (
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
-        <div className="flex" style={{ minWidth: `${minW}px` }}>
+        <div className="flex min-w-[640px]">
           {/* Time column */}
-          <div className="w-16 shrink-0 border-r border-border bg-muted/50">
-            <div className="h-16" /> {/* double header */}
+          <div className="w-10 shrink-0 border-r border-border bg-muted/50 lg:w-12">
+            <div className="h-14 lg:h-16" /> {/* double header */}
             {hours.map((hour) => (
               <div
                 key={hour}
-                className="flex items-start justify-end border-t border-border/50 pr-2 pt-1"
+                className="flex items-start justify-end border-t border-border/50 pr-1 pt-1 lg:pr-2"
                 style={{ height: `${HOUR_HEIGHT}px` }}
               >
-                <span className="text-[11px] font-medium text-muted-foreground">
+                <span className="text-[10px] font-medium text-muted-foreground lg:text-[11px]">
                   {String(hour).padStart(2, "0")}:00
                 </span>
               </div>
@@ -601,7 +601,7 @@ export function CenterScheduleCalendar({
                 {/* Day header */}
                 <div
                   className={cn(
-                    "h-8 flex items-center justify-center border-b border-border text-xs font-semibold",
+                    "h-7 lg:h-8 flex items-center justify-center border-b border-border text-[10px] lg:text-xs font-semibold",
                     isToday(day) && "text-primary",
                   )}
                 >
@@ -626,17 +626,16 @@ export function CenterScheduleCalendar({
                         className={cn(
                           "flex-1 flex flex-col border-r border-border/50 last:border-r-0",
                         )}
-                        style={{ minWidth: `${subColW}px` }}
                       >
                         {/* Professional sub-header */}
-                        <div className="h-8 flex items-center justify-center gap-1 border-b border-border/50 px-1">
+                        <div className="h-7 lg:h-8 flex items-center justify-center gap-1 border-b border-border/50 px-0.5 lg:px-1">
                           <span
-                            className="inline-flex size-4 items-center justify-center rounded-full text-[9px] font-semibold text-white shrink-0"
+                            className="inline-flex size-3.5 lg:size-4 items-center justify-center rounded-full text-[7px] lg:text-[9px] font-semibold text-white shrink-0"
                             style={{ backgroundColor: color.dot }}
                           >
                             {professionalInitials(professionalDisplayName(prof))}
                           </span>
-                          <span className="text-[10px] font-medium text-muted-foreground truncate">
+                          <span className="text-[8px] lg:text-[10px] font-medium text-muted-foreground truncate">
                             {profItems.length > 0 && profItems.length}
                           </span>
                         </div>

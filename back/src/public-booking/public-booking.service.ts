@@ -22,7 +22,10 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { MessageTemplatesService } from '../message-templates/message-templates.service';
 import { normalizeArWhatsappNumber } from '../common/utils/phone.utils';
 import { addMinutes, formatDateOnly } from '../common/utils/date.utils';
-import { generateBookingToken, extractBookingToken } from './booking-token.util';
+import {
+  generateBookingToken,
+  extractBookingToken,
+} from './booking-token.util';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { BookingQueryDto } from './dto/booking-query.dto';
 
@@ -37,6 +40,8 @@ export interface ProfessionalPublicInfo {
   consultationMinutes: number;
   standardFee: Prisma.Decimal;
   paymentAlias: string | null;
+  photoUrl?: string | null;
+  publicBookingSlug?: string | null;
 }
 
 export interface SlotInfo {
@@ -156,6 +161,46 @@ export class PublicBookingService {
       standardFee: professional.standardFee,
       paymentAlias: professional.paymentAlias,
     };
+  }
+
+  async getOrganizationProfessionals(orgSlug: string): Promise<ProfessionalPublicInfo[]> {
+    const org = await this.prisma.organization.findUnique({
+      where: { slug: orgSlug },
+      select: { id: true },
+    });
+
+    if (!org) return [];
+
+    const professionals = await this.prisma.professional.findMany({
+      where: {
+        organizationId: org.id,
+        publicBookingEnabled: true,
+      },
+      select: {
+        id: true,
+        fullName: true,
+        specialty: true,
+        depositAmount: true,
+        depositWindowHours: true,
+        consultationMinutes: true,
+        standardFee: true,
+        paymentAlias: true,
+        publicBookingSlug: true,
+      },
+      orderBy: { fullName: 'asc' },
+    });
+
+    return professionals.map((p) => ({
+      id: p.id,
+      fullName: p.fullName,
+      specialty: p.specialty,
+      depositAmount: p.depositAmount,
+      depositWindowHours: p.depositWindowHours,
+      consultationMinutes: p.consultationMinutes,
+      standardFee: p.standardFee,
+      paymentAlias: p.paymentAlias,
+      publicBookingSlug: p.publicBookingSlug,
+    }));
   }
 
   async getSlots(
@@ -321,11 +366,19 @@ export class PublicBookingService {
   }
 
   /** Format a YYYY-MM-DD date to Spanish day + month name (AR timezone safe). */
-  private formatSlotDateSpanish(dateStr: string): [dayName: string, monthName: string] {
+  private formatSlotDateSpanish(
+    dateStr: string,
+  ): [dayName: string, monthName: string] {
     const [y, m, d] = dateStr.split('-').map(Number);
     const dt = new Date(y, m - 1, d, 12, 0, 0);
-    const day = new Intl.DateTimeFormat('es-AR', { weekday: 'long', timeZone: 'America/Argentina/Buenos_Aires' }).format(dt);
-    const month = new Intl.DateTimeFormat('es-AR', { month: 'long', timeZone: 'America/Argentina/Buenos_Aires' }).format(dt);
+    const day = new Intl.DateTimeFormat('es-AR', {
+      weekday: 'long',
+      timeZone: 'America/Argentina/Buenos_Aires',
+    }).format(dt);
+    const month = new Intl.DateTimeFormat('es-AR', {
+      month: 'long',
+      timeZone: 'America/Argentina/Buenos_Aires',
+    }).format(dt);
     return [day, month];
   }
 
@@ -434,8 +487,7 @@ export class PublicBookingService {
       professional.waPublicBookingPhone ?? professional.phone ?? '',
     );
     const [dayName, monthName] = this.formatSlotDateSpanish(dto.slotDate);
-    const waMessage =
-      `Hola!%20Quiero%20reservar%20un%20turno%20para%20el%20${dayName}%20${dto.slotDate}%20a%20las%20${dto.slotStart}.%20Mi%20codigo%20es%20${token}.%20Muchas%20gracias!`;
+    const waMessage = `Hola!%20Quiero%20reservar%20un%20turno%20para%20el%20${dayName}%20${dto.slotDate}%20a%20las%20${dto.slotStart}.%20Mi%20codigo%20es%20${token}.%20Muchas%20gracias!`;
     const waDeepLink = `https://wa.me/${professionalPhone}?text=${waMessage}`;
 
     // 8. Create PublicBooking
@@ -716,21 +768,20 @@ export class PublicBookingService {
     }
 
     // In-app notification
-      void this.notifications
-        .create({
-          professionalId: booking.professionalId,
-          organizationId: booking.professional.organizationId ?? undefined,
-          type: 'NEW_BOOKING',
-          title: `Nuevo turno online: ${patient.firstName} ${patient.lastName}`,
-          body: `${slotDateHuman} a las ${booking.slotStart}hs`,
-          link: `/bookings?id=${booking.id}`,
-          patientId: patient.id,
-          appointmentId: appointment.id,
-          metadata: {
-            patientName: `${patient.firstName} ${patient.lastName}`,
-            bookingToken: booking.token,
-          },
-        });
+    void this.notifications.create({
+      professionalId: booking.professionalId,
+      organizationId: booking.professional.organizationId ?? undefined,
+      type: 'NEW_BOOKING',
+      title: `Nuevo turno online: ${patient.firstName} ${patient.lastName}`,
+      body: `${slotDateHuman} a las ${booking.slotStart}hs`,
+      link: `/bookings?id=${booking.id}`,
+      patientId: patient.id,
+      appointmentId: appointment.id,
+      metadata: {
+        patientName: `${patient.firstName} ${patient.lastName}`,
+        bookingToken: booking.token,
+      },
+    });
   }
 
   async manualConfirm(
@@ -868,21 +919,20 @@ export class PublicBookingService {
     });
 
     // In-app notification
-    void this.notifications
-      .create({
-        professionalId: booking.professionalId,
-        organizationId: booking.professional.organizationId ?? undefined,
-        type: 'NEW_BOOKING',
-        title: `Nuevo turno online: ${patient.firstName} ${patient.lastName}`,
-        body: `${booking.slotDate.toISOString().slice(0, 10)} a las ${booking.slotStart}hs`,
-        link: `/bookings?id=${booking.id}`,
-        patientId: patient.id,
-        appointmentId: appointment.id,
-        metadata: {
-          patientName: `${patient.firstName} ${patient.lastName}`,
-          bookingToken: booking.token,
-        },
-      });
+    void this.notifications.create({
+      professionalId: booking.professionalId,
+      organizationId: booking.professional.organizationId ?? undefined,
+      type: 'NEW_BOOKING',
+      title: `Nuevo turno online: ${patient.firstName} ${patient.lastName}`,
+      body: `${booking.slotDate.toISOString().slice(0, 10)} a las ${booking.slotStart}hs`,
+      link: `/bookings?id=${booking.id}`,
+      patientId: patient.id,
+      appointmentId: appointment.id,
+      metadata: {
+        patientName: `${patient.firstName} ${patient.lastName}`,
+        bookingToken: booking.token,
+      },
+    });
   }
 
   // ── Dashboard methods ──────────────────────────────────────────────
@@ -939,7 +989,12 @@ export class PublicBookingService {
     if (phoneMap.size > 0) {
       // Find more phones that have intake completed (across all bookings)
       const pendingPhones = items
-        .filter((i) => !i.intakeCompleted && i.patientPhone && !phoneMap.has(i.patientPhone))
+        .filter(
+          (i) =>
+            !i.intakeCompleted &&
+            i.patientPhone &&
+            !phoneMap.has(i.patientPhone),
+        )
         .map((i) => i.patientPhone)
         .filter((p): p is string => !!p);
       if (pendingPhones.length > 0) {
@@ -956,7 +1011,11 @@ export class PublicBookingService {
         }
       }
       for (const item of items) {
-        if (!item.intakeCompleted && item.patientPhone && phoneMap.has(item.patientPhone)) {
+        if (
+          !item.intakeCompleted &&
+          item.patientPhone &&
+          phoneMap.has(item.patientPhone)
+        ) {
           (item as Record<string, unknown>).intakeCompleted = true;
         }
       }
@@ -1016,7 +1075,10 @@ export class PublicBookingService {
       cancelledAt: booking.cancelledAt,
       expiresAt: booking.expiresAt,
       waContactedAt: booking.waContactedAt,
-      intakeCompleted: await this.resolveIntakeCompleted(professionalId, booking),
+      intakeCompleted: await this.resolveIntakeCompleted(
+        professionalId,
+        booking,
+      ),
       createdAt: booking.createdAt,
       updatedAt: booking.updatedAt,
       patient: booking.patient
@@ -1481,7 +1543,11 @@ export class PublicBookingService {
   async expireUnconfirmedBooking(bookingId: string): Promise<void> {
     await this.prisma.publicBooking.update({
       where: { id: bookingId },
-      data: { status: BookingStatus.EXPIRED, cancelledAt: new Date(), cancelReason: 'No confirmada a tiempo' },
+      data: {
+        status: BookingStatus.EXPIRED,
+        cancelledAt: new Date(),
+        cancelReason: 'No confirmada a tiempo',
+      },
     });
   }
 

@@ -21,7 +21,9 @@ export class ReminderSweeper {
 
     const appointments = await this.prisma.appointment.findMany({
       where: {
-        status: { in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED] },
+        status: {
+          in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
+        },
         reminderScheduledFor: { lte: now },
         reminderSentAt: null,
       },

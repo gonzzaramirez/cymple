@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { SubmitIntakeDto } from './dto/submit-intake.dto';
@@ -69,12 +74,17 @@ export class IntakeFormService {
 
     return {
       submitted: booking.intakeCompleted,
-      submittedAt: booking.intakeCompleted ? booking.updatedAt.toISOString() : undefined,
+      submittedAt: booking.intakeCompleted
+        ? booking.updatedAt.toISOString()
+        : undefined,
     };
   }
 
   /** Submit intake form data for a booking identified by its intake token. */
-  async submit(intakeToken: string, dto: SubmitIntakeDto): Promise<{ success: boolean }> {
+  async submit(
+    intakeToken: string,
+    dto: SubmitIntakeDto,
+  ): Promise<{ success: boolean }> {
     const booking = await this.prisma.publicBooking.findUnique({
       where: { intakeToken },
       include: {
@@ -87,7 +97,9 @@ export class IntakeFormService {
     }
 
     if (booking.intakeCompleted) {
-      throw new ConflictException('Esta ficha de ingreso ya fue completada anteriormente');
+      throw new ConflictException(
+        'Esta ficha de ingreso ya fue completada anteriormente',
+      );
     }
 
     // Calculate age from birthDate

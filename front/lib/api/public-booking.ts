@@ -54,6 +54,28 @@ export type IntakeStatusResponse = {
   patientId?: string;
 };
 
+export type OrganizationProfessional = {
+  id: string;
+  fullName: string;
+  specialty?: string | null;
+  depositAmount?: string | number | null;
+  depositWindowHours?: number | null;
+  consultationMinutes?: number;
+  standardFee?: string | number | null;
+  paymentAlias?: string | null;
+  publicBookingSlug?: string | null;
+};
+
+export async function getOrganizationProfessionals(
+  orgSlug: string,
+): Promise<OrganizationProfessional[]> {
+  const res = await fetch(`${BASE}/organizations/${orgSlug}/professionals`);
+  if (!res.ok) {
+    throw new Error("Error al obtener profesionales del centro");
+  }
+  return res.json();
+}
+
 export async function getProfessional(
   slug: string,
 ): Promise<ProfessionalPublic> {

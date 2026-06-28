@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, ChevronRight } from "lucide-react";
 import { formatDistanceToNow, isToday, isYesterday, subDays, isAfter } from "date-fns";
@@ -65,24 +65,6 @@ export function NotificationBell() {
   const [selected, setSelected] = useState<AppNotification | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const prevUnreadCount = useRef(0);
-
-  const fetchNotifications = useCallback(async () => {
-    try {
-      const res = await fetch("/api/backend/notifications", {
-        cache: "no-store",
-      });
-      if (!res.ok) return;
-      const json: NotificationsResponse = await res.json();
-      if (json.unreadCount > prevUnreadCount.current) {
-        playNotificationSound();
-      }
-      prevUnreadCount.current = json.unreadCount;
-      setData(json);
-    } catch {
-      // silently ignore
-    }
-  }, []);
 
   async function handleOpen() {
     const willOpen = !open;
@@ -121,15 +103,59 @@ export function NotificationBell() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Initial fetch + polling every 15s
+  // Initial fetch for immediate state (items + unreadCount)
   useEffect(() => {
-    const startId = requestAnimationFrame(() => void fetchNotifications());
-    const interval = setInterval(fetchNotifications, 15_000);
-    return () => {
-      cancelAnimationFrame(startId);
-      clearInterval(interval);
+    const controller = new AbortController();
+    async function load() {
+      try {
+        const res = await fetch("/api/backend/notifications", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!res.ok) return;
+        setData(await res.json());
+      } catch {
+        // ignore
+      }
+    }
+    load();
+    return () => controller.abort();
+  }, []);
+
+  // SSE connection for real-time push notifications
+  useEffect(() => {
+    const eventSource = new EventSource("/api/backend/notifications/stream");
+
+    eventSource.addEventListener("notification", (event: MessageEvent) => {
+      try {
+        const notification: AppNotification = JSON.parse(event.data);
+        setData((prev) => {
+          // Evitar duplicados (SSE + fetch inicial pueden solaparse)
+          if (prev.items.some((n) => n.id === notification.id)) return prev;
+          const items = [notification, ...prev.items].slice(0, 50);
+          const unreadCount = notification.readAt
+            ? prev.unreadCount
+            : prev.unreadCount + 1;
+          return { items, unreadCount };
+        });
+
+        // Sonido solo si no está leída
+        if (!notification.readAt) {
+          playNotificationSound();
+        }
+      } catch {
+        // ignore malformed SSE data
+      }
+    });
+
+    eventSource.onerror = () => {
+      // EventSource auto-reconnects — no action needed
     };
-  }, [fetchNotifications]);
+
+    return () => {
+      eventSource.close();
+    };
+  }, []);
 
   const DISPLAY_LIMIT = 3;
   const capped = data.items.slice(0, DISPLAY_LIMIT);

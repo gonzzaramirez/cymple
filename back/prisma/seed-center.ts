@@ -8,9 +8,18 @@
  * Uso: npx ts-node prisma/seed-center.ts
  *
  * Credenciales generadas:
- *   Centro admin → centro@demo.com  / centro123  (slug: centro-demo)
+ *   Centro admin → centro@demo.com  / centro123  (slug: demo)
  *   Profesional A → dra.garcia@demo.com / profA123
  *   Profesional B → dr.lopez@demo.com  / profB123
+ *
+ * El slug del centro es "demo" (coincide con el fallback de desarrollo
+ * en localhost). En producción se accede vía demo.tudominio.com.
+ *
+ * NOTA: Los profesionales del centro (Dra. García, Dr. López) tienen slugs
+ * compuestos (demo-dra-garcia, demo-dr-lopez). En desarrollo (localhost)
+ * NO podrán loguearse individualmente porque el tenant fallback es "demo"
+ * y el slug check requiere que coincidan. En producción entran por su
+ * propio subdominio: demo-dra-garcia.tudominio.com.
  */
 
 import { PrismaClient, Prisma } from '@prisma/client';
@@ -26,7 +35,7 @@ async function main() {
     where: { email: 'centro@demo.com' },
     update: {},
     create: {
-      slug: 'centro-demo',
+      slug: 'demo',
       name: 'Centro Médico Demo',
       email: 'centro@demo.com',
       passwordHash: orgPasswordHash,
@@ -61,6 +70,13 @@ async function main() {
       minRescheduleHours: 4,
       reminderHours: 24,
       timezone: 'America/Argentina/Buenos_Aires',
+      publicBookingEnabled: true,
+      publicBookingSlug: `${org.slug}-dra-garcia`,
+      depositAmount: new Prisma.Decimal(5000),
+      depositWindowHours: 24,
+      paymentAlias: 'demo.mp',
+      bookingAutoCancel: true,
+      maxActiveBookings: 3,
     },
   });
 
@@ -81,6 +97,13 @@ async function main() {
       minRescheduleHours: 4,
       reminderHours: 24,
       timezone: 'America/Argentina/Buenos_Aires',
+      publicBookingEnabled: true,
+      publicBookingSlug: `${org.slug}-dr-lopez`,
+      depositAmount: new Prisma.Decimal(5000),
+      depositWindowHours: 24,
+      paymentAlias: 'demo.mp',
+      bookingAutoCancel: true,
+      maxActiveBookings: 3,
     },
   });
 
@@ -93,13 +116,13 @@ async function main() {
   console.log('  Centro admin (→ /center/home):');
   console.log('    Email:    centro@demo.com');
   console.log('    Password: centro123');
-  console.log('    Slug:     centro-demo');
+  console.log('    Slug:     demo');
   console.log('');
-  console.log('  Profesional A (→ /home  filtrado por sus turnos):');
+  console.log('  Profesional A (en dev → usá el panel del centro; en prod → demo-dra-garcia.tudominio.com):');
   console.log('    Email:    dra.garcia@demo.com');
   console.log('    Password: profA123');
   console.log('');
-  console.log('  Profesional B (→ /home  filtrado por sus turnos):');
+  console.log('  Profesional B (en dev → usá el panel del centro; en prod → demo-dr-lopez.tudominio.com):');
   console.log('    Email:    dr.lopez@demo.com');
   console.log('    Password: profB123');
   console.log('─────────────────────────────────────────────────\n');

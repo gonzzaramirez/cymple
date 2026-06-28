@@ -240,20 +240,19 @@ export class WhatsappMessagingService {
     const to = normalizeArWhatsappNumber(patient.phone);
     await this.evolution.sendText(waCtx.instance, to, text);
 
-    await this.prisma.messageLog
-      .create({
-        data: {
-          professionalId: professional.id,
-          organizationId: waCtx.organizationId,
-          patientId: patient.id,
-          appointmentId: row.id,
-          direction: MessageDirection.OUTBOUND,
-          messageType: MessageType.APPOINTMENT_CREATED,
-          toPhone: to,
-          content: text,
-          sentAt: new Date(),
-        },
-      });
+    await this.prisma.messageLog.create({
+      data: {
+        professionalId: professional.id,
+        organizationId: waCtx.organizationId,
+        patientId: patient.id,
+        appointmentId: row.id,
+        direction: MessageDirection.OUTBOUND,
+        messageType: MessageType.APPOINTMENT_CREATED,
+        toPhone: to,
+        content: text,
+        sentAt: new Date(),
+      },
+    });
   }
 
   async sendAppointmentReminder(appointmentId: string): Promise<boolean> {
@@ -325,20 +324,19 @@ export class WhatsappMessagingService {
       },
     });
 
-    await this.prisma.messageLog
-      .create({
-        data: {
-          professionalId: professional.id,
-          organizationId: waCtx.organizationId,
-          patientId: patient.id,
-          appointmentId: row.id,
-          direction: MessageDirection.OUTBOUND,
-          messageType: MessageType.APPOINTMENT_REMINDER,
-          toPhone: to,
-          content: text,
-          sentAt: now,
-        },
-      });
+    await this.prisma.messageLog.create({
+      data: {
+        professionalId: professional.id,
+        organizationId: waCtx.organizationId,
+        patientId: patient.id,
+        appointmentId: row.id,
+        direction: MessageDirection.OUTBOUND,
+        messageType: MessageType.APPOINTMENT_REMINDER,
+        toPhone: to,
+        content: text,
+        sentAt: now,
+      },
+    });
 
     return true;
   }
@@ -366,20 +364,19 @@ export class WhatsappMessagingService {
       params.content,
     );
 
-    await this.prisma.messageLog
-      .create({
-        data: {
-          professionalId: params.professionalId,
-          organizationId: waCtx.organizationId,
-          patientId: params.patientId,
-          appointmentId: params.appointmentId,
-          direction: MessageDirection.OUTBOUND,
-          messageType: MessageType.SYSTEM,
-          toPhone: params.toPhoneDigits,
-          content: params.content,
-          sentAt: new Date(),
-        },
-      });
+    await this.prisma.messageLog.create({
+      data: {
+        professionalId: params.professionalId,
+        organizationId: waCtx.organizationId,
+        patientId: params.patientId,
+        appointmentId: params.appointmentId,
+        direction: MessageDirection.OUTBOUND,
+        messageType: MessageType.SYSTEM,
+        toPhone: params.toPhoneDigits,
+        content: params.content,
+        sentAt: new Date(),
+      },
+    });
   }
 
   async sendAppointmentRescheduled(appointmentId: string): Promise<void> {
@@ -397,21 +394,20 @@ export class WhatsappMessagingService {
 
     const orgId = row.organizationId ?? undefined;
 
-    void this.notifications
-      .create({
-        professionalId: professional.id,
-        organizationId: orgId,
-        type: 'APPOINTMENT_RESCHEDULED',
-        title: `Turno de ${patient.firstName} ${patient.lastName} reprogramado`,
-        body: `Nuevo horario: ${weekday} ${dayMonth} a las ${time}hs`,
-        link: `/appointments?id=${appointmentId}`,
-        appointmentId,
-        patientId: patient.id,
-        metadata: {
-          patientName: `${patient.firstName} ${patient.lastName}`,
-          when: `${weekday} ${dayMonth} a las ${time}hs`,
-        },
-      });
+    void this.notifications.create({
+      professionalId: professional.id,
+      organizationId: orgId,
+      type: 'APPOINTMENT_RESCHEDULED',
+      title: `Turno de ${patient.firstName} ${patient.lastName} reprogramado`,
+      body: `Nuevo horario: ${weekday} ${dayMonth} a las ${time}hs`,
+      link: `/appointments?id=${appointmentId}`,
+      appointmentId,
+      patientId: patient.id,
+      metadata: {
+        patientName: `${patient.firstName} ${patient.lastName}`,
+        when: `${weekday} ${dayMonth} a las ${time}hs`,
+      },
+    });
 
     if (!this.evolution.isConfigured()) return;
 
@@ -437,20 +433,19 @@ export class WhatsappMessagingService {
     const to = normalizeArWhatsappNumber(patient.phone);
     await this.evolution.sendText(waCtx.instance, to, text);
 
-    await this.prisma.messageLog
-      .create({
-        data: {
-          professionalId: professional.id,
-          organizationId: waCtx.organizationId,
-          patientId: patient.id,
-          appointmentId: row.id,
-          direction: MessageDirection.OUTBOUND,
-          messageType: MessageType.APPOINTMENT_RESCHEDULED,
-          toPhone: to,
-          content: text,
-          sentAt: new Date(),
-        },
-      });
+    await this.prisma.messageLog.create({
+      data: {
+        professionalId: professional.id,
+        organizationId: waCtx.organizationId,
+        patientId: patient.id,
+        appointmentId: row.id,
+        direction: MessageDirection.OUTBOUND,
+        messageType: MessageType.APPOINTMENT_RESCHEDULED,
+        toPhone: to,
+        content: text,
+        sentAt: new Date(),
+      },
+    });
   }
 
   async sendAppointmentCancelledByProfessional(
@@ -470,21 +465,20 @@ export class WhatsappMessagingService {
 
     const orgId = row.organizationId ?? undefined;
 
-    void this.notifications
-      .create({
-        professionalId: professional.id,
-        organizationId: orgId,
-        type: 'APPOINTMENT_CANCELLED_SENT',
-        title: `Turno de ${patient.firstName} ${patient.lastName} cancelado`,
-        body: `${weekday} ${dayMonth} a las ${time}hs`,
-        link: `/appointments?id=${appointmentId}`,
-        appointmentId,
-        patientId: patient.id,
-        metadata: {
-          patientName: `${patient.firstName} ${patient.lastName}`,
-          when: `${weekday} ${dayMonth} a las ${time}hs`,
-        },
-      });
+    void this.notifications.create({
+      professionalId: professional.id,
+      organizationId: orgId,
+      type: 'APPOINTMENT_CANCELLED_SENT',
+      title: `Turno de ${patient.firstName} ${patient.lastName} cancelado`,
+      body: `${weekday} ${dayMonth} a las ${time}hs`,
+      link: `/appointments?id=${appointmentId}`,
+      appointmentId,
+      patientId: patient.id,
+      metadata: {
+        patientName: `${patient.firstName} ${patient.lastName}`,
+        when: `${weekday} ${dayMonth} a las ${time}hs`,
+      },
+    });
 
     if (!this.evolution.isConfigured()) return;
 
@@ -510,20 +504,19 @@ export class WhatsappMessagingService {
     const to = normalizeArWhatsappNumber(patient.phone);
     await this.evolution.sendText(waCtx.instance, to, text);
 
-    await this.prisma.messageLog
-      .create({
-        data: {
-          professionalId: professional.id,
-          organizationId: waCtx.organizationId,
-          patientId: patient.id,
-          appointmentId: row.id,
-          direction: MessageDirection.OUTBOUND,
-          messageType: MessageType.APPOINTMENT_CANCELLED,
-          toPhone: to,
-          content: text,
-          sentAt: new Date(),
-        },
-      });
+    await this.prisma.messageLog.create({
+      data: {
+        professionalId: professional.id,
+        organizationId: waCtx.organizationId,
+        patientId: patient.id,
+        appointmentId: row.id,
+        direction: MessageDirection.OUTBOUND,
+        messageType: MessageType.APPOINTMENT_CANCELLED,
+        toPhone: to,
+        content: text,
+        sentAt: new Date(),
+      },
+    });
   }
 
   async sendDailyDigestToProfessional(
@@ -683,20 +676,19 @@ export class WhatsappMessagingService {
     const to = normalizeArWhatsappNumber(patient.phone);
     await this.evolution.sendText(waCtx.instance, to, text);
 
-    await this.prisma.messageLog
-      .create({
-        data: {
-          professionalId: professional.id,
-          organizationId: waCtx.organizationId,
-          patientId: patient.id,
-          appointmentId: row.id,
-          direction: MessageDirection.OUTBOUND,
-          messageType: MessageType.PAYMENT_REMINDER,
-          toPhone: to,
-          content: text,
-          sentAt: new Date(),
-        },
-      });
+    await this.prisma.messageLog.create({
+      data: {
+        professionalId: professional.id,
+        organizationId: waCtx.organizationId,
+        patientId: patient.id,
+        appointmentId: row.id,
+        direction: MessageDirection.OUTBOUND,
+        messageType: MessageType.PAYMENT_REMINDER,
+        toPhone: to,
+        content: text,
+        sentAt: new Date(),
+      },
+    });
   }
 
   /**
@@ -983,19 +975,18 @@ export class WhatsappMessagingService {
             )?.id
           : undefined);
       if (unknownProfessionalId) {
-        await this.prisma.messageLog
-          .create({
-            data: {
-              professionalId: unknownProfessionalId,
-              organizationId: notifyOrganizationId,
-              patientId: null,
-              direction: MessageDirection.INBOUND,
-              messageType: MessageType.PATIENT_REPLY,
-              fromPhone: fromJidDigits,
-              content: rawText,
-              receivedAt: new Date(),
-            },
-          });
+        await this.prisma.messageLog.create({
+          data: {
+            professionalId: unknownProfessionalId,
+            organizationId: notifyOrganizationId,
+            patientId: null,
+            direction: MessageDirection.INBOUND,
+            messageType: MessageType.PATIENT_REPLY,
+            fromPhone: fromJidDigits,
+            content: rawText,
+            receivedAt: new Date(),
+          },
+        });
       }
       if (notifyProfessionalId || notifyOrganizationId) {
         const bodyText = truncateForNotification(
@@ -1003,20 +994,19 @@ export class WhatsappMessagingService {
             ? inboundPreview
             : (options?.previewText ?? 'Nuevo archivo multimedia recibido'),
         );
-        void this.notifications
-          .create({
-            professionalId: notifyProfessionalId,
-            organizationId: notifyOrganizationId,
-            type: 'WA_UNKNOWN_REPLY',
-            title: 'Mensaje de WhatsApp no identificado',
-            body: bodyText,
-            link: buildMessageLink({ organizationId: notifyOrganizationId }),
-            metadata: {
-              fromPhone: fromJidDigits,
-              rawText: rawText.substring(0, 2000),
-              mediaType: inboundMediaType ?? null,
-            },
-          });
+        void this.notifications.create({
+          professionalId: notifyProfessionalId,
+          organizationId: notifyOrganizationId,
+          type: 'WA_UNKNOWN_REPLY',
+          title: 'Mensaje de WhatsApp no identificado',
+          body: bodyText,
+          link: buildMessageLink({ organizationId: notifyOrganizationId }),
+          metadata: {
+            fromPhone: fromJidDigits,
+            rawText: rawText.substring(0, 2000),
+            mediaType: inboundMediaType ?? null,
+          },
+        });
       }
       return false;
     }
@@ -1038,29 +1028,28 @@ export class WhatsappMessagingService {
 
     // Texto libre o multimedia: modo pasivo, sin respuesta automática.
     if (!isOne && !isTwo) {
-      void this.notifications
-        .create({
-          professionalId: professional.id,
-          organizationId,
-          type: 'NEW_INBOUND_MESSAGE',
-          title: `Nuevo mensaje de ${patient.firstName} ${patient.lastName}`,
-          body: truncateForNotification(
-            inboundIsStructuredText
-              ? inboundPreview
-              : (options?.previewText ?? 'Nuevo archivo multimedia recibido'),
-          ),
-          link: buildMessageLink({
-            patientId: patient.id,
-            organizationId,
-          }),
+      void this.notifications.create({
+        professionalId: professional.id,
+        organizationId,
+        type: 'NEW_INBOUND_MESSAGE',
+        title: `Nuevo mensaje de ${patient.firstName} ${patient.lastName}`,
+        body: truncateForNotification(
+          inboundIsStructuredText
+            ? inboundPreview
+            : (options?.previewText ?? 'Nuevo archivo multimedia recibido'),
+        ),
+        link: buildMessageLink({
           patientId: patient.id,
-          metadata: {
-            patientId: patient.id,
-            fromPhone: fromJidDigits,
-            rawText: rawText.substring(0, 2000),
-            mediaType: inboundMediaType ?? null,
-          },
-        });
+          organizationId,
+        }),
+        patientId: patient.id,
+        metadata: {
+          patientId: patient.id,
+          fromPhone: fromJidDigits,
+          rawText: rawText.substring(0, 2000),
+          mediaType: inboundMediaType ?? null,
+        },
+      });
       return true;
     }
 
@@ -1078,8 +1067,6 @@ export class WhatsappMessagingService {
       },
       orderBy: { startAt: 'asc' },
     });
-
-
 
     let appointment = remindedCandidates[0];
 
@@ -1271,18 +1258,17 @@ export class WhatsappMessagingService {
 
       const patientName = `${patient.firstName} ${patient.lastName}`;
       const notifBody = `${rel ? rel : whenLabel} a las ${time}hs`;
-      void this.notifications
-        .create({
-          professionalId: professional.id,
-          organizationId,
-          type: 'PATIENT_CONFIRMED',
-          title: `${patientName} confirmó su turno`,
-          body: notifBody,
-          link: `/appointments?id=${appointment.id}`,
-          appointmentId: appointment.id,
-          patientId: patient.id,
-          metadata: { patientName, when: notifBody },
-        });
+      void this.notifications.create({
+        professionalId: professional.id,
+        organizationId,
+        type: 'PATIENT_CONFIRMED',
+        title: `${patientName} confirmó su turno`,
+        body: notifBody,
+        link: `/appointments?id=${appointment.id}`,
+        appointmentId: appointment.id,
+        patientId: patient.id,
+        metadata: { patientName, when: notifBody },
+      });
 
       return true;
     }
@@ -1358,18 +1344,17 @@ export class WhatsappMessagingService {
 
     const patientName = `${patient.firstName} ${patient.lastName}`;
     const notifBody = `${rel ? rel : whenLabel} a las ${time}hs`;
-    void this.notifications
-      .create({
-        professionalId: professional.id,
-        organizationId,
-        type: 'PATIENT_CANCELLED',
-        title: `${patientName} canceló su turno`,
-        body: notifBody,
-        link: `/appointments?id=${appointment.id}`,
-        appointmentId: appointment.id,
-        patientId: patient.id,
-        metadata: { patientName, when: notifBody },
-      });
+    void this.notifications.create({
+      professionalId: professional.id,
+      organizationId,
+      type: 'PATIENT_CANCELLED',
+      title: `${patientName} canceló su turno`,
+      body: notifBody,
+      link: `/appointments?id=${appointment.id}`,
+      appointmentId: appointment.id,
+      patientId: patient.id,
+      metadata: { patientName, when: notifBody },
+    });
 
     return true;
   }

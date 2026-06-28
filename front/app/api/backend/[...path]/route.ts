@@ -33,7 +33,41 @@ async function proxy(
     );
   }
 
+  const isSSE = pathname.endsWith("/stream");
+
   const bodyAllowed = !["GET", "HEAD"].includes(request.method);
+
+  // SSE: pipe the upstream response as a stream — no buffering
+  if (isSSE) {
+    const upstream = await fetch(target, {
+      method: request.method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(tenantHost ? { "X-Tenant-Host": tenantHost } : {}),
+        ...(tenantHost ? { "X-Forwarded-Host": tenantHost } : {}),
+        ...(request.headers.get("x-forwarded-proto")
+          ? { "X-Forwarded-Proto": request.headers.get("x-forwarded-proto")! }
+          : {}),
+        ...(request.headers.get("x-forwarded-for")
+          ? { "X-Forwarded-For": request.headers.get("x-forwarded-for")! }
+          : {}),
+        ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}),
+      },
+      cache: "no-store",
+    });
+
+    return new Response(upstream.body, {
+      status: upstream.status,
+      statusText: upstream.statusText,
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      },
+    });
+  }
+
   const forwarded = await fetch(target, {
     method: request.method,
     headers: {
