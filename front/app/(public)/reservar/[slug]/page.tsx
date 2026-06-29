@@ -2,6 +2,7 @@
 // Heavy lifting lives in the client component.
 import type { Metadata } from "next";
 import PublicBookingPage from "./booking-client";
+import { APP_URL, API_BASE_URL } from "@/lib/env";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -9,16 +10,14 @@ type Props = {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://cymple.online";
-  const pageUrl = `${baseUrl}/reservar/${slug}`;
+  const pageUrl = `${APP_URL}/reservar/${slug}`;
 
   // Best-effort: try to enrich metadata with the professional name.
   // We don't fail the metadata call on network errors — the page can still render.
   let professionalName: string | null = null;
   let specialty: string | null = null;
   try {
-    const apiBase = process.env.API_BASE_URL ?? "http://localhost:3080/v1";
-    const res = await fetch(`${apiBase}/public/professionals/${slug}`, {
+    const res = await fetch(`${API_BASE_URL}/public/professionals/${slug}`, {
       next: { revalidate: 300 }, // 5 min cache
     });
     if (res.ok) {

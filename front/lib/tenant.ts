@@ -26,7 +26,7 @@ export function resolveTenantSlugFromHostname(hostname: string): string | null {
   return slug;
 }
 
-const IS_PROD = process.env.NODE_ENV === "production";
+  const IS_PROD = process.env.NODE_ENV === "production";
 
 export function resolveTenantContext(options: {
   tenantHostHeader?: string | null;
@@ -50,9 +50,8 @@ export function resolveTenantContext(options: {
   const tenantSlug =
     normalizeSlug(options.tenantSlugHeader) ??
     resolveTenantSlugFromHostname(hostname) ??
-    // Fallback local: si no hay BASE_DOMAIN y no es producción, usar "demo".
-    // También aplica para localhost aunque BASE_DOMAIN esté definido (desarrollo local)
-    ((!BASE_DOMAIN && !IS_PROD) || (isLocalhost && !IS_PROD) ? "demo" : null);
+    // Fallback local: si no podemos resolver tenant en desarrollo, usar "demo"
+    (!IS_PROD ? "demo" : null);
 
   return {
     tenantHost,

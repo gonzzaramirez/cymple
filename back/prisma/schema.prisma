@@ -120,6 +120,16 @@ model Organization {
   notifications    Notification[]
   webhookEventLogs WebhookEventLog[]
   clinicalRecords  ClinicalRecord[]
+
+  // ── Public booking settings ─────────────────────────────────
+  publicBookingEnabled   Boolean                  @default(false)
+  publicBookingSlug      String?                  @unique
+  depositAmount          Decimal?                 @db.Decimal(10, 2)
+  depositWindowHours     Int                      @default(24)
+  bookingAutoCancel      Boolean                  @default(true)
+  bookingAutoCancelHours Int                      @default(8)
+  maxActiveBookings      Int                      @default(5)
+  waPublicBookingPhone   String?
 }
 
 model Professional {

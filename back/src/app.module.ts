@@ -38,7 +38,11 @@ import { IntakeFormModule } from './intake-form/intake-form.module';
         EVOLUTION_API_URL: Joi.string().optional().allow(''),
         EVOLUTION_API_KEY: Joi.string().optional().allow(''),
         APP_PUBLIC_URL: Joi.string().optional().allow(''),
-        BASE_DOMAIN: Joi.string().optional().allow(''),
+        BASE_DOMAIN: Joi.when('NODE_ENV', {
+          is: 'production',
+          then: Joi.string().required(),
+          otherwise: Joi.string().optional().allow(''),
+        }),
         TRUST_PROXY: Joi.boolean().truthy('true').falsy('false').default(false),
         PORT: Joi.number().default(3080),
       }),

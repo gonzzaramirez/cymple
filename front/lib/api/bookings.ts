@@ -30,6 +30,7 @@ export type BookingSummary = {
   depositPaidAt?: string | null;
   depositWindowHours?: number | null;
   professionalSlug: string;
+  professionalName?: string;
   createdAt: string;
 };
 

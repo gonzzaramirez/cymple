@@ -166,10 +166,11 @@ export class PublicBookingService {
   async getOrganizationProfessionals(orgSlug: string): Promise<ProfessionalPublicInfo[]> {
     const org = await this.prisma.organization.findUnique({
       where: { slug: orgSlug },
-      select: { id: true },
+      select: { id: true, publicBookingEnabled: true },
     });
 
     if (!org) return [];
+    if (!org.publicBookingEnabled) return [];
 
     const professionals = await this.prisma.professional.findMany({
       where: {
@@ -399,6 +400,7 @@ export class PublicBookingService {
         maxActiveBookings: true,
         consultationMinutes: true,
         timezone: true,
+        organizationId: true,
       },
     });
 
@@ -408,7 +410,39 @@ export class PublicBookingService {
       );
     }
 
-    // 2. Check slot availability
+    // 2. Resolve org-level defaults for center professionals
+    let orgPhone: string | null = null;
+    let orgDepositAmount: number | null = null;
+    let orgDepositWindowHours: number | null = null;
+
+    if (professional.organizationId) {
+      const org = await this.prisma.organization.findUnique({
+        where: { id: professional.organizationId },
+        select: {
+          waPublicBookingPhone: true,
+          depositAmount: true,
+          depositWindowHours: true,
+        },
+      });
+      if (org) {
+        orgPhone = org.waPublicBookingPhone;
+        orgDepositAmount = org.depositAmount ? Number(org.depositAmount) : null;
+        orgDepositWindowHours = org.depositWindowHours;
+      }
+    }
+
+    // WA phone: center pro → org phone; independent → professional's own config
+    const bookingPhone = normalizeArWhatsappNumber(
+      professional.organizationId
+        ? (orgPhone ?? professional.phone ?? '')
+        : (professional.waPublicBookingPhone ?? professional.phone ?? ''),
+    );
+
+    // Deposit: professional value → org default → null
+    const effectiveDepositAmount =
+      professional.depositAmount ?? orgDepositAmount ?? null;
+
+    // 3. Check slot availability
     const slotsData = await this.availability.getSlots(
       professional.id,
       dto.slotDate,
@@ -446,7 +480,7 @@ export class PublicBookingService {
       );
     }
 
-    // 3. Check max active bookings
+    // 4. Check max active bookings
     if (professional.maxActiveBookings > 0) {
       const phoneNorm = normalizeArWhatsappNumber(dto.patientPhone);
       const existingCount = await this.prisma.publicBooking.count({
@@ -472,25 +506,22 @@ export class PublicBookingService {
       }
     }
 
-    // 4. Generate sequential booking token (R-001, R-002…)
+    // 5. Generate sequential booking token (R-001, R-002…)
     const token = await generateBookingToken(this.prisma, professional.id);
 
-    // 5. Generate intake token
+    // 6. Generate intake token
     const intakeToken = crypto.randomUUID();
 
-    // 6. Build dates — noon UTC avoids timezone off-by-one (AR midnight = 03 UTC, noon won't shift day)
+    // 7. Build dates — noon UTC avoids timezone off-by-one (AR midnight = 03 UTC, noon won't shift day)
     const slotDateObj = new Date(`${dto.slotDate}T12:00:00.000Z`);
     const expiresAt = addMinutes(new Date(), 30);
 
-    // 7. Build WA deep link
-    const professionalPhone = normalizeArWhatsappNumber(
-      professional.waPublicBookingPhone ?? professional.phone ?? '',
-    );
+    // 8. Build WA deep link
     const [dayName, monthName] = this.formatSlotDateSpanish(dto.slotDate);
     const waMessage = `Hola!%20Quiero%20reservar%20un%20turno%20para%20el%20${dayName}%20${dto.slotDate}%20a%20las%20${dto.slotStart}.%20Mi%20codigo%20es%20${token}.%20Muchas%20gracias!`;
-    const waDeepLink = `https://wa.me/${professionalPhone}?text=${waMessage}`;
+    const waDeepLink = `https://wa.me/${bookingPhone}?text=${waMessage}`;
 
-    // 8. Create PublicBooking
+    // 9. Create PublicBooking
     const booking = await this.prisma.publicBooking.create({
       data: {
         professionalId: professional.id,
@@ -503,7 +534,7 @@ export class PublicBookingService {
         intakeToken,
         status: BookingStatus.PENDING_WA_CONFIRMATION,
         depositStatus: DepositStatus.PENDING,
-        depositAmount: professional.depositAmount,
+        depositAmount: effectiveDepositAmount,
         expiresAt,
       },
     });
@@ -737,10 +768,11 @@ export class PublicBookingService {
             `⏳ Tenés ${booking.professional.depositWindowHours}hs para enviar el comprobante.\n`
           : '';
 
-      const appUrl = this.config.get<string>('APP_PUBLIC_URL') ?? '';
+      const frontendUrl =
+        this.config.get<string>('FRONTEND_PUBLIC_URL') ?? '';
       const detalleFicha =
-        isNewPatient && booking.intakeToken && appUrl
-          ? `📋 Completá tu ficha de ingreso (solo una vez):\n${appUrl}/ficha/${booking.intakeToken}\n\n`
+        isNewPatient && booking.intakeToken && frontendUrl
+          ? `📋 Completá tu ficha de ingreso (solo una vez):\n${frontendUrl}/ficha/${booking.intakeToken}\n\n`
           : '';
 
       const tpl = await this.messageTemplates.getOne(
@@ -1172,6 +1204,242 @@ export class PublicBookingService {
   ): Promise<void> {
     const booking = await this.prisma.publicBooking.findFirst({
       where: { id: bookingId, professionalId },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Reserva no encontrada');
+    }
+
+    await this.prisma.publicBooking.update({
+      where: { id: bookingId },
+      data: { notes },
+    });
+  }
+
+  // ── Org-scoped methods (for center admin dashboard) ─────────────
+
+  async listOrgBookings(
+    orgId: string,
+    query: BookingQueryDto,
+  ): Promise<PaginatedBookings> {
+    // Resolve all professional IDs for this org
+    const professionals = await this.prisma.professional.findMany({
+      where: { organizationId: orgId },
+      select: { id: true },
+    });
+
+    if (professionals.length === 0) {
+      return { items: [], page: query.page ?? 1, limit: query.limit ?? 20, total: 0, totalPages: 1 };
+    }
+
+    const professionalIds = professionals.map((p) => p.id);
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.PublicBookingWhereInput = {
+      professionalId: { in: professionalIds },
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.month && query.year
+        ? {
+            slotDate: {
+              gte: new Date(Date.UTC(query.year, query.month - 1, 1)),
+              lte: new Date(
+                Date.UTC(query.year, query.month, 0, 23, 59, 59, 999),
+              ),
+            },
+          }
+        : {}),
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.publicBooking.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          patient: {
+            select: { id: true, firstName: true, lastName: true, phone: true },
+          },
+          appointment: {
+            select: { id: true, startAt: true, endAt: true, status: true },
+          },
+          professional: {
+            select: { fullName: true, slug: true, publicBookingSlug: true },
+          },
+        },
+      }),
+      this.prisma.publicBooking.count({ where }),
+    ]);
+
+    return {
+      items: items.map((item) => ({
+        ...item,
+        professionalName: item.professional.fullName,
+        professionalSlug:
+          item.professional.publicBookingSlug ?? item.professional.slug,
+      })),
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
+
+  async getOrgBookingDetail(
+    orgId: string,
+    bookingId: string,
+  ): Promise<BookingDetail> {
+    const booking = await this.prisma.publicBooking.findFirst({
+      where: {
+        id: bookingId,
+        professional: { organizationId: orgId },
+      },
+      include: {
+        patient: {
+          select: { id: true, firstName: true, lastName: true, phone: true },
+        },
+        appointment: {
+          select: { id: true, startAt: true, endAt: true, status: true },
+        },
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Reserva no encontrada');
+    }
+
+    const professional = await this.prisma.professional.findUnique({
+      where: { id: booking.professionalId },
+      select: { id: true, fullName: true, slug: true, publicBookingSlug: true },
+    });
+
+    return {
+      id: booking.id,
+      token: booking.token,
+      status: booking.status,
+      depositStatus: booking.depositStatus,
+      depositAmount: booking.depositAmount?.toString() ?? null,
+      depositPaidAt: booking.depositPaidAt,
+      slotDate: booking.slotDate,
+      slotStart: booking.slotStart,
+      slotEnd: booking.slotEnd,
+      patientName: booking.patientName,
+      patientPhone: booking.patientPhone,
+      notes: booking.notes,
+      cancelReason: booking.cancelReason,
+      cancelledAt: booking.cancelledAt,
+      expiresAt: booking.expiresAt,
+      waContactedAt: booking.waContactedAt,
+      intakeCompleted: await this.resolveIntakeCompleted(
+        booking.professionalId,
+        booking,
+      ),
+      createdAt: booking.createdAt,
+      updatedAt: booking.updatedAt,
+      patient: booking.patient
+        ? {
+            id: booking.patient.id,
+            firstName: booking.patient.firstName,
+            lastName: booking.patient.lastName,
+            phone: booking.patient.phone,
+          }
+        : null,
+      appointment: booking.appointment
+        ? {
+            id: booking.appointment.id,
+            startAt: booking.appointment.startAt,
+            endAt: booking.appointment.endAt,
+            status: booking.appointment.status,
+          }
+        : null,
+      professionalId: professional?.id ?? booking.professionalId,
+      professionalName: professional?.fullName ?? '',
+      professionalSlug:
+        professional?.publicBookingSlug ?? professional?.slug ?? '',
+    };
+  }
+
+  async markOrgDepositPaid(orgId: string, bookingId: string): Promise<void> {
+    const booking = await this.prisma.publicBooking.findFirst({
+      where: { id: bookingId, professional: { organizationId: orgId } },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Reserva no encontrada');
+    }
+
+    await this.prisma.publicBooking.update({
+      where: { id: bookingId },
+      data: {
+        depositStatus: DepositStatus.PAID,
+        depositPaidAt: new Date(),
+        depositPaidBy: 'MANUAL',
+      },
+    });
+  }
+
+  async cancelOrgBooking(
+    orgId: string,
+    bookingId: string,
+    reason?: string,
+  ): Promise<void> {
+    const booking = await this.prisma.publicBooking.findFirst({
+      where: { id: bookingId, professional: { organizationId: orgId } },
+      include: { appointment: true },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Reserva no encontrada');
+    }
+
+    await this.prisma.publicBooking.update({
+      where: { id: bookingId },
+      data: {
+        status: BookingStatus.CANCELLED,
+        cancelledAt: new Date(),
+        cancelReason: reason ?? null,
+      } as Prisma.PublicBookingUpdateInput,
+    });
+
+    if (
+      booking.appointment &&
+      booking.appointment.status !== AppointmentStatus.CANCELLED
+    ) {
+      await this.prisma.appointment.update({
+        where: { id: booking.appointmentId! },
+        data: {
+          status: AppointmentStatus.CANCELLED,
+          cancelledAt: new Date(),
+          reason: reason ?? 'Cancelado por reserva pública',
+        },
+      });
+    }
+  }
+
+  async manualOrgConfirm(orgId: string, bookingId: string): Promise<void> {
+    // Reuse the existing manualConfirm logic but validate org ownership first
+    const booking = await this.prisma.publicBooking.findFirst({
+      where: { id: bookingId, professional: { organizationId: orgId } },
+      select: { id: true, professionalId: true },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Reserva no encontrada');
+    }
+
+    // Delegate to the professional-scoped method
+    await this.manualConfirm(booking.professionalId, bookingId);
+  }
+
+  async updateOrgNotes(
+    orgId: string,
+    bookingId: string,
+    notes: string,
+  ): Promise<void> {
+    const booking = await this.prisma.publicBooking.findFirst({
+      where: { id: bookingId, professional: { organizationId: orgId } },
     });
 
     if (!booking) {

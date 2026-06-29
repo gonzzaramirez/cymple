@@ -164,12 +164,6 @@ export function SettingsForm({ settings }: { settings: ProfessionalSettings }) {
                 defaultValue={settings.maxActiveBookings}
                 hint="0 = sin límite"
               />
-              <Field
-                label="WhatsApp para booking"
-                name="waPublicBookingPhone"
-                defaultValue={settings.waPublicBookingPhone ?? ""}
-                hint="Nro donde recibís las solicitudes. Si no, se usa tu teléfono personal"
-              />
             </div>
             <div className="mt-4 flex items-center justify-between gap-4 rounded-lg bg-muted/50 px-3 py-2">
               <div className="space-y-0.5">

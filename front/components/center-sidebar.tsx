@@ -40,6 +40,7 @@ const centerNavItems = [
   { href: "/center/finance", label: "Finanzas", icon: DollarSign },
   { href: "/center/messages", label: "Mensajes", icon: MessageSquareText },
   { href: "/center/availability", label: "Disponibilidad", icon: Clock },
+  { href: "/center/bookings", label: "Reservas", icon: Calendar },
   { href: "/center/settings", label: "Configuración", icon: Settings },
 ];
 

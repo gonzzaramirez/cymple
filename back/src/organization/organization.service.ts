@@ -8,6 +8,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CreateMemberProfessionalDto } from './dto/create-member-professional.dto';
 import { UpdateMemberProfessionalDto } from './dto/update-member-professional.dto';
+import { UpdatePublicBookingSettingsDto } from './dto/update-public-booking-settings.dto';
 
 @Injectable()
 export class OrganizationService {
@@ -312,6 +313,79 @@ export class OrganizationService {
       appointmentsThisMonth,
       revenueThisMonth: Number(revenues._sum.amount ?? 0),
     };
+  }
+
+  // ── Public booking settings ─────────────────────────────────────
+
+  private readonly bookingSettingsSelect = {
+    publicBookingEnabled: true,
+    publicBookingSlug: true,
+    depositAmount: true,
+    depositWindowHours: true,
+    bookingAutoCancel: true,
+    bookingAutoCancelHours: true,
+    maxActiveBookings: true,
+    waPublicBookingPhone: true,
+  } as const;
+
+  async getPublicBookingSettings(organizationId: string) {
+    return this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: this.bookingSettingsSelect,
+    });
+  }
+
+  async updatePublicBookingSettings(
+    organizationId: string,
+    dto: UpdatePublicBookingSettingsDto,
+  ) {
+    // Build data, handling null/undefined
+    const data: Record<string, unknown> = {};
+    if (dto.publicBookingEnabled !== undefined) {
+      data.publicBookingEnabled = dto.publicBookingEnabled;
+    }
+    if (dto.publicBookingSlug !== undefined) {
+      data.publicBookingSlug = dto.publicBookingSlug || null;
+    }
+    if (dto.depositAmount !== undefined) {
+      data.depositAmount =
+        dto.depositAmount !== null
+          ? new Prisma.Decimal(dto.depositAmount)
+          : null;
+    }
+    if (dto.depositWindowHours !== undefined) {
+      data.depositWindowHours = dto.depositWindowHours;
+    }
+    if (dto.bookingAutoCancel !== undefined) {
+      data.bookingAutoCancel = dto.bookingAutoCancel;
+    }
+    if (dto.bookingAutoCancelHours !== undefined) {
+      data.bookingAutoCancelHours = dto.bookingAutoCancelHours;
+    }
+    if (dto.maxActiveBookings !== undefined) {
+      data.maxActiveBookings = dto.maxActiveBookings;
+    }
+    if (dto.waPublicBookingPhone !== undefined) {
+      data.waPublicBookingPhone = dto.waPublicBookingPhone || null;
+    }
+
+    // R6: When org publicBookingEnabled toggles on and publicBookingSlug is null/omitted,
+    // default to org slug
+    if (dto.publicBookingEnabled === true && !data.publicBookingSlug) {
+      const org = await this.prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { slug: true },
+      });
+      if (org) {
+        data.publicBookingSlug = org.slug;
+      }
+    }
+
+    return this.prisma.organization.update({
+      where: { id: organizationId },
+      data,
+      select: this.bookingSettingsSelect,
+    });
   }
 
   private async getOwnedProfessional(

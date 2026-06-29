@@ -20,6 +20,7 @@ export type BookingsListProps = {
   totalPages?: number;
   total?: number;
   onPageChange?: (page: number) => void;
+  showProfessional?: boolean;
 };
 
 function formatSlotDate(booking: BookingSummary): string {
@@ -37,9 +38,11 @@ function formatSlotTime(booking: BookingSummary): string {
 function BookingCard({
   booking,
   onSelect,
+  showProfessional,
 }: {
   booking: BookingSummary;
   onSelect: () => void;
+  showProfessional?: boolean;
 }) {
   const statusCfg = booking.status === "BOOKED" && booking.depositPaidAt
     ? { label: "Pagado", variant: "success" as const }
@@ -58,6 +61,11 @@ function BookingCard({
             <CardTitle className="text-base">
               {booking.patientName}
             </CardTitle>
+            {showProfessional && booking.professionalName && (
+              <p className="text-xs text-muted-foreground">
+                {booking.professionalName}
+              </p>
+            )}
             <CardDescription className="mt-0.5">
               {booking.patientPhone}
             </CardDescription>
@@ -90,6 +98,7 @@ export function BookingsList({
   totalPages = 1,
   total,
   onPageChange,
+  showProfessional,
 }: BookingsListProps) {
   const isMobile = useIsMobile();
 
@@ -133,6 +142,7 @@ export function BookingsList({
             key={booking.id}
             booking={booking}
             onSelect={() => onSelect(booking)}
+            showProfessional={showProfessional}
           />
         ))}
 
@@ -154,6 +164,7 @@ export function BookingsList({
         <TableHeader>
           <TableRow>
             <TableHead>Paciente</TableHead>
+            {showProfessional && <TableHead>Profesional</TableHead>}
             <TableHead>Teléfono</TableHead>
             <TableHead>Fecha</TableHead>
             <TableHead>Horario</TableHead>
@@ -182,6 +193,11 @@ export function BookingsList({
                     </span>
                   </div>
                 </TableCell>
+                {showProfessional && (
+                  <TableCell className="text-muted-foreground">
+                    {booking.professionalName ?? '—'}
+                  </TableCell>
+                )}
                 <TableCell className="text-muted-foreground">
                   {booking.patientPhone}
                 </TableCell>

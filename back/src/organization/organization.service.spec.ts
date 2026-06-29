@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { OrganizationService } from './organization.service';
 import { UpdateMemberProfessionalDto } from './dto/update-member-professional.dto';
+import { UpdatePublicBookingSettingsDto } from './dto/update-public-booking-settings.dto';
 
 describe('OrganizationService', () => {
   let service: OrganizationService;
@@ -69,6 +70,8 @@ describe('OrganizationService', () => {
       },
       organization: {
         findUniqueOrThrow: jest.fn(),
+        findUnique: jest.fn(),
+        update: jest.fn(),
       },
     };
 
@@ -354,6 +357,178 @@ describe('OrganizationService', () => {
       await expect(
         service.updateProfessional('org-1', 'prof-1', {}),
       ).rejects.toThrow('Random DB error');
+    });
+  });
+
+  // ───────────────────────────────────────────────────────
+  //  2.4 — getPublicBookingSettings
+  // ───────────────────────────────────────────────────────
+
+  describe('getPublicBookingSettings()', () => {
+    it('returns all public booking settings fields', async () => {
+      const orgSettings = {
+        publicBookingEnabled: true,
+        publicBookingSlug: 'test-org',
+        depositAmount: new Prisma.Decimal(1500),
+        depositWindowHours: 48,
+        bookingAutoCancel: true,
+        bookingAutoCancelHours: 4,
+        maxActiveBookings: 10,
+        waPublicBookingPhone: '+5491122334455',
+      };
+
+      prismaMock.organization.findUnique.mockResolvedValue(orgSettings);
+
+      const result = await service.getPublicBookingSettings('org-1');
+
+      expect(prismaMock.organization.findUnique).toHaveBeenCalledWith({
+        where: { id: 'org-1' },
+        select: {
+          publicBookingEnabled: true,
+          publicBookingSlug: true,
+          depositAmount: true,
+          depositWindowHours: true,
+          bookingAutoCancel: true,
+          bookingAutoCancelHours: true,
+          maxActiveBookings: true,
+          waPublicBookingPhone: true,
+        },
+      });
+      expect(result!.publicBookingEnabled).toBe(true);
+      expect(result!.publicBookingSlug).toBe('test-org');
+      expect(Number(result!.depositAmount)).toBe(1500);
+    });
+
+    it('returns default settings when org has no public booking configured', async () => {
+      const defaults = {
+        publicBookingEnabled: false,
+        publicBookingSlug: null,
+        depositAmount: null,
+        depositWindowHours: 24,
+        bookingAutoCancel: true,
+        bookingAutoCancelHours: 8,
+        maxActiveBookings: 5,
+        waPublicBookingPhone: null,
+      };
+
+      prismaMock.organization.findUnique.mockResolvedValue(defaults);
+
+      const result = await service.getPublicBookingSettings('org-1');
+
+      expect(result!.publicBookingEnabled).toBe(false);
+      expect(result!.publicBookingSlug).toBeNull();
+      expect(result!.depositAmount).toBeNull();
+      expect(result!.depositWindowHours).toBe(24);
+      expect(result!.maxActiveBookings).toBe(5);
+    });
+  });
+
+  // ───────────────────────────────────────────────────────
+  //  2.5 — updatePublicBookingSettings
+  // ───────────────────────────────────────────────────────
+
+  describe('updatePublicBookingSettings()', () => {
+    it('persists and returns updated settings', async () => {
+      const dto = {
+        publicBookingEnabled: true,
+        depositWindowHours: 48,
+      };
+
+      const updated = {
+        publicBookingEnabled: true,
+        publicBookingSlug: null,
+        depositAmount: null,
+        depositWindowHours: 48,
+        bookingAutoCancel: true,
+        bookingAutoCancelHours: 8,
+        maxActiveBookings: 5,
+        waPublicBookingPhone: null,
+      };
+
+      prismaMock.organization.update.mockResolvedValue(updated);
+
+      const result = await service.updatePublicBookingSettings('org-1', dto);
+
+      expect(prismaMock.organization.update).toHaveBeenCalledWith({
+        where: { id: 'org-1' },
+        data: {
+          publicBookingEnabled: true,
+          depositWindowHours: 48,
+        },
+        select: {
+          publicBookingEnabled: true,
+          publicBookingSlug: true,
+          depositAmount: true,
+          depositWindowHours: true,
+          bookingAutoCancel: true,
+          bookingAutoCancelHours: true,
+          maxActiveBookings: true,
+          waPublicBookingPhone: true,
+        },
+      });
+      expect(result.publicBookingEnabled).toBe(true);
+      expect(result.publicBookingSlug).toBeNull();
+    });
+
+    it('does not reset unset fields', async () => {
+      const dto = {
+        bookingAutoCancel: false,
+      };
+
+      const updated = {
+        publicBookingEnabled: true,
+        publicBookingSlug: 'my-org',
+        depositAmount: new Prisma.Decimal(1000),
+        depositWindowHours: 24,
+        bookingAutoCancel: false,
+        bookingAutoCancelHours: 8,
+        maxActiveBookings: 5,
+        waPublicBookingPhone: null,
+      };
+
+      prismaMock.organization.update.mockResolvedValue(updated);
+
+      const result = await service.updatePublicBookingSettings('org-1', dto);
+
+      const dataArg = prismaMock.organization.update.mock.calls[0][0].data;
+      expect(dataArg.publicBookingEnabled).toBeUndefined();
+      expect(dataArg.bookingAutoCancel).toBe(false);
+      expect(result.bookingAutoCancel).toBe(false);
+    });
+
+    it('defaults publicBookingSlug to org slug when toggled on with null slug', async () => {
+      // Simulate that when toggling on, if publicBookingSlug is null,
+      // the slug should be set to org slug
+      const dto: UpdatePublicBookingSettingsDto = {
+        publicBookingEnabled: true,
+        publicBookingSlug: null,
+      };
+
+      // The service resolves the org slug first
+      prismaMock.organization.findUnique.mockResolvedValue({
+        slug: 'mi-centro',
+      });
+
+      const updated = {
+        publicBookingEnabled: true,
+        publicBookingSlug: 'mi-centro',
+        depositAmount: null,
+        depositWindowHours: 24,
+        bookingAutoCancel: true,
+        bookingAutoCancelHours: 8,
+        maxActiveBookings: 5,
+        waPublicBookingPhone: null,
+      };
+
+      prismaMock.organization.update.mockResolvedValue(updated);
+
+      const result = await service.updatePublicBookingSettings('org-1', dto);
+
+      expect(prismaMock.organization.findUnique).toHaveBeenCalledWith({
+        where: { id: 'org-1' },
+        select: { slug: true },
+      });
+      expect(result.publicBookingSlug).toBe('mi-centro');
     });
   });
 });

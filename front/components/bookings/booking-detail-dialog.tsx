@@ -46,6 +46,13 @@ import {
   UserCheck,
 } from "lucide-react";
 
+export type BookingAPIs = {
+  manualConfirm?: (id: string) => Promise<void>;
+  markDepositPaid?: (id: string) => Promise<void>;
+  cancelBooking?: (id: string, reason?: string) => Promise<void>;
+  updateNotes?: (id: string, notes: string) => Promise<void>;
+};
+
 export type BookingDetailDialogProps = {
   booking: BookingDetail;
   open: boolean;
@@ -54,6 +61,8 @@ export type BookingDetailDialogProps = {
   onCancel: (reason?: string) => void;
   onNotesChange: (notes: string) => void;
   onManualConfirm?: () => void;
+  /** Optional overrides for the default (professional-scoped) API functions */
+  apis?: BookingAPIs;
 };
 
 function formatDate(iso: string | null | undefined): string {
@@ -78,6 +87,7 @@ export function BookingDetailDialog({
   onCancel,
   onNotesChange,
   onManualConfirm,
+  apis,
 }: BookingDetailDialogProps) {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
@@ -129,7 +139,7 @@ export function BookingDetailDialog({
   async function handleManualConfirm() {
     setConfirmLoading(true);
     try {
-      await manualConfirmBooking(booking.id);
+      await (apis?.manualConfirm ?? manualConfirmBooking)(booking.id);
       sileo.success({ title: "Reserva confirmada manualmente" });
       onManualConfirm?.();
     } catch {
@@ -142,7 +152,7 @@ export function BookingDetailDialog({
   async function handleMarkDepositPaid() {
     setDepositLoading(true);
     try {
-      await markDepositPaid(booking.id);
+      await (apis?.markDepositPaid ?? markDepositPaid)(booking.id);
       sileo.success({ title: "Depósito marcado como pagado" });
       onDepositPaid();
     } catch {
@@ -155,7 +165,7 @@ export function BookingDetailDialog({
   async function handleCancelBooking() {
     setCancelLoading(true);
     try {
-      await cancelBooking(booking.id, cancelReason || undefined);
+      await (apis?.cancelBooking ?? cancelBooking)(booking.id, cancelReason || undefined);
       sileo.success({ title: "Reserva cancelada" });
       onCancel(cancelReason || undefined);
       setShowCancelDialog(false);
@@ -169,7 +179,7 @@ export function BookingDetailDialog({
   async function handleSaveNotes() {
     setSavingNotes(true);
     try {
-      await updateBookingNotes(booking.id, notes);
+      await (apis?.updateNotes ?? updateBookingNotes)(booking.id, notes);
       sileo.success({ title: "Notas guardadas" });
       onNotesChange(notes);
     } catch {

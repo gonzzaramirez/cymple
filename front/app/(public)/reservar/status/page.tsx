@@ -1,4 +1,5 @@
 // Server component: metadata for the status page.
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import BookingStatusPage from "./status-client";
 
@@ -10,5 +11,9 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <BookingStatusPage />;
+  return (
+    <Suspense>
+      <BookingStatusPage />
+    </Suspense>
+  );
 }

@@ -49,7 +49,7 @@ async function main() {
     where: { email: 'centro@demo.com' },
     update: {},
     create: {
-      slug: 'centro-demo',
+      slug: 'centro',
       name: 'Centro Médico Demo',
       email: 'centro@demo.com',
       passwordHash: orgHash,
