@@ -134,15 +134,13 @@ export class TenantResolverService {
 
     if (tenantHostSlug) return tenantHostSlug;
 
-    // Cloudflare Tunnel sobrescribe X-Forwarded-Host con el dominio del backend.
-    // Cuando detectamos overwrite, usamos x-tenant-slug solo como fallback.
-    if (this.isForwardedHostOverwritten(req)) {
-      const tenantHeader = this.validateSlug(
-        this.readSingleHeader(req?.headers?.[TENANT_HEADER]),
-        'Tenant invÃ¡lido',
-      );
-      if (tenantHeader) return tenantHeader;
-    }
+    // Fallback: usar X-Tenant-Slug directamente (seteado por el frontend proxy).
+    // Cubre casos donde Cloudflare no preserva X-Forwarded-Host ni X-Tenant-Host.
+    const tenantSlugHeader = this.validateSlug(
+      this.readSingleHeader(req?.headers?.[TENANT_HEADER]),
+      'Tenant invÃ¡lido',
+    );
+    if (tenantSlugHeader) return tenantSlugHeader;
 
     if (hostSlug) return hostSlug;
     if (originSlug) return originSlug;
