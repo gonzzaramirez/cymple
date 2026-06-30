@@ -821,34 +821,44 @@ export class PublicBookingService {
 
         const waCtx = await this.resolveWaInstance(booking.professional.id);
         if (waCtx) {
-          const ref: WaEntityRef = booking.professional.organizationId
-            ? { type: 'organization', id: booking.professional.organizationId }
-            : { type: 'professional', id: booking.professional.id };
+          try {
+            const ref: WaEntityRef = booking.professional.organizationId
+              ? { type: 'organization', id: booking.professional.organizationId }
+              : { type: 'professional', id: booking.professional.id };
 
-          await this.antiBanState.runSerialized(ref, async () => {
-            const state = await this.antiBanState.loadState(ref);
-            this.antiBanGuard.assertCanSend(state);
+            await this.antiBanState.runSerialized(ref, async () => {
+              const state = await this.antiBanState.loadState(ref);
+              this.antiBanGuard.assertCanSend(state);
 
-            const cooldownMs = this.antiBanGuard.getCooldownMs(state);
-            if (cooldownMs > 0) {
-              await new Promise((r) => setTimeout(r, cooldownMs));
-            }
-
-            const variedText = varyMessageContent(confirmationText, phoneNorm);
-            const typingDelay = calculateTypingDelay(variedText);
-
-            try {
-              await this.evolution.sendText(waCtx, phoneNorm, variedText, { delay: typingDelay });
-              this.antiBanGuard.recordSuccess(state);
-            } catch (error: any) {
-              if (this.antiBanGuard.isBanSignalError(error.message)) {
-                this.antiBanGuard.recordBanSignal(state);
+              const cooldownMs = this.antiBanGuard.getCooldownMs(state);
+              if (cooldownMs > 0) {
+                await new Promise((r) => setTimeout(r, cooldownMs));
               }
-              throw error;
-            } finally {
-              await this.antiBanState.persistState(ref, state);
-            }
-          });
+
+              const variedText = varyMessageContent(confirmationText, phoneNorm);
+              const typingDelay = calculateTypingDelay(variedText);
+
+              try {
+                await this.evolution.sendText(waCtx, phoneNorm, variedText, { delay: typingDelay });
+                this.antiBanGuard.recordSuccess(state);
+              } catch (error: any) {
+                if (this.antiBanGuard.isBanSignalError(error.message)) {
+                  this.antiBanGuard.recordBanSignal(state);
+                }
+                throw error;
+              } finally {
+                await this.antiBanState.persistState(ref, state);
+              }
+            });
+          } catch (antibanError) {
+            // Anti-ban blocked the send (e.g. operating hours, daily limit).
+            // Fall back to a direct send WITHOUT anti-ban for transactional messages.
+            // It's better to risk a ban than to leave a customer without a response.
+            this.logger.warn(
+              `[handleBookingConfirm] Anti-ban blocked send for ${booking.token}: ${antibanError}. Falling back to direct send.`,
+            );
+            await this.evolution.sendText(waCtx, phoneNorm, confirmationText);
+          }
         }
       }
     }
