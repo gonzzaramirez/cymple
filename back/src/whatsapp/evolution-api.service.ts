@@ -195,6 +195,23 @@ export class EvolutionApiService {
     }
   }
 
+  async setCleanInstanceSettings(
+    instanceName: string,
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'POST',
+      `/settings/set/${encodeURIComponent(instanceName)}`,
+      {
+        rejectCall: true,
+        groupsIgnore: true,
+        alwaysOnline: false,
+        readMessages: false,
+        readStatus: false,
+        syncFullHistory: false,
+      },
+    );
+  }
+
   async logout(instanceName: string): Promise<void> {
     await this.request(
       'DELETE',

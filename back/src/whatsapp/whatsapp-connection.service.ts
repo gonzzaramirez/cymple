@@ -110,6 +110,20 @@ export class WhatsappConnectionService {
     await this.evolution.setWebhook(instanceName, webhook);
   }
 
+  private async ensureCleanInstanceSettings(instanceName: string): Promise<void> {
+    try {
+      await this.evolution.setCleanInstanceSettings(instanceName);
+    } catch (e) {
+      this.logger.error(
+        `No se pudo configurar Evolution en modo limpio para ${instanceName}`,
+        e instanceof Error ? e.stack : String(e),
+      );
+      throw new ServiceUnavailableException(
+        'No se pudo preparar WhatsApp en modo limpio. No se mostrará el QR para evitar descargar historial completo.',
+      );
+    }
+  }
+
   private ensureEvolution() {
     if (!this.evolution.isConfigured()) {
       throw new ServiceUnavailableException(
@@ -169,12 +183,14 @@ export class WhatsappConnectionService {
         instanceName,
         webhook,
       );
+      await this.ensureCleanInstanceSettings(instanceName);
     } catch (e) {
       if (e instanceof EvolutionApiError) {
         const msg = JSON.stringify(e.body).toLowerCase();
         const conflict =
           e.status === 409 || msg.includes('already') || msg.includes('exist');
         if (conflict) {
+          await this.ensureCleanInstanceSettings(instanceName);
           createOrConnectResponse = await this.evolution.connect(instanceName);
         } else {
           throw e;
@@ -206,6 +222,7 @@ export class WhatsappConnectionService {
           message: 'Sesión ya activa',
         };
       }
+      await this.ensureCleanInstanceSettings(instanceName);
       try {
         const connectRes = await this.evolution.connect(instanceName);
         qr = extractQrBase64(connectRes) ?? qr;
@@ -398,12 +415,14 @@ export class WhatsappConnectionService {
         instanceName,
         webhook,
       );
+      await this.ensureCleanInstanceSettings(instanceName);
     } catch (e) {
       if (e instanceof EvolutionApiError) {
         const msg = JSON.stringify(e.body).toLowerCase();
         const conflict =
           e.status === 409 || msg.includes('already') || msg.includes('exist');
         if (conflict) {
+          await this.ensureCleanInstanceSettings(instanceName);
           createOrConnectResponse = await this.evolution.connect(instanceName);
         } else {
           throw e;
@@ -435,6 +454,7 @@ export class WhatsappConnectionService {
           message: 'Sesión ya activa',
         };
       }
+      await this.ensureCleanInstanceSettings(instanceName);
       try {
         const connectRes = await this.evolution.connect(instanceName);
         qr = extractQrBase64(connectRes) ?? qr;
