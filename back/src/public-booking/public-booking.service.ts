@@ -638,6 +638,10 @@ export class PublicBookingService {
             timezone: true,
             paymentAlias: true,
             organizationId: true,
+            slug: true,
+            organization: {
+              select: { slug: true },
+            },
           },
         },
       },
@@ -768,8 +772,15 @@ export class PublicBookingService {
             `⏳ Tenés ${booking.professional.depositWindowHours}hs para enviar el comprobante.\n`
           : '';
 
-      const frontendUrl =
-        this.config.get<string>('FRONTEND_PUBLIC_URL') ?? '';
+      const baseDomain =
+        this.config.get<string>('BASE_DOMAIN') ?? '';
+      const isCenterPro = !!booking.professional.organizationId;
+      const tenantSlug = isCenterPro
+        ? (booking.professional.organization?.slug ?? booking.professional.slug)
+        : booking.professional.slug;
+      const frontendUrl = tenantSlug && baseDomain
+        ? `https://${tenantSlug}.${baseDomain}`
+        : this.config.get<string>('FRONTEND_PUBLIC_URL') ?? '';
       const detalleFicha =
         isNewPatient && booking.intakeToken && frontendUrl
           ? `📋 Completá tu ficha de ingreso (solo una vez):\n${frontendUrl}/ficha/${booking.intakeToken}\n\n`
@@ -836,6 +847,10 @@ export class PublicBookingService {
             paymentAlias: true,
             organizationId: true,
             reminderHours: true,
+            slug: true,
+            organization: {
+              select: { slug: true },
+            },
           },
         },
       },
