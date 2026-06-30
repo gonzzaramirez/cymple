@@ -664,9 +664,30 @@ export class PublicBookingService {
       throw new NotFoundException('Token de reserva no encontrado');
     }
 
-    // Idempotency: if already booked or beyond, skip
+    // Idempotency: if already booked, resend the confirmation
+    if (booking.status === BookingStatus.BOOKED && booking.patientId) {
+      this.logger.log(
+        `[LOG] Booking ${booking.token} already BOOKED — resending confirmation`,
+      );
+      const existingPatient = await this.prisma.patient.findUnique({
+        where: { id: booking.patientId },
+        select: { id: true, firstName: true, lastName: true },
+      });
+      if (existingPatient) {
+        const slotDateHuman = formatDateOnly(booking.slotDate);
+        await this.sendBookingConfirmation(
+          booking,
+          existingPatient,
+          slotDateHuman,
+          false,
+          booking.patientPhone,
+        );
+      }
+      return;
+    }
+
+    // If already in a terminal state beyond BOOKED, skip silently
     if (
-      booking.status === BookingStatus.BOOKED ||
       booking.status === BookingStatus.INTAKE_SENT ||
       booking.status === BookingStatus.INTAKE_COMPLETED
     ) {
@@ -781,119 +802,13 @@ export class PublicBookingService {
     const slotDateHuman = formatDateOnly(booking.slotDate);
 
     // Send WA confirmation using template (with intake link for new patients)
-    this.logger.log(
-      `[LOG] handleBookingConfirm: send block reached, isConfigured=${this.evolution.isConfigured()}, prof=${booking.professional.id}`,
+    await this.sendBookingConfirmation(
+      booking,
+      patient,
+      slotDateHuman,
+      isNewPatient,
+      phoneNorm,
     );
-
-    if (this.evolution.isConfigured()) {
-      const depositAmount = Number(booking.professional.depositAmount ?? 0);
-      const detalleSena =
-        depositAmount > 0
-          ? `💰 Seña: $${depositAmount.toLocaleString('es-AR')} — Alias: ${booking.professional.paymentAlias ?? '—'}\n` +
-            `⏳ Tenés ${booking.professional.depositWindowHours}hs para enviar el comprobante.\n`
-          : '';
-
-      const baseDomain = this.config.get<string>('BASE_DOMAIN') ?? '';
-      const isCenterPro = !!booking.professional.organizationId;
-      const tenantSlug = isCenterPro
-        ? (booking.professional.organization?.slug ?? booking.professional.slug)
-        : booking.professional.slug;
-      const frontendUrl =
-        tenantSlug && baseDomain
-          ? `https://${tenantSlug}.${baseDomain}`
-          : (this.config.get<string>('FRONTEND_PUBLIC_URL') ?? '');
-      const detalleFicha =
-        isNewPatient && booking.intakeToken && frontendUrl
-          ? `📋 Completá tu ficha de ingreso (solo una vez):\n${frontendUrl}/ficha/${booking.intakeToken}\n\n`
-          : '';
-
-      const tpl = await this.messageTemplates.getOne(
-        booking.professionalId,
-        MessageType.BOOKING_CONFIRMED,
-        booking.professional.organizationId ?? undefined,
-      );
-
-      this.logger.log(
-        `[LOG] Template: isEnabled=${tpl.isEnabled}, bodyVariant=${tpl.body.substring(0, 40)}...`,
-      );
-
-      if (tpl.isEnabled) {
-        const confirmationText = this.interpolate(tpl.body, {
-          nombrePaciente: patient.firstName,
-          fechaHumana: slotDateHuman,
-          horario: booking.slotStart,
-          nombreProfesional: booking.professional.fullName,
-          detalleSena,
-          detalleFicha,
-          codigoReserva: booking.token,
-        });
-
-        const waCtx = await this.resolveWaInstance(booking.professional.id);
-        this.logger.log(`[LOG] resolveWaInstance: ${waCtx ?? 'NULL'}`);
-
-        if (waCtx) {
-          try {
-            const ref: WaEntityRef = booking.professional.organizationId
-              ? {
-                  type: 'organization',
-                  id: booking.professional.organizationId,
-                }
-              : { type: 'professional', id: booking.professional.id };
-
-            await this.antiBanState.runSerialized(ref, async () => {
-              this.logger.log(`[LOG] Anti-ban: inside runSerialized`);
-              const state = await this.antiBanState.loadState(ref);
-              this.antiBanGuard.assertCanSend(state);
-
-              const cooldownMs = this.antiBanGuard.getCooldownMs(state);
-              this.logger.log(
-                `[LOG] Anti-ban: assertCanSend OK, cooldown=${cooldownMs}ms`,
-              );
-              if (cooldownMs > 0) {
-                await new Promise((r) => setTimeout(r, cooldownMs));
-              }
-
-              const typingDelay = calculateTypingDelay(confirmationText);
-              this.logger.log(
-                `[LOG] Sending text via Evolution API (typingDelay=${typingDelay}ms)`,
-              );
-
-              // NOTA: No usamos varyMessageContent porque los ZWSP rompen
-              // la búsqueda interna de contactos en Evolution API (Prisma error).
-              await this.evolution.sendText(
-                waCtx,
-                phoneNorm,
-                confirmationText,
-                { delay: typingDelay },
-              );
-              this.logger.log(`[LOG] sendText SUCCESS`);
-
-              this.antiBanGuard.recordSuccess(state);
-              await this.antiBanState.persistState(ref, state);
-              this.logger.log(`[LOG] Anti-ban state persisted`);
-            });
-            this.logger.log(`[LOG] Anti-ban block completed successfully`);
-          } catch (antibanError) {
-            this.logger.warn(
-              `[handleBookingConfirm] Anti-ban blocked send for ${booking.token}: ${antibanError}. Falling back to direct send.`,
-            );
-            this.logger.log(`[LOG] Fallback: sending direct without anti-ban`);
-            await this.evolution.sendText(waCtx, phoneNorm, confirmationText);
-            this.logger.log(`[LOG] Fallback sendText SUCCESS`);
-          }
-        } else {
-          this.logger.warn(`[LOG] SKIP: waCtx is null, cannot send WhatsApp`);
-        }
-      } else {
-        this.logger.warn(
-          `[LOG] SKIP: template isEnabled=false, cannot send WhatsApp`,
-        );
-      }
-    } else {
-      this.logger.warn(
-        `[LOG] SKIP: Evolution API not configured, cannot send WhatsApp`,
-      );
-    }
 
     // In-app notification
     void this.notifications.create({
@@ -1571,6 +1486,127 @@ export class PublicBookingService {
   }
 
   // ── Internal helpers ──────────────────────────────────────────────
+
+  /**
+   * Envía la confirmación WhatsApp de una reserva, con anti-ban + fallback.
+   */
+  private async sendBookingConfirmation(
+    booking: any,
+    patient: { id: string; firstName: string; lastName: string },
+    slotDateHuman: string,
+    isNewPatient: boolean,
+    phoneNorm: string,
+  ): Promise<void> {
+    this.logger.log(
+      `[LOG] sendBookingConfirmation: isConfigured=${this.evolution.isConfigured()}, prof=${booking.professional.id}`,
+    );
+
+    if (!this.evolution.isConfigured()) {
+      this.logger.warn(
+        `[LOG] SKIP: Evolution API not configured, cannot send WhatsApp`,
+      );
+      return;
+    }
+
+    const depositAmount = Number(booking.professional.depositAmount ?? 0);
+    const detalleSena =
+      depositAmount > 0
+        ? `💰 Seña: $${depositAmount.toLocaleString('es-AR')} — Alias: ${booking.professional.paymentAlias ?? '—'}\n` +
+          `⏳ Tenés ${booking.professional.depositWindowHours}hs para enviar el comprobante.\n`
+        : '';
+
+    const baseDomain = this.config.get<string>('BASE_DOMAIN') ?? '';
+    const isCenterPro = !!booking.professional.organizationId;
+    const tenantSlug = isCenterPro
+      ? (booking.professional.organization?.slug ?? booking.professional.slug)
+      : booking.professional.slug;
+    const frontendUrl =
+      tenantSlug && baseDomain
+        ? `https://${tenantSlug}.${baseDomain}`
+        : (this.config.get<string>('FRONTEND_PUBLIC_URL') ?? '');
+    const detalleFicha =
+      isNewPatient && booking.intakeToken && frontendUrl
+        ? `📋 Completá tu ficha de ingreso (solo una vez):\n${frontendUrl}/ficha/${booking.intakeToken}\n\n`
+        : '';
+
+    const tpl = await this.messageTemplates.getOne(
+      booking.professionalId,
+      MessageType.BOOKING_CONFIRMED,
+      booking.professional.organizationId ?? undefined,
+    );
+
+    this.logger.log(
+      `[LOG] Template: isEnabled=${tpl.isEnabled}, bodyVariant=${tpl.body.substring(0, 40)}...`,
+    );
+
+    if (!tpl.isEnabled) {
+      this.logger.warn(
+        `[LOG] SKIP: template isEnabled=false, cannot send WhatsApp`,
+      );
+      return;
+    }
+
+    const confirmationText = this.interpolate(tpl.body, {
+      nombrePaciente: patient.firstName,
+      fechaHumana: slotDateHuman,
+      horario: booking.slotStart,
+      nombreProfesional: booking.professional.fullName,
+      detalleSena,
+      detalleFicha,
+      codigoReserva: booking.token,
+    });
+
+    const waCtx = await this.resolveWaInstance(booking.professional.id);
+    this.logger.log(`[LOG] resolveWaInstance: ${waCtx ?? 'NULL'}`);
+
+    if (!waCtx) {
+      this.logger.warn(`[LOG] SKIP: waCtx is null, cannot send WhatsApp`);
+      return;
+    }
+
+    try {
+      const ref: WaEntityRef = booking.professional.organizationId
+        ? { type: 'organization', id: booking.professional.organizationId }
+        : { type: 'professional', id: booking.professional.id };
+
+      await this.antiBanState.runSerialized(ref, async () => {
+        this.logger.log(`[LOG] Anti-ban: inside runSerialized`);
+        const state = await this.antiBanState.loadState(ref);
+        this.antiBanGuard.assertCanSend(state);
+
+        const cooldownMs = this.antiBanGuard.getCooldownMs(state);
+        this.logger.log(
+          `[LOG] Anti-ban: assertCanSend OK, cooldown=${cooldownMs}ms`,
+        );
+        if (cooldownMs > 0) {
+          await new Promise((r) => setTimeout(r, cooldownMs));
+        }
+
+        const typingDelay = calculateTypingDelay(confirmationText);
+        this.logger.log(
+          `[LOG] Sending text via Evolution API (typingDelay=${typingDelay}ms)`,
+        );
+
+        // NOTA: No usamos varyMessageContent porque los ZWSP rompen
+        // la búsqueda interna de contactos en Evolution API (Prisma error).
+        await this.evolution.sendText(waCtx, phoneNorm, confirmationText, {
+          delay: typingDelay,
+        });
+        this.logger.log(`[LOG] sendText SUCCESS`);
+
+        this.antiBanGuard.recordSuccess(state);
+        await this.antiBanState.persistState(ref, state);
+        this.logger.log(`[LOG] Anti-ban state persisted`);
+      });
+      this.logger.log(`[LOG] Anti-ban block completed successfully`);
+    } catch (antibanError) {
+      this.logger.warn(
+        `[LOG] Anti-ban blocked send: ${antibanError}. Falling back to direct send.`,
+      );
+      await this.evolution.sendText(waCtx, phoneNorm, confirmationText);
+      this.logger.log(`[LOG] Fallback sendText SUCCESS`);
+    }
+  }
 
   private async resolveWaInstance(
     professionalId: string,
