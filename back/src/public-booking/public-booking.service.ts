@@ -634,6 +634,7 @@ export class PublicBookingService {
     token: string,
     waMessageId: string,
   ): Promise<void> {
+    this.logger.log(`[LOG] handleBookingConfirm called: token=${token}, waMessageId=${waMessageId}`);
     const booking = await this.prisma.publicBooking.findUnique({
       where: { token },
       include: {
@@ -780,6 +781,8 @@ export class PublicBookingService {
     const slotDateHuman = formatDateOnly(booking.slotDate);
 
     // Send WA confirmation using template (with intake link for new patients)
+    this.logger.log(`[LOG] handleBookingConfirm: send block reached, isConfigured=${this.evolution.isConfigured()}, prof=${booking.professional.id}`);
+
     if (this.evolution.isConfigured()) {
       const depositAmount = Number(booking.professional.depositAmount ?? 0);
       const detalleSena =
@@ -808,6 +811,8 @@ export class PublicBookingService {
         booking.professional.organizationId ?? undefined,
       );
 
+      this.logger.log(`[LOG] Template: isEnabled=${tpl.isEnabled}, bodyVariant=${tpl.body.substring(0, 40)}...`);
+
       if (tpl.isEnabled) {
         const confirmationText = this.interpolate(tpl.body, {
           nombrePaciente: patient.firstName,
@@ -820,6 +825,8 @@ export class PublicBookingService {
         });
 
         const waCtx = await this.resolveWaInstance(booking.professional.id);
+        this.logger.log(`[LOG] resolveWaInstance: ${waCtx ?? 'NULL'}`);
+
         if (waCtx) {
           try {
             const ref: WaEntityRef = booking.professional.organizationId
@@ -827,40 +834,52 @@ export class PublicBookingService {
               : { type: 'professional', id: booking.professional.id };
 
             await this.antiBanState.runSerialized(ref, async () => {
+              this.logger.log(`[LOG] Anti-ban: inside runSerialized`);
               const state = await this.antiBanState.loadState(ref);
               this.antiBanGuard.assertCanSend(state);
 
               const cooldownMs = this.antiBanGuard.getCooldownMs(state);
+              this.logger.log(`[LOG] Anti-ban: assertCanSend OK, cooldown=${cooldownMs}ms`);
               if (cooldownMs > 0) {
                 await new Promise((r) => setTimeout(r, cooldownMs));
               }
 
               const variedText = varyMessageContent(confirmationText, phoneNorm);
               const typingDelay = calculateTypingDelay(variedText);
+              this.logger.log(`[LOG] Sending text via Evolution API (typingDelay=${typingDelay}ms, textLen=${variedText.length})`);
 
               try {
                 await this.evolution.sendText(waCtx, phoneNorm, variedText, { delay: typingDelay });
+                this.logger.log(`[LOG] sendText SUCCESS`);
                 this.antiBanGuard.recordSuccess(state);
               } catch (error: any) {
+                this.logger.error(`[LOG] sendText FAILED: ${error.message}`);
                 if (this.antiBanGuard.isBanSignalError(error.message)) {
                   this.antiBanGuard.recordBanSignal(state);
                 }
                 throw error;
               } finally {
                 await this.antiBanState.persistState(ref, state);
+                this.logger.log(`[LOG] Anti-ban state persisted`);
               }
             });
+            this.logger.log(`[LOG] Anti-ban block completed successfully`);
           } catch (antibanError) {
-            // Anti-ban blocked the send (e.g. operating hours, daily limit).
-            // Fall back to a direct send WITHOUT anti-ban for transactional messages.
-            // It's better to risk a ban than to leave a customer without a response.
             this.logger.warn(
               `[handleBookingConfirm] Anti-ban blocked send for ${booking.token}: ${antibanError}. Falling back to direct send.`,
             );
+            this.logger.log(`[LOG] Fallback: sending direct without anti-ban`);
             await this.evolution.sendText(waCtx, phoneNorm, confirmationText);
+            this.logger.log(`[LOG] Fallback sendText SUCCESS`);
           }
+        } else {
+          this.logger.warn(`[LOG] SKIP: waCtx is null, cannot send WhatsApp`);
         }
+      } else {
+        this.logger.warn(`[LOG] SKIP: template isEnabled=false, cannot send WhatsApp`);
       }
+    } else {
+      this.logger.warn(`[LOG] SKIP: Evolution API not configured, cannot send WhatsApp`);
     }
 
     // In-app notification
