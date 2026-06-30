@@ -705,7 +705,6 @@ export class PublicBookingService {
       where: {
         professionalId: booking.professionalId,
         phone: phoneNorm,
-        deletedAt: null,
       },
       select: { id: true, firstName: true, lastName: true },
     });
@@ -723,6 +722,11 @@ export class PublicBookingService {
         select: { id: true, firstName: true, lastName: true },
       });
     } else {
+      // Restore if soft-deleted (updateMany only matches if deletedAt IS set)
+      await this.prisma.patient.updateMany({
+        where: { id: patient.id, deletedAt: { not: null } },
+        data: { deletedAt: null },
+      });
       // Update name if needed
       if (patient.firstName !== firstName || patient.lastName !== lastName) {
         await this.prisma.patient.update({
