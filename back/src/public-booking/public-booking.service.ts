@@ -1157,20 +1157,32 @@ export class PublicBookingService {
   ): Promise<void> {
     const booking = await this.prisma.publicBooking.findFirst({
       where: { id: bookingId, professionalId },
+      include: { appointment: { select: { id: true } } },
     });
 
     if (!booking) {
       throw new NotFoundException('Reserva no encontrada');
     }
 
-    await this.prisma.publicBooking.update({
-      where: { id: bookingId },
-      data: {
-        depositStatus: DepositStatus.PAID,
-        depositPaidAt: new Date(),
-        depositPaidBy: 'MANUAL',
-      },
-    });
+    await this.prisma.$transaction([
+      this.prisma.publicBooking.update({
+        where: { id: bookingId },
+        data: {
+          depositStatus: DepositStatus.PAID,
+          depositPaidAt: new Date(),
+          depositPaidBy: 'MANUAL',
+        },
+      }),
+      // Si hay turno en agenda, lo pasamos a CONFIRMED automáticamente
+      ...(booking.appointmentId
+        ? [
+            this.prisma.appointment.update({
+              where: { id: booking.appointmentId },
+              data: { status: AppointmentStatus.CONFIRMED },
+            }),
+          ]
+        : []),
+    ]);
   }
 
   async cancelBooking(
