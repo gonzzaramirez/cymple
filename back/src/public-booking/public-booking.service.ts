@@ -1615,7 +1615,6 @@ export class PublicBookingService {
       where: { id: professionalId },
       select: {
         waInstanceName: true,
-        waStatus: true,
         organizationId: true,
       },
     });
@@ -1625,15 +1624,12 @@ export class PublicBookingService {
     if (pro.organizationId) {
       const org = await this.prisma.organization.findUnique({
         where: { id: pro.organizationId },
-        select: { waInstanceName: true, waStatus: true },
+        select: { waInstanceName: true },
       });
-      if (org?.waInstanceName) {
-        return org.waInstanceName;
-      }
+      if (org?.waInstanceName) return org.waInstanceName;
     }
 
-    // Professional instance with fallback to default naming
-    return pro.waInstanceName ?? `cymple-prof-${professionalId}`;
+    return pro.waInstanceName;
   }
 
   private interpolate(template: string, vars: Record<string, string>): string {

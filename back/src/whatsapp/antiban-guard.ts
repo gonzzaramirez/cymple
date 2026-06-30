@@ -9,11 +9,11 @@ export const ANTIBAN_CONFIG = {
   cooldownMinMs: 6_000,
   cooldownMaxMs: 30_000,
 
-  /** Typing simulation: ~30ms/char. */
+  /** Typing simulation: ~30ms/char. Max 2000ms para evitar timeouts en Evolution API. */
   typingMsPerChar: 30,
   typingStdFraction: 0.3,
-  typingMinMs: 1_000,
-  typingMaxMs: 5_000,
+  typingMinMs: 800,
+  typingMaxMs: 2_000,
 
   /** Rate limits — granular buckets. */
   dailyHardLimit: 80,

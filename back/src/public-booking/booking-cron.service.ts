@@ -258,6 +258,6 @@ export class BookingCronService {
       if (org?.waInstanceName) return org.waInstanceName;
     }
 
-    return pro.waInstanceName ?? `cymple-prof-${professionalId}`;
+    return pro.waInstanceName;
   }
 }

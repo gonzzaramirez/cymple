@@ -100,6 +100,23 @@ export class EvolutionApiService {
           throw new EvolutionApiError(res.status, data);
         }
 
+        this.logger.debug(
+          `[EvolutionApi] HTTP ${res.status} ${method} ${path}: ${JSON.stringify(data).substring(0, 500)}`,
+        );
+
+        // Some Evolution API versions return 200 with { status: 500, error: "..." }
+        if (typeof data === 'object' && data !== null) {
+          const d = data as Record<string, unknown>;
+          if (
+            (d.status === 500 || d.status === 'ERROR' || d.status === 'FAIL') &&
+            d.error
+          ) {
+            this.logger.error(
+              `[EvolutionApi] App-level error in 2xx response: ${JSON.stringify(d).substring(0, 500)}`,
+            );
+          }
+        }
+
         return data as T;
       } catch (e) {
         lastError = e;
@@ -198,7 +215,7 @@ export class EvolutionApiService {
         number: numberDigits,
         text,
         options: {
-          delay: options?.delay ?? 6000,
+          delay: options?.delay ?? 800,
           presence: 'composing',
         },
       },
