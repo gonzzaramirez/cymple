@@ -12,8 +12,8 @@ export const ANTIBAN_CONFIG = {
   /** Typing simulation: ~30ms/char. */
   typingMsPerChar: 30,
   typingStdFraction: 0.3,
-  typingMinMs: 2_000,
-  typingMaxMs: 12_000,
+  typingMinMs: 1_000,
+  typingMaxMs: 5_000,
 
   /** Rate limits — granular buckets. */
   dailyHardLimit: 80,

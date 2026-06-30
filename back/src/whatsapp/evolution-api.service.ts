@@ -94,6 +94,7 @@ export class EvolutionApiService {
         }
 
         if (!res.ok) {
+          this.logger.error(`[EvolutionApi] HTTP ${res.status} ${method} ${path}: ${JSON.stringify(data).substring(0, 500)}`);
           throw new EvolutionApiError(res.status, data);
         }
 

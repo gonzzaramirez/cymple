@@ -851,17 +851,17 @@ export class PublicBookingService {
               try {
                 await this.evolution.sendText(waCtx, phoneNorm, variedText, { delay: typingDelay });
                 this.logger.log(`[LOG] sendText SUCCESS`);
-                this.antiBanGuard.recordSuccess(state);
-              } catch (error: any) {
-                this.logger.error(`[LOG] sendText FAILED: ${error.message}`);
-                if (this.antiBanGuard.isBanSignalError(error.message)) {
-                  this.antiBanGuard.recordBanSignal(state);
-                }
-                throw error;
-              } finally {
-                await this.antiBanState.persistState(ref, state);
-                this.logger.log(`[LOG] Anti-ban state persisted`);
+              } catch (firstError: any) {
+                this.logger.warn(`[LOG] sendText with delay FAILED (${firstError.message}), retrying without delay`);
+                // Some Evolution API versions reject delay > ~6s.
+                // Retry without delay before giving up.
+                await this.evolution.sendText(waCtx, phoneNorm, variedText);
+                this.logger.log(`[LOG] sendText retry without delay SUCCESS`);
               }
+
+              this.antiBanGuard.recordSuccess(state);
+              await this.antiBanState.persistState(ref, state);
+              this.logger.log(`[LOG] Anti-ban state persisted`);
             });
             this.logger.log(`[LOG] Anti-ban block completed successfully`);
           } catch (antibanError) {
