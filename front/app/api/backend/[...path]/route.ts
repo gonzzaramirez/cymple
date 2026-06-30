@@ -19,11 +19,14 @@ async function proxy(
     fallbackHost: url.host,
     tenantSlugHeader: request.headers.get("x-tenant-slug"),
   });
-  if (!token) {
+
+  // Endpoints públicos (public/) no requieren token ni tenant
+  const isPublic = pathname.startsWith("public/");
+  if (!isPublic && !token) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  if (!tenantSlug) {
+  if (!isPublic && !tenantSlug) {
     return NextResponse.json(
       {
         message:
@@ -42,7 +45,7 @@ async function proxy(
     const upstream = await fetch(target, {
       method: request.method,
       headers: {
-        Authorization: `Bearer ${token}`,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(tenantHost ? { "X-Tenant-Host": tenantHost } : {}),
         ...(tenantHost ? { "X-Forwarded-Host": tenantHost } : {}),
         ...(request.headers.get("x-forwarded-proto")
@@ -71,7 +74,7 @@ async function proxy(
   const forwarded = await fetch(target, {
     method: request.method,
     headers: {
-      Authorization: `Bearer ${token}`,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       "Content-Type": "application/json",
       ...(tenantHost ? { "X-Tenant-Host": tenantHost } : {}),
       ...(tenantHost ? { "X-Forwarded-Host": tenantHost } : {}),

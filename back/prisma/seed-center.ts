@@ -8,18 +8,14 @@
  * Uso: npx ts-node prisma/seed-center.ts
  *
  * Credenciales generadas:
- *   Centro admin → centro@demo.com  / centro123  (slug: demo)
+ *   Centro admin → centro@demo.com  / centro123  (slug: centro)
  *   Profesional A → dra.garcia@demo.com / profA123
  *   Profesional B → dr.lopez@demo.com  / profB123
  *
- * El slug del centro es "demo" (coincide con el fallback de desarrollo
- * en localhost). En producción se accede vía demo.tudominio.com.
+ * El slug del centro es "centro". En producción se accede vía centro.tudominio.com.
  *
  * NOTA: Los profesionales del centro (Dra. García, Dr. López) tienen slugs
- * compuestos (demo-dra-garcia, demo-dr-lopez). En desarrollo (localhost)
- * NO podrán loguearse individualmente porque el tenant fallback es "demo"
- * y el slug check requiere que coincidan. En producción entran por su
- * propio subdominio: demo-dra-garcia.tudominio.com.
+ * compuestos (centro-dra-garcia, centro-dr-lopez).
  */
 
 import { PrismaClient, Prisma } from '@prisma/client';
@@ -35,7 +31,7 @@ async function main() {
     where: { email: 'centro@demo.com' },
     update: {},
     create: {
-      slug: 'demo',
+      slug: 'centro',
       name: 'Centro Médico Demo',
       email: 'centro@demo.com',
       passwordHash: orgPasswordHash,
@@ -118,11 +114,11 @@ async function main() {
   console.log('    Password: centro123');
   console.log('    Slug:     demo');
   console.log('');
-  console.log('  Profesional A (en dev → usá el panel del centro; en prod → demo-dra-garcia.tudominio.com):');
+  console.log('  Profesional A (usá el panel del centro para ver sus datos):');
   console.log('    Email:    dra.garcia@demo.com');
   console.log('    Password: profA123');
   console.log('');
-  console.log('  Profesional B (en dev → usá el panel del centro; en prod → demo-dr-lopez.tudominio.com):');
+  console.log('  Profesional B (usá el panel del centro para ver sus datos):');
   console.log('    Email:    dr.lopez@demo.com');
   console.log('    Password: profB123');
   console.log('─────────────────────────────────────────────────\n');
