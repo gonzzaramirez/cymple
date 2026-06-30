@@ -3,6 +3,15 @@ import { Cron } from '@nestjs/schedule';
 import { MessageType } from '@prisma/client';
 import { PublicBookingService } from './public-booking.service';
 import { EvolutionApiService } from '../whatsapp/evolution-api.service';
+import {
+  AntiBanGuard,
+  calculateTypingDelay,
+  varyMessageContent,
+} from '../whatsapp/antiban-guard';
+import {
+  AntiBanStateService,
+  WaEntityRef,
+} from '../whatsapp/antiban-state.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MessageTemplatesService } from '../message-templates/message-templates.service';
@@ -14,12 +23,15 @@ import {
 export class BookingCronService {
   private readonly logger = new Logger(BookingCronService.name);
 
+  private readonly antiBanGuard = new AntiBanGuard();
+
   constructor(
     private readonly publicBookingService: PublicBookingService,
     private readonly evolution: EvolutionApiService,
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly messageTemplates: MessageTemplatesService,
+    private readonly antiBanState: AntiBanStateService,
   ) {}
 
   /**
@@ -54,7 +66,9 @@ export class BookingCronService {
             horario: booking.slotStart,
           });
 
-          await this.evolution.sendText(
+          await this.sendCronTextWithAntiBan(
+            professional.id,
+            professional.organizationId ?? undefined,
             waInstance,
             booking.patientPhone,
             message,
@@ -105,7 +119,9 @@ export class BookingCronService {
           ),
         });
 
-        await this.evolution.sendText(
+        await this.sendCronTextWithAntiBan(
+          professional.id,
+          professional.organizationId ?? undefined,
           waInstance,
           booking.patientPhone,
           message,
@@ -142,7 +158,9 @@ export class BookingCronService {
           horario: booking.slotStart,
         });
 
-        await this.evolution.sendText(
+        await this.sendCronTextWithAntiBan(
+          professional.id,
+          professional.organizationId ?? undefined,
           waInstance,
           booking.patientPhone,
           message,
@@ -175,6 +193,47 @@ export class BookingCronService {
         metadata: { bookingToken: booking.token },
       });
     }
+  }
+
+  /**
+   * Envía un mensaje WA con protección anti-ban.
+   * El entity ref se resuelve desde el professional.
+   */
+  private async sendCronTextWithAntiBan(
+    professionalId: string,
+    organizationId: string | undefined,
+    waInstance: string,
+    toPhone: string,
+    text: string,
+  ): Promise<void> {
+    const ref: WaEntityRef = organizationId
+      ? { type: 'organization', id: organizationId }
+      : { type: 'professional', id: professionalId };
+
+    await this.antiBanState.runSerialized(ref, async () => {
+      const state = await this.antiBanState.loadState(ref);
+      this.antiBanGuard.assertCanSend(state);
+
+      const cooldownMs = this.antiBanGuard.getCooldownMs(state);
+      if (cooldownMs > 0) {
+        await new Promise((r) => setTimeout(r, cooldownMs));
+      }
+
+      const variedText = varyMessageContent(text, toPhone);
+      const typingDelay = calculateTypingDelay(variedText);
+
+      try {
+        await this.evolution.sendText(waInstance, toPhone, variedText, { delay: typingDelay });
+        this.antiBanGuard.recordSuccess(state);
+      } catch (error: any) {
+        if (this.antiBanGuard.isBanSignalError(error.message)) {
+          this.antiBanGuard.recordBanSignal(state);
+        }
+        throw error;
+      } finally {
+        await this.antiBanState.persistState(ref, state);
+      }
+    });
   }
 
   private interpolate(template: string, vars: Record<string, string>): string {

@@ -18,6 +18,15 @@ import {
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AvailabilityService } from '../availability/availability.service';
 import { EvolutionApiService } from '../whatsapp/evolution-api.service';
+import {
+  AntiBanGuard,
+  calculateTypingDelay,
+  varyMessageContent,
+} from '../whatsapp/antiban-guard';
+import {
+  AntiBanStateService,
+  WaEntityRef,
+} from '../whatsapp/antiban-state.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MessageTemplatesService } from '../message-templates/message-templates.service';
 import { normalizeArWhatsappNumber } from '../common/utils/phone.utils';
@@ -118,6 +127,8 @@ export interface BookingDetail {
 export class PublicBookingService {
   private readonly logger = new Logger(PublicBookingService.name);
 
+  private readonly antiBanGuard = new AntiBanGuard();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly availability: AvailabilityService,
@@ -125,6 +136,7 @@ export class PublicBookingService {
     private readonly notifications: NotificationsService,
     private readonly config: ConfigService,
     private readonly messageTemplates: MessageTemplatesService,
+    private readonly antiBanState: AntiBanStateService,
   ) {}
 
   // ── Public methods ────────────────────────────────────────────────
@@ -805,7 +817,34 @@ export class PublicBookingService {
 
         const waCtx = await this.resolveWaInstance(booking.professional.id);
         if (waCtx) {
-          await this.evolution.sendText(waCtx, phoneNorm, confirmationText);
+          const ref: WaEntityRef = booking.professional.organizationId
+            ? { type: 'organization', id: booking.professional.organizationId }
+            : { type: 'professional', id: booking.professional.id };
+
+          await this.antiBanState.runSerialized(ref, async () => {
+            const state = await this.antiBanState.loadState(ref);
+            this.antiBanGuard.assertCanSend(state);
+
+            const cooldownMs = this.antiBanGuard.getCooldownMs(state);
+            if (cooldownMs > 0) {
+              await new Promise((r) => setTimeout(r, cooldownMs));
+            }
+
+            const variedText = varyMessageContent(confirmationText, phoneNorm);
+            const typingDelay = calculateTypingDelay(variedText);
+
+            try {
+              await this.evolution.sendText(waCtx, phoneNorm, variedText, { delay: typingDelay });
+              this.antiBanGuard.recordSuccess(state);
+            } catch (error: any) {
+              if (this.antiBanGuard.isBanSignalError(error.message)) {
+                this.antiBanGuard.recordBanSignal(state);
+              }
+              throw error;
+            } finally {
+              await this.antiBanState.persistState(ref, state);
+            }
+          });
         }
       }
     }

@@ -240,6 +240,8 @@ export type MessageTemplateType =
 export type MessageTemplate = {
   messageType: MessageTemplateType;
   body: string;
+  bodyV2?: string;
+  bodyV3?: string;
   isEnabled: boolean;
   isDefault: boolean;
 };

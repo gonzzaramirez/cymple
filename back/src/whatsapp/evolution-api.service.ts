@@ -182,14 +182,22 @@ export class EvolutionApiService {
     );
   }
 
-  async sendText(instanceName: string, numberDigits: string, text: string) {
+  async sendText(
+    instanceName: string,
+    numberDigits: string,
+    text: string,
+    options?: { delay?: number },
+  ) {
     return this.request<Record<string, unknown>>(
       'POST',
       `/message/sendText/${encodeURIComponent(instanceName)}`,
       {
         number: numberDigits,
         text,
-        options: { delay: 800, presence: 'composing' },
+        options: {
+          delay: options?.delay ?? 6000,
+          presence: 'composing',
+        },
       },
     );
   }

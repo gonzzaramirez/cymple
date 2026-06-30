@@ -22,6 +22,16 @@ import {
   MessageTemplatesService,
   TemplatableType,
 } from '../message-templates/message-templates.service';
+import {
+  AntiBanGuard,
+  AntiBanState,
+  calculateTypingDelay,
+  varyMessageContent,
+} from './antiban-guard';
+import {
+  AntiBanStateService,
+  WaEntityRef,
+} from './antiban-state.service';
 
 function capitalizeEs(s: string): string {
   if (!s) return s;
@@ -119,12 +129,79 @@ function truncateForNotification(content: string, max = 60): string {
 export class WhatsappMessagingService {
   private readonly logger = new Logger(WhatsappMessagingService.name);
 
+  private readonly antiBanGuard = new AntiBanGuard();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly evolution: EvolutionApiService,
     private readonly notifications: NotificationsService,
     private readonly messageTemplates: MessageTemplatesService,
+    private readonly antiBanState: AntiBanStateService,
   ) {}
+
+  /**
+   * Envía un mensaje de texto a través de Evolution API con protección anti-ban:
+   * 1. Mutex FIFO por entidad (professional/org)
+   * 2. Límite diario con warm-up para números nuevos
+   * 3. Cooldown aleatorio entre mensajes (8-15s / 16-30s en soft limit)
+   * 4. Circuit breaker ante señales de ban
+   * 5. Persistencia del estado en DB
+   */
+  private async sendTextWithAntiBan(
+    professionalId: string,
+    organizationId: string | undefined,
+    instanceName: string,
+    to: string,
+    text: string,
+  ): Promise<void> {
+    const ref: WaEntityRef = organizationId
+      ? { type: 'organization', id: organizationId }
+      : { type: 'professional', id: professionalId };
+
+    await this.antiBanState.runSerialized(ref, async () => {
+      const state = await this.antiBanState.loadState(ref);
+
+      this.antiBanGuard.assertCanSend(state);
+
+      // ── Wait for cooldown since last message ───────────────
+      const cooldownMs = this.antiBanGuard.getCooldownMs(state);
+      if (cooldownMs > 0) {
+        this.logger.debug(
+          `[AntiBan] ${ref.type}:${ref.id} cooldown ${cooldownMs}ms`,
+        );
+        await new Promise((r) => setTimeout(r, cooldownMs));
+      }
+
+      // ── Content variation (subtle, invisible) ──────────────
+      const variedText = varyMessageContent(text, to);
+
+      // ── Typing delay proportional to message length ────────
+      const typingDelay = calculateTypingDelay(variedText);
+
+      try {
+        await this.evolution.sendText(instanceName, to, variedText, { delay: typingDelay });
+        this.antiBanGuard.recordSuccess(state);
+
+        const dailyCount = state.dailyMessageCount;
+        const dailyLimit = state.effectiveDailyLimit;
+        if (dailyCount % 5 === 0 || dailyCount === dailyLimit) {
+          this.logger.log(
+            `[AntiBan] ${ref.type}:${ref.id} enviado (${dailyCount}/${dailyLimit}, typing ${typingDelay}ms)`,
+          );
+        }
+      } catch (error: any) {
+        if (this.antiBanGuard.isBanSignalError(error.message)) {
+          this.antiBanGuard.recordBanSignal(state);
+          this.logger.warn(
+            `[AntiBan] ${ref.type}:${ref.id} ban signal detectado: ${error.message}`,
+          );
+        }
+        throw error;
+      } finally {
+        await this.antiBanState.persistState(ref, state);
+      }
+    });
+  }
 
   private async getTemplate(
     professionalId: string,
@@ -238,7 +315,13 @@ export class WhatsappMessagingService {
     });
 
     const to = normalizeArWhatsappNumber(patient.phone);
-    await this.evolution.sendText(waCtx.instance, to, text);
+    await this.sendTextWithAntiBan(
+      professional.id,
+      waCtx.organizationId,
+      waCtx.instance,
+      to,
+      text,
+    );
 
     await this.prisma.messageLog.create({
       data: {
@@ -309,7 +392,13 @@ export class WhatsappMessagingService {
     });
 
     const to = normalizeArWhatsappNumber(patient.phone);
-    await this.evolution.sendText(waCtx.instance, to, text);
+    await this.sendTextWithAntiBan(
+      professional.id,
+      waCtx.organizationId,
+      waCtx.instance,
+      to,
+      text,
+    );
 
     const now = new Date();
 
@@ -358,7 +447,9 @@ export class WhatsappMessagingService {
     );
     if (!waCtx.isConnected) return;
 
-    await this.evolution.sendText(
+    await this.sendTextWithAntiBan(
+      params.professionalId,
+      waCtx.organizationId,
       waCtx.instance,
       params.toPhoneDigits,
       params.content,
@@ -431,7 +522,13 @@ export class WhatsappMessagingService {
     });
 
     const to = normalizeArWhatsappNumber(patient.phone);
-    await this.evolution.sendText(waCtx.instance, to, text);
+    await this.sendTextWithAntiBan(
+      professional.id,
+      waCtx.organizationId,
+      waCtx.instance,
+      to,
+      text,
+    );
 
     await this.prisma.messageLog.create({
       data: {
@@ -502,7 +599,13 @@ export class WhatsappMessagingService {
     });
 
     const to = normalizeArWhatsappNumber(patient.phone);
-    await this.evolution.sendText(waCtx.instance, to, text);
+    await this.sendTextWithAntiBan(
+      professional.id,
+      waCtx.organizationId,
+      waCtx.instance,
+      to,
+      text,
+    );
 
     await this.prisma.messageLog.create({
       data: {
@@ -572,9 +675,12 @@ export class WhatsappMessagingService {
       const text =
         `\u{1F4C5} *Agenda del día — ${humanDate}*\n\n` +
         `No tenés turnos programados para hoy. \u{2615}`;
-      await this.evolution.sendText(
+      const digestTo = normalizeArWhatsappNumber(professional.phone);
+      await this.sendTextWithAntiBan(
+        professionalId,
+        waCtx.organizationId,
         waCtx.instance,
-        normalizeArWhatsappNumber(professional.phone),
+        digestTo,
         text,
       );
       await this.prisma.messageLog.create({
@@ -583,7 +689,7 @@ export class WhatsappMessagingService {
           organizationId: waCtx.organizationId,
           direction: MessageDirection.OUTBOUND,
           messageType: MessageType.SYSTEM,
-          toPhone: normalizeArWhatsappNumber(professional.phone),
+          toPhone: digestTo,
           content: text,
           sentAt: new Date(),
         },
@@ -609,9 +715,12 @@ export class WhatsappMessagingService {
       lines.join('\n') +
       `\n\n_\u{2705} Confirmado  \u{1F7E1} Pendiente_`;
 
-    await this.evolution.sendText(
+    const digestTo = normalizeArWhatsappNumber(professional.phone);
+    await this.sendTextWithAntiBan(
+      professionalId,
+      waCtx.organizationId,
       waCtx.instance,
-      normalizeArWhatsappNumber(professional.phone),
+      digestTo,
       text,
     );
     await this.prisma.messageLog.create({
@@ -620,7 +729,7 @@ export class WhatsappMessagingService {
         organizationId: waCtx.organizationId,
         direction: MessageDirection.OUTBOUND,
         messageType: MessageType.SYSTEM,
-        toPhone: normalizeArWhatsappNumber(professional.phone),
+        toPhone: digestTo,
         content: text,
         sentAt: new Date(),
       },
@@ -674,7 +783,13 @@ export class WhatsappMessagingService {
     });
 
     const to = normalizeArWhatsappNumber(patient.phone);
-    await this.evolution.sendText(waCtx.instance, to, text);
+    await this.sendTextWithAntiBan(
+      professional.id,
+      waCtx.organizationId,
+      waCtx.instance,
+      to,
+      text,
+    );
 
     await this.prisma.messageLog.create({
       data: {

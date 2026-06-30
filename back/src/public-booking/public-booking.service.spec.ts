@@ -96,6 +96,12 @@ describe('PublicBookingService - Org methods', () => {
     const notificationsMock = {};
     const configMock = {};
     const messageTemplatesMock = {};
+    const antiBanStateMock = {
+      loadState: jest.fn(),
+      persistState: jest.fn(),
+      runSerialized: jest.fn((_ref: any, fn: () => Promise<any>) => fn()),
+      invalidateCache: jest.fn(),
+    };
 
     service = new PublicBookingService(
       prismaMock as any,
@@ -104,6 +110,7 @@ describe('PublicBookingService - Org methods', () => {
       notificationsMock as any,
       configMock as any,
       messageTemplatesMock as any,
+      antiBanStateMock as any,
     );
   });
 

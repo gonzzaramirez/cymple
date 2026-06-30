@@ -15,6 +15,16 @@ export class UpsertTemplateDto {
   body: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  bodyV2?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  bodyV3?: string;
+
+  @IsOptional()
   @IsBoolean()
   isEnabled?: boolean;
 }

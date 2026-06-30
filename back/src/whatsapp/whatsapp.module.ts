@@ -5,6 +5,7 @@ import { MessageTemplatesModule } from '../message-templates/message-templates.m
 import { EvolutionApiService } from './evolution-api.service';
 import { WhatsappConnectionService } from './whatsapp-connection.service';
 import { WhatsappMessagingService } from './whatsapp-messaging.service';
+import { AntiBanStateService } from './antiban-state.service';
 import { WhatsappController } from './whatsapp.controller';
 
 @Module({
@@ -14,11 +15,13 @@ import { WhatsappController } from './whatsapp.controller';
     EvolutionApiService,
     WhatsappConnectionService,
     WhatsappMessagingService,
+    AntiBanStateService,
   ],
   exports: [
     EvolutionApiService,
     WhatsappConnectionService,
     WhatsappMessagingService,
+    AntiBanStateService,
   ],
 })
 export class WhatsappModule {}

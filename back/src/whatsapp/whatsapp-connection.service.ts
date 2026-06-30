@@ -77,6 +77,31 @@ export class WhatsappConnectionService {
     this.statusCache.delete(`${entityType}:${id}`);
   }
 
+  /**
+   * Registra waConnectedSince la primera vez que una entidad se conecta a WhatsApp.
+   * Se usa para la warm-up schedule del anti-ban (números nuevos arrancan con límite bajo).
+   */
+  private async trackFirstConnection(
+    entityType: 'professional' | 'organization',
+    id: string,
+  ): Promise<void> {
+    try {
+      if (entityType === 'professional') {
+        await this.prisma.professional.updateMany({
+          where: { id, waConnectedSince: null },
+          data: { waConnectedSince: new Date() },
+        });
+      } else {
+        await this.prisma.organization.updateMany({
+          where: { id, waConnectedSince: null },
+          data: { waConnectedSince: new Date() },
+        });
+      }
+    } catch {
+      // Non-critical — el anti-ban funciona igual con el límite full si no está seteado
+    }
+  }
+
   private async ensureWebhook(instanceName: string): Promise<void> {
     const webhook = this.webhookUrl();
     if (!webhook) {
@@ -134,6 +159,7 @@ export class WhatsappConnectionService {
         where: { id: professionalId },
         data: { waStatus: WaStatus.CONNECTED },
       });
+      await this.trackFirstConnection('professional', professionalId);
       throw new BadRequestException('WhatsApp ya está conectado');
     }
 
@@ -173,6 +199,7 @@ export class WhatsappConnectionService {
           where: { id: professionalId },
           data: { waStatus: WaStatus.CONNECTED },
         });
+        await this.trackFirstConnection('professional', professionalId);
         return {
           uiStatus: 'ready',
           qr: null,
@@ -256,6 +283,7 @@ export class WhatsappConnectionService {
         where: { id: professionalId },
         data: { waStatus: WaStatus.CONNECTED },
       });
+      await this.trackFirstConnection('professional', professionalId);
       const result = {
         uiStatus: 'ready' as const,
         qr: null as string | null,
@@ -360,6 +388,7 @@ export class WhatsappConnectionService {
         where: { id: organizationId },
         data: { waStatus: WaStatus.CONNECTED },
       });
+      await this.trackFirstConnection('organization', organizationId);
       throw new BadRequestException('WhatsApp ya está conectado');
     }
 
@@ -399,6 +428,7 @@ export class WhatsappConnectionService {
           where: { id: organizationId },
           data: { waStatus: WaStatus.CONNECTED },
         });
+        await this.trackFirstConnection('organization', organizationId);
         return {
           uiStatus: 'ready' as const,
           qr: null,
@@ -475,6 +505,7 @@ export class WhatsappConnectionService {
         where: { id: organizationId },
         data: { waStatus: WaStatus.CONNECTED },
       });
+      await this.trackFirstConnection('organization', organizationId);
       const result = {
         uiStatus: 'ready' as const,
         qr: null as string | null,

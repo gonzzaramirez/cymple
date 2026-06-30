@@ -14,7 +14,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MessageTemplate, MessageTemplateType } from "@/lib/types";
 import {
-  DEFAULT_TEMPLATE_BODIES,
+  DEFAULT_TEMPLATE_VARIANTS,
   getTemplateMeta,
   TEMPLATE_META,
 } from "@/lib/message-templates";
@@ -27,12 +27,14 @@ interface MessageTemplatesTabProps {
 async function apiUpsert(
   type: MessageTemplateType,
   body: string,
+  bodyV2: string,
+  bodyV3: string,
   isEnabled: boolean,
 ): Promise<MessageTemplate> {
   const res = await fetch(`/api/backend/message-templates/${type}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ body, isEnabled }),
+    body: JSON.stringify({ body, bodyV2, bodyV3, isEnabled }),
   });
   if (!res.ok) throw new Error("Error al guardar plantilla");
   return res.json();
@@ -55,10 +57,13 @@ export function MessageTemplatesTab({
   const [, startTransition] = useTransition();
 
   function getTemplate(type: MessageTemplateType): MessageTemplate {
+    const defaults = DEFAULT_TEMPLATE_VARIANTS[type];
     return (
       templates.find((t) => t.messageType === type) ?? {
         messageType: type,
-        body: DEFAULT_TEMPLATE_BODIES[type],
+        body: defaults[0],
+        bodyV2: defaults[1],
+        bodyV3: defaults[2],
         isEnabled: true,
         isDefault: true,
       }
@@ -74,8 +79,15 @@ export function MessageTemplatesTab({
 
   function handleToggleEnabled(type: MessageTemplateType, enabled: boolean) {
     const tpl = getTemplate(type);
+    const defaults = DEFAULT_TEMPLATE_VARIANTS[type];
     startTransition(async () => {
-      const updated = await apiUpsert(type, tpl.body, enabled);
+      const updated = await apiUpsert(
+        type,
+        tpl.body,
+        tpl.bodyV2 ?? defaults[1],
+        tpl.bodyV3 ?? defaults[2],
+        enabled,
+      );
       updateTemplate(updated);
     });
   }
@@ -89,6 +101,7 @@ export function MessageTemplatesTab({
       <div>
         <p className="text-sm text-muted-foreground">
           Personalizá los mensajes que se envían automáticamente por WhatsApp.
+          Cada tipo tiene 3 variantes que se eligen al azar en cada envío (anti-ban).
           Las variables entre llaves dobles{" "}
           <code className="rounded bg-muted px-1 py-0.5 text-xs">
             {"{{variable}}"}
@@ -176,11 +189,13 @@ export function MessageTemplatesTab({
                     <TemplateEditor
                       meta={meta}
                       template={tpl}
-                      defaultBody={DEFAULT_TEMPLATE_BODIES[meta.type]}
-                      onSave={async (body, isEnabled) => {
+                      defaultVariants={DEFAULT_TEMPLATE_VARIANTS[meta.type]}
+                      onSave={async (bodies, isEnabled) => {
                         const updated = await apiUpsert(
                           meta.type,
-                          body,
+                          bodies.body,
+                          bodies.bodyV2,
+                          bodies.bodyV3,
                           isEnabled,
                         );
                         updateTemplate(updated);

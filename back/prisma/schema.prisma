@@ -105,10 +105,14 @@ model Organization {
   phone          String?
   timezone       String   @default("America/Argentina/Buenos_Aires")
   isActive       Boolean  @default(true)
-  waInstanceName String?
-  waStatus       WaStatus @default(DISCONNECTED)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  waInstanceName       String?
+  waStatus             WaStatus @default(DISCONNECTED)
+  waConnectedSince     DateTime?
+  waDailyMsgCount      Int      @default(0)
+  waDailyCountDate     String?
+  waCircuitBreakerUntil DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   professionals    Professional[]
   patients         Patient[]
@@ -159,12 +163,16 @@ model Professional {
   bookingAutoCancel        Boolean                  @default(true)
   bookingAutoCancelHours   Int                      @default(8)
   maxActiveBookings        Int                      @default(5)
-  waInstanceName      String?
-  waStatus            WaStatus @default(DISCONNECTED)
-  isActive            Boolean  @default(true)
-  organizationId      String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  waInstanceName       String?
+  waStatus             WaStatus @default(DISCONNECTED)
+  waConnectedSince     DateTime?
+  waDailyMsgCount      Int      @default(0)
+  waDailyCountDate     String?
+  waCircuitBreakerUntil DateTime?
+  isActive             Boolean  @default(true)
+  organizationId       String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   organization       Organization?              @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   weeklyAvailability WeeklyAvailability[]
@@ -483,6 +491,8 @@ model MessageTemplate {
   messageType    MessageType
   isEnabled      Boolean     @default(true)
   body           String      @db.Text
+  bodyV2         String?     @db.Text
+  bodyV3         String?     @db.Text
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
