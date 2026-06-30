@@ -18,11 +18,7 @@ import {
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AvailabilityService } from '../availability/availability.service';
 import { EvolutionApiService } from '../whatsapp/evolution-api.service';
-import {
-  AntiBanGuard,
-  calculateTypingDelay,
-  varyMessageContent,
-} from '../whatsapp/antiban-guard';
+import { AntiBanGuard, calculateTypingDelay } from '../whatsapp/antiban-guard';
 import {
   AntiBanStateService,
   WaEntityRef,
@@ -175,7 +171,9 @@ export class PublicBookingService {
     };
   }
 
-  async getOrganizationProfessionals(orgSlug: string): Promise<ProfessionalPublicInfo[]> {
+  async getOrganizationProfessionals(
+    orgSlug: string,
+  ): Promise<ProfessionalPublicInfo[]> {
     const org = await this.prisma.organization.findUnique({
       where: { slug: orgSlug },
       select: { id: true, publicBookingEnabled: true },
@@ -634,7 +632,9 @@ export class PublicBookingService {
     token: string,
     waMessageId: string,
   ): Promise<void> {
-    this.logger.log(`[LOG] handleBookingConfirm called: token=${token}, waMessageId=${waMessageId}`);
+    this.logger.log(
+      `[LOG] handleBookingConfirm called: token=${token}, waMessageId=${waMessageId}`,
+    );
     const booking = await this.prisma.publicBooking.findUnique({
       where: { token },
       include: {
@@ -781,7 +781,9 @@ export class PublicBookingService {
     const slotDateHuman = formatDateOnly(booking.slotDate);
 
     // Send WA confirmation using template (with intake link for new patients)
-    this.logger.log(`[LOG] handleBookingConfirm: send block reached, isConfigured=${this.evolution.isConfigured()}, prof=${booking.professional.id}`);
+    this.logger.log(
+      `[LOG] handleBookingConfirm: send block reached, isConfigured=${this.evolution.isConfigured()}, prof=${booking.professional.id}`,
+    );
 
     if (this.evolution.isConfigured()) {
       const depositAmount = Number(booking.professional.depositAmount ?? 0);
@@ -791,15 +793,15 @@ export class PublicBookingService {
             `⏳ Tenés ${booking.professional.depositWindowHours}hs para enviar el comprobante.\n`
           : '';
 
-      const baseDomain =
-        this.config.get<string>('BASE_DOMAIN') ?? '';
+      const baseDomain = this.config.get<string>('BASE_DOMAIN') ?? '';
       const isCenterPro = !!booking.professional.organizationId;
       const tenantSlug = isCenterPro
         ? (booking.professional.organization?.slug ?? booking.professional.slug)
         : booking.professional.slug;
-      const frontendUrl = tenantSlug && baseDomain
-        ? `https://${tenantSlug}.${baseDomain}`
-        : this.config.get<string>('FRONTEND_PUBLIC_URL') ?? '';
+      const frontendUrl =
+        tenantSlug && baseDomain
+          ? `https://${tenantSlug}.${baseDomain}`
+          : (this.config.get<string>('FRONTEND_PUBLIC_URL') ?? '');
       const detalleFicha =
         isNewPatient && booking.intakeToken && frontendUrl
           ? `📋 Completá tu ficha de ingreso (solo una vez):\n${frontendUrl}/ficha/${booking.intakeToken}\n\n`
@@ -811,7 +813,9 @@ export class PublicBookingService {
         booking.professional.organizationId ?? undefined,
       );
 
-      this.logger.log(`[LOG] Template: isEnabled=${tpl.isEnabled}, bodyVariant=${tpl.body.substring(0, 40)}...`);
+      this.logger.log(
+        `[LOG] Template: isEnabled=${tpl.isEnabled}, bodyVariant=${tpl.body.substring(0, 40)}...`,
+      );
 
       if (tpl.isEnabled) {
         const confirmationText = this.interpolate(tpl.body, {
@@ -830,7 +834,10 @@ export class PublicBookingService {
         if (waCtx) {
           try {
             const ref: WaEntityRef = booking.professional.organizationId
-              ? { type: 'organization', id: booking.professional.organizationId }
+              ? {
+                  type: 'organization',
+                  id: booking.professional.organizationId,
+                }
               : { type: 'professional', id: booking.professional.id };
 
             await this.antiBanState.runSerialized(ref, async () => {
@@ -839,25 +846,27 @@ export class PublicBookingService {
               this.antiBanGuard.assertCanSend(state);
 
               const cooldownMs = this.antiBanGuard.getCooldownMs(state);
-              this.logger.log(`[LOG] Anti-ban: assertCanSend OK, cooldown=${cooldownMs}ms`);
+              this.logger.log(
+                `[LOG] Anti-ban: assertCanSend OK, cooldown=${cooldownMs}ms`,
+              );
               if (cooldownMs > 0) {
                 await new Promise((r) => setTimeout(r, cooldownMs));
               }
 
-              const variedText = varyMessageContent(confirmationText, phoneNorm);
-              const typingDelay = calculateTypingDelay(variedText);
-              this.logger.log(`[LOG] Sending text via Evolution API (typingDelay=${typingDelay}ms, textLen=${variedText.length})`);
+              const typingDelay = calculateTypingDelay(confirmationText);
+              this.logger.log(
+                `[LOG] Sending text via Evolution API (typingDelay=${typingDelay}ms)`,
+              );
 
-              try {
-                await this.evolution.sendText(waCtx, phoneNorm, variedText, { delay: typingDelay });
-                this.logger.log(`[LOG] sendText SUCCESS`);
-              } catch (firstError: any) {
-                this.logger.warn(`[LOG] sendText with delay FAILED (${firstError.message}), retrying without delay`);
-                // Some Evolution API versions reject delay > ~6s.
-                // Retry without delay before giving up.
-                await this.evolution.sendText(waCtx, phoneNorm, variedText);
-                this.logger.log(`[LOG] sendText retry without delay SUCCESS`);
-              }
+              // NOTA: No usamos varyMessageContent porque los ZWSP rompen
+              // la búsqueda interna de contactos en Evolution API (Prisma error).
+              await this.evolution.sendText(
+                waCtx,
+                phoneNorm,
+                confirmationText,
+                { delay: typingDelay },
+              );
+              this.logger.log(`[LOG] sendText SUCCESS`);
 
               this.antiBanGuard.recordSuccess(state);
               await this.antiBanState.persistState(ref, state);
@@ -876,10 +885,14 @@ export class PublicBookingService {
           this.logger.warn(`[LOG] SKIP: waCtx is null, cannot send WhatsApp`);
         }
       } else {
-        this.logger.warn(`[LOG] SKIP: template isEnabled=false, cannot send WhatsApp`);
+        this.logger.warn(
+          `[LOG] SKIP: template isEnabled=false, cannot send WhatsApp`,
+        );
       }
     } else {
-      this.logger.warn(`[LOG] SKIP: Evolution API not configured, cannot send WhatsApp`);
+      this.logger.warn(
+        `[LOG] SKIP: Evolution API not configured, cannot send WhatsApp`,
+      );
     }
 
     // In-app notification
@@ -1328,7 +1341,13 @@ export class PublicBookingService {
     });
 
     if (professionals.length === 0) {
-      return { items: [], page: query.page ?? 1, limit: query.limit ?? 20, total: 0, totalPages: 1 };
+      return {
+        items: [],
+        page: query.page ?? 1,
+        limit: query.limit ?? 20,
+        total: 0,
+        totalPages: 1,
+      };
     }
 
     const professionalIds = professionals.map((p) => p.id);

@@ -28,11 +28,11 @@ export const ANTIBAN_CONFIG = {
 
   /** Circadian multipliers indexed by hour (within operating hours). */
   circadianTable: [
-    { startHour: 8, multiplier: 0.5 },   // slow start
-    { startHour: 9, multiplier: 0.8 },   // ramping up
-    { startHour: 12, multiplier: 0.6 },  // siesta
-    { startHour: 14, multiplier: 1.0 },  // full activity
-    { startHour: 19, multiplier: 0.7 },  // wind down
+    { startHour: 8, multiplier: 0.5 }, // slow start
+    { startHour: 9, multiplier: 0.8 }, // ramping up
+    { startHour: 12, multiplier: 0.6 }, // siesta
+    { startHour: 14, multiplier: 1.0 }, // full activity
+    { startHour: 19, multiplier: 0.7 }, // wind down
   ] as Array<{ startHour: number; multiplier: number }>,
 
   timezone: 'America/Argentina/Buenos_Aires',
@@ -137,7 +137,11 @@ export function clamp(value: number, min: number, max: number): number {
  * Outside operating hours returns 0.
  */
 export function getCircadianMultiplier(hour: number): number {
-  const { operatingHoursStart: start, operatingHoursEnd: end, circadianTable } = ANTIBAN_CONFIG;
+  const {
+    operatingHoursStart: start,
+    operatingHoursEnd: end,
+    circadianTable,
+  } = ANTIBAN_CONFIG;
   if (hour < start || hour >= end) return 0;
 
   // Find the last-in-effect row (rows are sorted by startHour ascending)
@@ -152,7 +156,10 @@ export function getCircadianMultiplier(hour: number): number {
 
 export function isWithinOperatingHours(tz: string): boolean {
   const hour = DateTime.now().setZone(tz).hour;
-  return ANTIBAN_CONFIG.operatingHoursStart <= hour && hour < ANTIBAN_CONFIG.operatingHoursEnd;
+  return (
+    ANTIBAN_CONFIG.operatingHoursStart <= hour &&
+    hour < ANTIBAN_CONFIG.operatingHoursEnd
+  );
 }
 
 // ─── Content variation ───────────────────────────────────────
@@ -167,11 +174,16 @@ const ZWSP = '\u200B';
  * always produces the same variation (no surprise on retry).
  * The ZWSP is invisible to users and does NOT change the rendered text.
  */
-export function varyMessageContent(text: string, recipientSeed: string): string {
+export function varyMessageContent(
+  text: string,
+  recipientSeed: string,
+): string {
   if (!text || text.length < 3) return text;
 
   // Seeded LCG — deterministic for same inputs
-  const seed = text.length * 7 + recipientSeed.length * 13 + recipientSeed.charCodeAt(0) || 42;
+  const seed =
+    text.length * 7 + recipientSeed.length * 13 + recipientSeed.charCodeAt(0) ||
+    42;
   let rngState = seed & 0x7fffffff;
   const nextF = () => {
     rngState = (rngState * 1103515245 + 12345) & 0x7fffffff;
@@ -201,7 +213,8 @@ export function varyMessageContent(text: string, recipientSeed: string): string 
  * should simulate "composing" before sending.
  */
 export function calculateTypingDelay(text: string): number {
-  const { typingMsPerChar, typingStdFraction, typingMinMs, typingMaxMs } = ANTIBAN_CONFIG;
+  const { typingMsPerChar, typingStdFraction, typingMinMs, typingMaxMs } =
+    ANTIBAN_CONFIG;
   const base = text.length * typingMsPerChar;
   const jitter = gaussianRandom(0, base * typingStdFraction);
   return clamp(Math.round(base + jitter), typingMinMs, typingMaxMs);
@@ -262,15 +275,15 @@ export class AntiBanGuard {
       state.hourBucketStart = hourFloor;
     }
 
-    const circadianMul = getCircadianMultiplier(DateTime.now().setZone(tz).hour);
+    const circadianMul = getCircadianMultiplier(
+      DateTime.now().setZone(tz).hour,
+    );
     const hourLimit = Math.max(
       1,
       Math.round(ANTIBAN_CONFIG.maxPerHour * circadianMul),
     );
     if (state.hourMessageCount >= hourLimit) {
-      throw new Error(
-        `[Anti-Ban] Límite por hora alcanzado (${hourLimit}).`,
-      );
+      throw new Error(`[Anti-Ban] Límite por hora alcanzado (${hourLimit}).`);
     }
   }
 
@@ -295,7 +308,8 @@ export class AntiBanGuard {
       ),
     );
 
-    const { cooldownMeanMs, cooldownStdMs, cooldownMinMs, cooldownMaxMs } = ANTIBAN_CONFIG;
+    const { cooldownMeanMs, cooldownStdMs, cooldownMinMs, cooldownMaxMs } =
+      ANTIBAN_CONFIG;
     let raw = gaussianRandom(cooldownMeanMs, cooldownStdMs);
     raw = clamp(raw, cooldownMinMs, cooldownMaxMs);
 

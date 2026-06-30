@@ -26,12 +26,8 @@ import {
   AntiBanGuard,
   AntiBanState,
   calculateTypingDelay,
-  varyMessageContent,
 } from './antiban-guard';
-import {
-  AntiBanStateService,
-  WaEntityRef,
-} from './antiban-state.service';
+import { AntiBanStateService, WaEntityRef } from './antiban-state.service';
 
 function capitalizeEs(s: string): string {
   if (!s) return s;
@@ -173,13 +169,16 @@ export class WhatsappMessagingService {
       }
 
       // ── Content variation (subtle, invisible) ──────────────
-      const variedText = varyMessageContent(text, to);
+      // NOTA: No se usa varyMessageContent porque los ZWSP rompen
+      // la búsqueda interna de contactos en Evolution API (Prisma error).
 
       // ── Typing delay proportional to message length ────────
-      const typingDelay = calculateTypingDelay(variedText);
+      const typingDelay = calculateTypingDelay(text);
 
       try {
-        await this.evolution.sendText(instanceName, to, variedText, { delay: typingDelay });
+        await this.evolution.sendText(instanceName, to, text, {
+          delay: typingDelay,
+        });
         this.antiBanGuard.recordSuccess(state);
 
         const dailyCount = state.dailyMessageCount;

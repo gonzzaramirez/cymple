@@ -419,9 +419,7 @@ export class OrganizationService {
     ) {
       const target = error.meta?.target as string[] | undefined;
       if (target?.includes('publicBookingSlug')) {
-        throw new ConflictException(
-          'El slug de turnos online ya está en uso',
-        );
+        throw new ConflictException('El slug de turnos online ya está en uso');
       }
       throw new ConflictException('Ya existe un profesional con ese email');
     }

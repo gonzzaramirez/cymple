@@ -3,11 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { MessageType } from '@prisma/client';
 import { PublicBookingService } from './public-booking.service';
 import { EvolutionApiService } from '../whatsapp/evolution-api.service';
-import {
-  AntiBanGuard,
-  calculateTypingDelay,
-  varyMessageContent,
-} from '../whatsapp/antiban-guard';
+import { AntiBanGuard, calculateTypingDelay } from '../whatsapp/antiban-guard';
 import {
   AntiBanStateService,
   WaEntityRef,
@@ -219,11 +215,12 @@ export class BookingCronService {
         await new Promise((r) => setTimeout(r, cooldownMs));
       }
 
-      const variedText = varyMessageContent(text, toPhone);
-      const typingDelay = calculateTypingDelay(variedText);
+      const typingDelay = calculateTypingDelay(text);
 
       try {
-        await this.evolution.sendText(waInstance, toPhone, variedText, { delay: typingDelay });
+        await this.evolution.sendText(waInstance, toPhone, text, {
+          delay: typingDelay,
+        });
         this.antiBanGuard.recordSuccess(state);
       } catch (error: any) {
         if (this.antiBanGuard.isBanSignalError(error.message)) {

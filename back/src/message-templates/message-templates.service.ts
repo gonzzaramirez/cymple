@@ -167,7 +167,7 @@ export const DEFAULT_TEMPLATE_VARIANTS: Record<
   ],
 
   // ── DEPOSIT_REMINDER ─────────────────────────────────────
-    [MessageType.DEPOSIT_REMINDER]: [
+  [MessageType.DEPOSIT_REMINDER]: [
     '⏳ Recordatorio: tu turno del {{fechaHumana}} a las {{horario}}hs está confirmado pero requiere seña.\n\n' +
       '💰 Alias: {{aliasPago}} - ${{montoSena}}\n\n' +
       'Si no abonás la seña a tiempo, el turno será cancelado automáticamente.',

@@ -104,7 +104,7 @@ describe('PublicBookingService - Org methods', () => {
     };
 
     service = new PublicBookingService(
-      prismaMock as any,
+      prismaMock,
       availabilityMock as any,
       evolutionMock as any,
       notificationsMock as any,
@@ -144,7 +144,10 @@ describe('PublicBookingService - Org methods', () => {
     it('returns empty when org has no professionals', async () => {
       prismaMock.professional.findMany.mockResolvedValue([]);
 
-      const result = await service.listOrgBookings('org-1', { page: 1, limit: 10 });
+      const result = await service.listOrgBookings('org-1', {
+        page: 1,
+        limit: 10,
+      });
 
       expect(result.items).toEqual([]);
       expect(result.total).toBe(0);
@@ -232,7 +235,9 @@ describe('PublicBookingService - Org methods', () => {
         ...mockBooking,
         appointment: { id: 'apt-1', status: 'CONFIRMED' },
       };
-      prismaMock.publicBooking.findFirst.mockResolvedValue(bookingWithAppointment);
+      prismaMock.publicBooking.findFirst.mockResolvedValue(
+        bookingWithAppointment,
+      );
 
       await service.cancelOrgBooking('org-1', 'booking-1', 'Motivo de prueba');
 

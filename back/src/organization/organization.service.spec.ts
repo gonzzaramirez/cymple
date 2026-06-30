@@ -75,7 +75,7 @@ describe('OrganizationService', () => {
       },
     };
 
-    service = new OrganizationService(prismaMock as any);
+    service = new OrganizationService(prismaMock);
   });
 
   // ───────────────────────────────────────────────────────
@@ -100,7 +100,8 @@ describe('OrganizationService', () => {
       const result = await service.listProfessionals('org-1');
 
       // Verify booking fields are in select
-      const selectArg = prismaMock.professional.findMany.mock.calls[0][0].select;
+      const selectArg =
+        prismaMock.professional.findMany.mock.calls[0][0].select;
       expect(selectArg.publicBookingEnabled).toBe(true);
       expect(selectArg.publicBookingSlug).toBe(true);
       expect(selectArg.depositAmount).toBe(true);

@@ -54,9 +54,7 @@ export class AntiBanStateService {
         const state = await this.hydrateFromDb(ref);
         this.cache.set(key, state);
       } catch (err) {
-        this.logger.error(
-          `[AntiBan] Error loading state for ${key}: ${err}`,
-        );
+        this.logger.error(`[AntiBan] Error loading state for ${key}: ${err}`);
         if (!this.cache.has(key)) {
           this.cache.set(key, createAntiBanState());
         }
@@ -156,10 +154,7 @@ export class AntiBanStateService {
    * Ejecuta una función asegurada por mutex FIFO por entidad.
    * Garantiza que no haya dos envíos simultáneos para el mismo professional/org.
    */
-  async runSerialized<T>(
-    ref: WaEntityRef,
-    fn: () => Promise<T>,
-  ): Promise<T> {
+  async runSerialized<T>(ref: WaEntityRef, fn: () => Promise<T>): Promise<T> {
     const key = this.entityKey(ref);
     const prev = this.mutexChain.get(key) ?? Promise.resolve();
     let releaseMutex!: () => void;
