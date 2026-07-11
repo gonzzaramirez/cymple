@@ -28,6 +28,7 @@ import {
   calculateTypingDelay,
 } from './antiban-guard';
 import { AntiBanStateService, WaEntityRef } from './antiban-state.service';
+import { ShortUrlService } from '../short-url/short-url.service';
 
 function capitalizeEs(s: string): string {
   if (!s) return s;
@@ -124,6 +125,7 @@ export class WhatsappMessagingService {
     private readonly notifications: NotificationsService,
     private readonly messageTemplates: MessageTemplatesService,
     private readonly antiBanState: AntiBanStateService,
+    private readonly shortUrlService: ShortUrlService,
   ) {}
 
   /**
@@ -146,6 +148,9 @@ export class WhatsappMessagingService {
       : { type: 'professional', id: professionalId };
 
     await this.antiBanState.runSerialized(ref, async () => {
+      // Shorten any app-domain URLs before sending
+      text = await this.shortUrlService.shortenUrl(text);
+
       const state = await this.antiBanState.loadState(ref);
 
       this.antiBanGuard.assertCanSend(state);
@@ -305,14 +310,8 @@ export class WhatsappMessagingService {
     });
 
     const to = normalizeArWhatsappNumber(patient.phone);
-    await this.sendTextWithAntiBan(
-      professional.id,
-      waCtx.organizationId,
-      waCtx.instance,
-      to,
-      text,
-    );
 
+    // Log FIRST, then send — si el log falla, nunca se envía el mensaje
     await this.prisma.messageLog.create({
       data: {
         professionalId: professional.id,
@@ -326,6 +325,14 @@ export class WhatsappMessagingService {
         sentAt: new Date(),
       },
     });
+
+    await this.sendTextWithAntiBan(
+      professional.id,
+      waCtx.organizationId,
+      waCtx.instance,
+      to,
+      text,
+    );
   }
 
   async sendAppointmentReminder(appointmentId: string): Promise<boolean> {
@@ -382,23 +389,9 @@ export class WhatsappMessagingService {
     });
 
     const to = normalizeArWhatsappNumber(patient.phone);
-    await this.sendTextWithAntiBan(
-      professional.id,
-      waCtx.organizationId,
-      waCtx.instance,
-      to,
-      text,
-    );
-
     const now = new Date();
 
-    await this.prisma.appointment.update({
-      where: { id: row.id },
-      data: {
-        reminderSentAt: now,
-      },
-    });
-
+    // Log FIRST, then send — si el log falla, nunca se envía el mensaje
     await this.prisma.messageLog.create({
       data: {
         professionalId: professional.id,
@@ -410,6 +403,21 @@ export class WhatsappMessagingService {
         toPhone: to,
         content: text,
         sentAt: now,
+      },
+    });
+
+    await this.sendTextWithAntiBan(
+      professional.id,
+      waCtx.organizationId,
+      waCtx.instance,
+      to,
+      text,
+    );
+
+    await this.prisma.appointment.update({
+      where: { id: row.id },
+      data: {
+        reminderSentAt: now,
       },
     });
 
@@ -433,14 +441,7 @@ export class WhatsappMessagingService {
     );
     if (!waCtx.isConnected) return;
 
-    await this.sendTextWithAntiBan(
-      params.professionalId,
-      waCtx.organizationId,
-      waCtx.instance,
-      params.toPhoneDigits,
-      params.content,
-    );
-
+    // Log FIRST, then send
     await this.prisma.messageLog.create({
       data: {
         professionalId: params.professionalId,
@@ -454,6 +455,14 @@ export class WhatsappMessagingService {
         sentAt: new Date(),
       },
     });
+
+    await this.sendTextWithAntiBan(
+      params.professionalId,
+      waCtx.organizationId,
+      waCtx.instance,
+      params.toPhoneDigits,
+      params.content,
+    );
   }
 
   async sendAppointmentRescheduled(appointmentId: string): Promise<void> {
@@ -508,14 +517,8 @@ export class WhatsappMessagingService {
     });
 
     const to = normalizeArWhatsappNumber(patient.phone);
-    await this.sendTextWithAntiBan(
-      professional.id,
-      waCtx.organizationId,
-      waCtx.instance,
-      to,
-      text,
-    );
 
+    // Log FIRST, then send
     await this.prisma.messageLog.create({
       data: {
         professionalId: professional.id,
@@ -529,6 +532,14 @@ export class WhatsappMessagingService {
         sentAt: new Date(),
       },
     });
+
+    await this.sendTextWithAntiBan(
+      professional.id,
+      waCtx.organizationId,
+      waCtx.instance,
+      to,
+      text,
+    );
   }
 
   async sendAppointmentCancelledByProfessional(
@@ -585,14 +596,8 @@ export class WhatsappMessagingService {
     });
 
     const to = normalizeArWhatsappNumber(patient.phone);
-    await this.sendTextWithAntiBan(
-      professional.id,
-      waCtx.organizationId,
-      waCtx.instance,
-      to,
-      text,
-    );
 
+    // Log FIRST, then send
     await this.prisma.messageLog.create({
       data: {
         professionalId: professional.id,
@@ -606,6 +611,14 @@ export class WhatsappMessagingService {
         sentAt: new Date(),
       },
     });
+
+    await this.sendTextWithAntiBan(
+      professional.id,
+      waCtx.organizationId,
+      waCtx.instance,
+      to,
+      text,
+    );
   }
 
   async sendDailyDigestToProfessional(
@@ -662,13 +675,7 @@ export class WhatsappMessagingService {
         `\u{1F4C5} *Agenda del día — ${humanDate}*\n\n` +
         `No tenés turnos programados para hoy. \u{2615}`;
       const digestTo = normalizeArWhatsappNumber(professional.phone);
-      await this.sendTextWithAntiBan(
-        professionalId,
-        waCtx.organizationId,
-        waCtx.instance,
-        digestTo,
-        text,
-      );
+      // Log FIRST, then send
       await this.prisma.messageLog.create({
         data: {
           professionalId,
@@ -680,6 +687,13 @@ export class WhatsappMessagingService {
           sentAt: new Date(),
         },
       });
+      await this.sendTextWithAntiBan(
+        professionalId,
+        waCtx.organizationId,
+        waCtx.instance,
+        digestTo,
+        text,
+      );
       return true;
     }
 
@@ -702,13 +716,7 @@ export class WhatsappMessagingService {
       `\n\n_\u{2705} Confirmado  \u{1F7E1} Pendiente_`;
 
     const digestTo = normalizeArWhatsappNumber(professional.phone);
-    await this.sendTextWithAntiBan(
-      professionalId,
-      waCtx.organizationId,
-      waCtx.instance,
-      digestTo,
-      text,
-    );
+    // Log FIRST, then send
     await this.prisma.messageLog.create({
       data: {
         professionalId,
@@ -720,6 +728,13 @@ export class WhatsappMessagingService {
         sentAt: new Date(),
       },
     });
+    await this.sendTextWithAntiBan(
+      professionalId,
+      waCtx.organizationId,
+      waCtx.instance,
+      digestTo,
+      text,
+    );
     return true;
   }
 
@@ -769,14 +784,8 @@ export class WhatsappMessagingService {
     });
 
     const to = normalizeArWhatsappNumber(patient.phone);
-    await this.sendTextWithAntiBan(
-      professional.id,
-      waCtx.organizationId,
-      waCtx.instance,
-      to,
-      text,
-    );
 
+    // Log FIRST, then send
     await this.prisma.messageLog.create({
       data: {
         professionalId: professional.id,
@@ -790,6 +799,14 @@ export class WhatsappMessagingService {
         sentAt: new Date(),
       },
     });
+
+    await this.sendTextWithAntiBan(
+      professional.id,
+      waCtx.organizationId,
+      waCtx.instance,
+      to,
+      text,
+    );
   }
 
   /**

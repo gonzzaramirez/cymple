@@ -276,7 +276,10 @@ export class PatientsService {
       return {
         ...base,
         organizationId: ctx.organizationId,
-        appointments: { some: { professionalId: ctx.professionalId } },
+        OR: [
+          { professionalId: ctx.professionalId },
+          { appointments: { some: { professionalId: ctx.professionalId } } },
+        ],
       };
     }
 

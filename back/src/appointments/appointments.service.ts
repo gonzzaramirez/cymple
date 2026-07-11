@@ -78,35 +78,38 @@ export class AppointmentsService {
     const duration = dto.durationMinutes ?? professional.consultationMinutes;
     const endAt = addMinutes(startAt, duration);
 
-    await this.ensureSlotAvailable(professionalId, startAt, endAt);
-
-    const created = await this.prisma.appointment.create({
-      data: {
-        professionalId,
-        organizationId: professional.organizationId ?? null,
-        patientId: patient.id,
-        startAt,
-        endAt,
-        durationMinutes: duration,
-        bufferMinutes: professional.bufferMinutes,
-        fee: new Prisma.Decimal(dto.fee ?? professional.standardFee),
-        reason: dto.reason?.trim(),
-        modality: dto.modality ?? AppointmentModality.PRESENCIAL,
-        reminderScheduledFor: addMinutes(
+    // Atomic: check availability AND create dentro de la misma transacción
+    // para evitar race conditions entre dos requests simultáneas.
+    const created = await this.prisma.$transaction(async (tx) => {
+      await this.ensureSlotAvailable(professionalId, startAt, endAt, undefined, tx);
+      return tx.appointment.create({
+        data: {
+          professionalId,
+          organizationId: professional.organizationId ?? null,
+          patientId: patient.id,
           startAt,
-          -professional.reminderHours * 60,
-        ),
-      },
-      include: {
-        patient: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            phone: true,
+          endAt,
+          durationMinutes: duration,
+          bufferMinutes: professional.bufferMinutes,
+          fee: new Prisma.Decimal(dto.fee ?? professional.standardFee),
+          reason: dto.reason?.trim(),
+          modality: dto.modality ?? AppointmentModality.PRESENCIAL,
+          reminderScheduledFor: addMinutes(
+            startAt,
+            -professional.reminderHours * 60,
+          ),
+        },
+        include: {
+          patient: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+            },
           },
         },
-      },
+      });
     });
 
     if (dto.paymentMethod) {
@@ -649,13 +652,16 @@ export class AppointmentsService {
     startAt: Date,
     endAt: Date,
     excludeAppointmentId?: string,
+    prisma?: any,
   ) {
+    const client = prisma ?? this.prisma;
     const slotContext = await this.resolveSlotContext(
       professionalId,
       startAt,
       endAt,
+      client,
     );
-    const overlappingCount = await this.prisma.appointment.count({
+    const overlappingCount = await client.appointment.count({
       where: {
         professionalId,
         id: excludeAppointmentId ? { not: excludeAppointmentId } : undefined,
@@ -678,12 +684,14 @@ export class AppointmentsService {
     professionalId: string,
     startAt: Date,
     endAt: Date,
+    prisma?: any,
   ): Promise<{ capacity: number | null }> {
+    const client = prisma ?? this.prisma;
     // Convert UTC startAt back to local (UTC-3) to find the correct local date
     const targetDate = new Date(startAt.getTime() - 3 * 3600000);
     targetDate.setUTCHours(0, 0, 0, 0);
 
-    const specificDate = await this.prisma.specificDateAvailability.findUnique({
+    const specificDate = await client.specificDateAvailability.findUnique({
       where: { professionalId_date: { professionalId, date: targetDate } },
       include: {
         ranges: true,
@@ -710,7 +718,7 @@ export class AppointmentsService {
       );
     }
 
-    const weekly = await this.prisma.weeklyAvailability.findUnique({
+    const weekly = await client.weeklyAvailability.findUnique({
       where: {
         professionalId_weekday: {
           professionalId,

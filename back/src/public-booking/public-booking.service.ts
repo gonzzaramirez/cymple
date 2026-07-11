@@ -27,6 +27,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { MessageTemplatesService } from '../message-templates/message-templates.service';
 import { normalizeArWhatsappNumber } from '../common/utils/phone.utils';
 import { addMinutes, formatDateOnly } from '../common/utils/date.utils';
+import { ShortUrlService } from '../short-url/short-url.service';
 import {
   generateBookingToken,
   extractBookingToken,
@@ -133,6 +134,7 @@ export class PublicBookingService {
     private readonly config: ConfigService,
     private readonly messageTemplates: MessageTemplatesService,
     private readonly antiBanState: AntiBanStateService,
+    private readonly shortUrlService: ShortUrlService,
   ) {}
 
   // ── Public methods ────────────────────────────────────────────────
@@ -516,8 +518,8 @@ export class PublicBookingService {
       }
     }
 
-    // 5. Generate sequential booking token (R-001, R-002…)
-    const token = await generateBookingToken(this.prisma, professional.id);
+    // 5. Generate unique booking token (R-<random hex>)
+    const token = await generateBookingToken();
 
     // 6. Generate intake token
     const intakeToken = crypto.randomUUID();
@@ -764,7 +766,9 @@ export class PublicBookingService {
       data: { patientId: patient.id },
     });
 
-    // Create Appointment (direct Prisma create, NOT via AppointmentsService)
+    // Create Appointment + link to booking within a transaction.
+    // The overlap check inside the transaction prevents overbooking
+    // when two confirmations for the same slot arrive simultaneously.
     const startAt = new Date(booking.slotDate);
     const [startHour, startMin] = booking.slotStart.split(':').map(Number);
     startAt.setUTCHours(startHour + 3, startMin, 0, 0); // ARG TZ offset
@@ -772,31 +776,48 @@ export class PublicBookingService {
     const durationMs = booking.professional.consultationMinutes * 60000;
     const endAt = new Date(startAt.getTime() + durationMs);
 
-    const appointment = await this.prisma.appointment.create({
-      data: {
-        professionalId: booking.professionalId,
-        organizationId: booking.professional.organizationId ?? null,
-        patientId: patient.id,
-        startAt,
-        endAt,
-        durationMinutes: booking.professional.consultationMinutes,
-        bufferMinutes: booking.professional.bufferMinutes,
-        fee: booking.professional.standardFee,
-        status: AppointmentStatus.PENDING,
-      },
-    });
+    const { appointment } = await this.prisma.$transaction(async (tx) => {
+      // Re-check overlap inside the transaction
+      const overlapping = await tx.appointment.count({
+        where: {
+          professionalId: booking.professionalId,
+          status: { not: AppointmentStatus.CANCELLED },
+          AND: [{ startAt: { lt: endAt } }, { endAt: { gt: startAt } }],
+        },
+      });
+      if (overlapping > 0) {
+        throw new BadRequestException(
+          'El horario seleccionado ya fue reservado por otro paciente',
+        );
+      }
 
-    // Link appointment to booking
-    await this.prisma.publicBooking.update({
-      where: { id: booking.id },
-      data: {
-        appointmentId: appointment.id,
-        status: BookingStatus.BOOKED,
-        expiresAt: addMinutes(
-          new Date(),
-          booking.professional.depositWindowHours,
-        ),
-      },
+      const apt = await tx.appointment.create({
+        data: {
+          professionalId: booking.professionalId,
+          organizationId: booking.professional.organizationId ?? null,
+          patientId: patient.id,
+          startAt,
+          endAt,
+          durationMinutes: booking.professional.consultationMinutes,
+          bufferMinutes: booking.professional.bufferMinutes,
+          fee: booking.professional.standardFee,
+          status: AppointmentStatus.PENDING,
+        },
+      });
+
+      await tx.publicBooking.update({
+        where: { id: booking.id },
+        data: {
+          appointmentId: apt.id,
+          status: BookingStatus.BOOKED,
+          expiresAt: addMinutes(
+            new Date(),
+            booking.professional.depositWindowHours,
+          ),
+        },
+      });
+
+      return { appointment: apt };
     });
 
     const slotDateHuman = formatDateOnly(booking.slotDate);
@@ -1524,10 +1545,15 @@ export class PublicBookingService {
       tenantSlug && baseDomain
         ? `https://${tenantSlug}.${baseDomain}`
         : (this.config.get<string>('FRONTEND_PUBLIC_URL') ?? '');
-    const detalleFicha =
+    const detalleFichaRaw =
       isNewPatient && booking.intakeToken && frontendUrl
         ? `📋 Completá tu ficha de ingreso (solo una vez):\n${frontendUrl}/ficha/${booking.intakeToken}\n\n`
         : '';
+
+    // Shorten the intake form URL if present
+    const detalleFicha = detalleFichaRaw
+      ? await this.shortUrlService.shortenUrl(detalleFichaRaw)
+      : '';
 
     const tpl = await this.messageTemplates.getOne(
       booking.professionalId,
@@ -1807,7 +1833,7 @@ export class PublicBookingService {
     return d;
   }
 
-  /** Unconfirmed bookings past the auto-cancel threshold (only if warning was already sent) */
+  /** Unconfirmed bookings past the auto-cancel threshold */
   async getUnconfirmedBookingsForCancel(): Promise<
     Array<{
       booking: {
@@ -1828,14 +1854,14 @@ export class PublicBookingService {
     }>
   > {
     const now = new Date();
-    // Only warn-if-not-cancel logic: only cancel bookings that were already warned.
-    // This prevents cancelling without warning if bookingAutoCancelHours >= reminderHours.
+    // Cancela reservas no confirmadas cuyo turno está dentro de
+    // bookingAutoCancelHours (sin necesidad de warning previo).
+    // Busca bookings con slotDate entre 48hs atrás y 96hs adelante.
     const minSlotDate = new Date(now.getTime() - 48 * 3600000);
     const maxSlotDate = new Date(now.getTime() + 96 * 3600000);
     const bookings = await this.prisma.publicBooking.findMany({
       where: {
         status: BookingStatus.PENDING_WA_CONFIRMATION,
-        unconfirmedWarningSentAt: { not: null },
         slotDate: { gte: minSlotDate, lte: maxSlotDate },
       },
       include: {

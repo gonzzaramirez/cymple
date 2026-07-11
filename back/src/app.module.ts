@@ -25,6 +25,7 @@ import { OrganizationModule } from './organization/organization.module';
 import { ClinicalRecordsModule } from './clinical-records/clinical-records.module';
 import { PublicBookingModule } from './public-booking/public-booking.module';
 import { IntakeFormModule } from './intake-form/intake-form.module';
+import { ShortUrlModule } from './short-url/short-url.module';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { IntakeFormModule } from './intake-form/intake-form.module';
     ClinicalRecordsModule,
     PublicBookingModule,
     IntakeFormModule,
+    ShortUrlModule,
   ],
   controllers: [AppController],
   providers: [

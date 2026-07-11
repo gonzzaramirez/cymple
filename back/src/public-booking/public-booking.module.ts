@@ -3,6 +3,7 @@ import { AvailabilityModule } from '../availability/availability.module';
 import { MessageTemplatesModule } from '../message-templates/message-templates.module';
 import { WhatsappModule } from '../whatsapp/whatsapp.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ShortUrlModule } from '../short-url/short-url.module';
 import {
   PublicBookingController,
   BookingDashboardController,
@@ -16,6 +17,7 @@ import { BookingCronService } from './booking-cron.service';
     forwardRef(() => WhatsappModule),
     NotificationsModule,
     MessageTemplatesModule,
+    ShortUrlModule,
   ],
   controllers: [PublicBookingController, BookingDashboardController],
   providers: [PublicBookingService, BookingCronService],

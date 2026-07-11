@@ -32,6 +32,55 @@ function detectEventType(payload: unknown): string | null {
 export class WebhooksService {
   private readonly logger = new Logger(WebhooksService.name);
 
+  // ── Idempotency guard: Evolution API puede reenviar el mismo evento ──
+  private readonly processedMessageIds = new Map<string, number>();
+  private readonly IDEMPOTENCY_TTL_MS = 60_000;
+
+  private isDuplicateMessage(messageId: string): boolean {
+    const now = Date.now();
+    const processedAt = this.processedMessageIds.get(messageId);
+    if (processedAt !== undefined) {
+      if (now - processedAt < this.IDEMPOTENCY_TTL_MS) {
+        return true; // Duplicado dentro de la ventana de TTL
+      }
+      // Expired entry — remove it
+      this.processedMessageIds.delete(messageId);
+    }
+    this.processedMessageIds.set(messageId, now);
+    return false;
+  }
+
+  /** Extrae el message key.id del payload de Evolution API. */
+  private extractMessageKey(payload: unknown): string | null {
+    if (!payload || typeof payload !== 'object') return null;
+    const root = payload as Record<string, unknown>;
+
+    // Evolution API v2: { data: { key: { id: "..." }, message: {...} } }
+    const data = root.data;
+    if (data && typeof data === 'object') {
+      const d = data as Record<string, unknown>;
+      const key = d.key;
+      if (key && typeof key === 'object') {
+        const id = (key as Record<string, unknown>).id;
+        if (typeof id === 'string') return id;
+      }
+      // Array format: { data: { messages: [{ key: { id: "..." } }] } }
+      const messages = d.messages;
+      if (Array.isArray(messages) && messages.length > 0) {
+        const first = messages[0];
+        if (first && typeof first === 'object') {
+          const msgKey = (first as Record<string, unknown>).key;
+          if (msgKey && typeof msgKey === 'object') {
+            const id = (msgKey as Record<string, unknown>).id;
+            if (typeof id === 'string') return id;
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly whatsappMessaging: WhatsappMessagingService,
@@ -60,6 +109,21 @@ export class WebhooksService {
   async handleWhatsappPayload(payload: unknown) {
     const instanceName = extractInstanceName(payload);
     const eventType = detectEventType(payload);
+
+    // ── Idempotency: Evolution API puede reenviar el mismo evento ──
+    if (
+      eventType === 'MESSAGES_UPSERT' ||
+      eventType === 'MESSAGES.UPSERT' ||
+      eventType === 'WHATSAPP_INBOUND'
+    ) {
+      const messageId = this.extractMessageKey(payload);
+      if (messageId && this.isDuplicateMessage(messageId)) {
+        this.logger.debug(
+          `[Idempotency] Skipping duplicate message ${messageId}`,
+        );
+        return;
+      }
+    }
 
     // ── CONNECTION_UPDATE: update waStatus in DB ──
     if (eventType === 'CONNECTION_UPDATE') {

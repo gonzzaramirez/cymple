@@ -24,24 +24,28 @@ export class WebhooksController {
     @Body() payload: unknown,
     @Query('token') queryToken: string | undefined,
   ) {
-    if (this.expectedToken) {
-      const headerToken = req?.headers?.['x-evolution-webhook-token'];
-      const candidate =
-        (typeof headerToken === 'string' ? headerToken : undefined) ??
-        queryToken;
+    if (!this.expectedToken) {
+      throw new UnauthorizedException(
+        'Webhook no configurado: falta EVOLUTION_WEBHOOK_TOKEN',
+      );
+    }
 
-      if (!candidate) {
-        throw new UnauthorizedException('Missing webhook token');
-      }
+    const headerToken = req?.headers?.['x-evolution-webhook-token'];
+    const candidate =
+      (typeof headerToken === 'string' ? headerToken : undefined) ??
+      queryToken;
 
-      if (
-        !crypto.timingSafeEqual(
-          Buffer.from(candidate, 'utf-8'),
-          Buffer.from(this.expectedToken, 'utf-8'),
-        )
-      ) {
-        throw new UnauthorizedException('Invalid webhook token');
-      }
+    if (!candidate) {
+      throw new UnauthorizedException('Missing webhook token');
+    }
+
+    if (
+      !crypto.timingSafeEqual(
+        Buffer.from(candidate, 'utf-8'),
+        Buffer.from(this.expectedToken, 'utf-8'),
+      )
+    ) {
+      throw new UnauthorizedException('Invalid webhook token');
     }
 
     await this.webhooksService.handleWhatsappPayload(payload);

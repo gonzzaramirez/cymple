@@ -103,6 +103,8 @@ describe('PublicBookingService - Org methods', () => {
       invalidateCache: jest.fn(),
     };
 
+    const shortUrlMock = { shortenUrl: jest.fn((t: string) => Promise.resolve(t)) };
+
     service = new PublicBookingService(
       prismaMock,
       availabilityMock as any,
@@ -111,6 +113,7 @@ describe('PublicBookingService - Org methods', () => {
       configMock as any,
       messageTemplatesMock as any,
       antiBanStateMock as any,
+      shortUrlMock as any,
     );
   });
 

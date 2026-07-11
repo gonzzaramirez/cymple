@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { PrismaModule } from '../common/prisma/prisma.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { MessageTemplatesModule } from '../message-templates/message-templates.module';
+import { ShortUrlModule } from '../short-url/short-url.module';
 import { EvolutionApiService } from './evolution-api.service';
 import { WhatsappConnectionService } from './whatsapp-connection.service';
 import { WhatsappMessagingService } from './whatsapp-messaging.service';
@@ -9,7 +10,7 @@ import { AntiBanStateService } from './antiban-state.service';
 import { WhatsappController } from './whatsapp.controller';
 
 @Module({
-  imports: [PrismaModule, NotificationsModule, MessageTemplatesModule],
+  imports: [PrismaModule, NotificationsModule, MessageTemplatesModule, ShortUrlModule],
   controllers: [WhatsappController],
   providers: [
     EvolutionApiService,
