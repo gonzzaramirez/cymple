@@ -2,14 +2,16 @@
 -- Script: clean-patient.sql
 -- Elimina TODO rastro de un paciente por teléfono.
 -- ============================================================
--- USO: Reemplazá el teléfono abajo y correlo con:
---   npx prisma db execute --schema prisma\schema.prisma --file prisma\scripts\clean-patient.sql
+-- USO:
+--   1. PONÉ el teléfono del paciente en la línea 12
+--   2. Ejecutá desde back/:
+--        npx prisma db execute --schema prisma/schema.prisma --file prisma/scripts/clean-patient.sql
 -- ============================================================
 
 DO $$
 DECLARE
   v_patient_id TEXT;
-  v_phone TEXT := '5493775439981';  -- 👈 CAMBIÁ ESTE NÚMERO
+  v_phone TEXT := '5493775439981';  -- 👈 PONÉ ACÁ EL TELÉFONO DEL PACIENTE DE PRUEBA
 BEGIN
   SELECT id INTO v_patient_id FROM "Patient" WHERE phone = v_phone LIMIT 1;
 
