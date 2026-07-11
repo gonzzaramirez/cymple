@@ -637,7 +637,8 @@ export class PublicBookingService {
     this.logger.log(
       `[LOG] handleBookingConfirm called: token=${token}, waMessageId=${waMessageId}`,
     );
-    const booking = await this.prisma.publicBooking.findUnique({
+    try {
+      const booking = await this.prisma.publicBooking.findUnique({
       where: { token },
       include: {
         professional: {
@@ -693,6 +694,9 @@ export class PublicBookingService {
       booking.status === BookingStatus.INTAKE_SENT ||
       booking.status === BookingStatus.INTAKE_COMPLETED
     ) {
+      this.logger.log(
+        `[LOG] handleBookingConfirm SKIP: booking ${booking.token} already in terminal state ${booking.status}`,
+      );
       return;
     }
 
@@ -846,6 +850,13 @@ export class PublicBookingService {
         bookingToken: booking.token,
       },
     });
+  } catch (error) {
+    this.logger.error(
+      `[LOG] handleBookingConfirm FAILED: token=${token}`,
+      error,
+    );
+    throw error;
+  }
   }
 
   async manualConfirm(
@@ -1551,9 +1562,18 @@ export class PublicBookingService {
         : '';
 
     // Shorten the intake form URL if present
-    const detalleFicha = detalleFichaRaw
-      ? await this.shortUrlService.shortenUrl(detalleFichaRaw)
-      : '';
+    // WRAPPED: any failure in shortenUrl() must NEVER block the message send
+    let detalleFicha = detalleFichaRaw;
+    if (detalleFichaRaw) {
+      try {
+        detalleFicha = await this.shortUrlService.shortenUrl(detalleFichaRaw);
+      } catch (error) {
+        this.logger.warn(
+          `[LOG] shortUrlService.shortenUrl() failed — using original URL`,
+          error,
+        );
+      }
+    }
 
     const tpl = await this.messageTemplates.getOne(
       booking.professionalId,

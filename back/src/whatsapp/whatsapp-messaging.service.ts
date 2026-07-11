@@ -149,7 +149,15 @@ export class WhatsappMessagingService {
 
     await this.antiBanState.runSerialized(ref, async () => {
       // Shorten any app-domain URLs before sending
-      text = await this.shortUrlService.shortenUrl(text);
+      // WRAPPED: failure must never block message delivery
+      try {
+        text = await this.shortUrlService.shortenUrl(text);
+      } catch (error) {
+        this.logger.warn(
+          `[AntiBan] shortUrlService.shortenUrl() failed — using original text`,
+          error,
+        );
+      }
 
       const state = await this.antiBanState.loadState(ref);
 
