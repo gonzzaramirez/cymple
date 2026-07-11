@@ -10,7 +10,6 @@ export const TEMPLATABLE_TYPES = [
   MessageType.APPOINTMENT_CANCELLED,
   MessageType.PAYMENT_REMINDER,
   MessageType.BOOKING_CONFIRMED,
-  MessageType.BOOKING_UNCONFIRMED_WARNING,
   MessageType.DEPOSIT_REMINDER,
   MessageType.DEPOSIT_EXPIRED,
 ] as const;
@@ -48,22 +47,16 @@ export const DEFAULT_TEMPLATE_VARIANTS: Record<
   [MessageType.APPOINTMENT_REMINDER]: [
     `📋 Recordatorio de turno\n` +
       `Hola {{nombrePaciente}}! {{diaRelativo}} tenés turno con {{nombreProfesional}} a las {{hora}}hs.\n\n` +
-      `Confirmá tu asistencia:\n` +
-      `1️⃣ Confirmo que voy\n` +
-      `2️⃣ No puedo asistir`,
+      `Si no podés asistir, respondé este mensaje y te ayudamos.`,
 
     `⏰ Hola {{nombrePaciente}} 👋\n` +
       `Te recordamos que {{diaRelativo}} a las {{hora}}hs tenés turno con {{nombreProfesional}}.\n\n` +
-      `Respondé para confirmar:\n` +
-      `1️⃣ Sí, voy\n` +
-      `2️⃣ No puedo`,
+      `Si necesitás cancelar o reprogramar, escribinos por acá.`,
 
     `📌 {{nombrePaciente}}, pasamos a recordarte tu turno\n\n` +
       `👤 Con {{nombreProfesional}}\n` +
       `📅 {{diaRelativo}} a las {{hora}}hs\n\n` +
-      `Por favor confirmá si vas a asistir:\n` +
-      `1️⃣ Confirmo\n` +
-      `2️⃣ Cancelar`,
+      `Cualquier cosa, estamos a tu disposición.`,
   ],
 
   // ── APPOINTMENT_RESCHEDULED ──────────────────────────────
@@ -150,20 +143,6 @@ export const DEFAULT_TEMPLATE_VARIANTS: Record<
       `{{detalleFicha}}` +
       `📝 Código: {{codigoReserva}}\n\n` +
       `Cualquier cosa, estamos a tu disposición.`,
-  ],
-
-  // ── BOOKING_UNCONFIRMED_WARNING ──────────────────────────
-  [MessageType.BOOKING_UNCONFIRMED_WARNING]: [
-    `⏰ Recordatorio: tenés un turno pendiente de confirmación para el {{fechaHumana}} a las {{horario}}hs.\n\n` +
-      'Por favor confirmá tu reserva respondiendo el mensaje de WhatsApp que te enviamos.\n' +
-      `Si no confirmás, el turno será cancelado automáticamente.\n\n` +
-      `¡Gracias!`,
-
-    `Hola! 👋 Tenés un turno sin confirmar para el {{fechaHumana}} a las {{horario}}hs.\n\n` +
-      `Recordá confirmar respondiendo el WhatsApp que te mandamos. Sin confirmación, el turno se libera automáticamente.`,
-
-    `⏳ {{nombrePaciente}}, tu turno del {{fechaHumana}} a las {{horario}}hs sigue pendiente de confirmación.\n\n` +
-      `Por favor revisá tu WhatsApp y confirmá asistencia. Si no confirmás a tiempo, el turno se cancela.`,
   ],
 
   // ── DEPOSIT_REMINDER ─────────────────────────────────────

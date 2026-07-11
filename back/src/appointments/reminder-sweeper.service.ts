@@ -33,7 +33,6 @@ export class ReminderSweeper {
             id: true,
             fullName: true,
             reminderHours: true,
-            confirmationWindowMinutes: true,
           },
         },
         patient: {
@@ -85,43 +84,4 @@ export class ReminderSweeper {
     }
   }
 
-  /**
-   * Verifica deadlines de confirmación expirados.
-   * Si el paciente no respondió dentro de la ventana de confirmación,
-   * y el turno está a más de 24hs, se reenvía el recordatorio.
-   */
-  @Cron('*/5 * * * *')
-  async checkConfirmationDeadlines() {
-    const now = new Date();
-    const minReRequest = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-
-    const expired = await this.prisma.appointment.findMany({
-      where: {
-        status: AppointmentStatus.PENDING,
-        confirmationDeadline: { lte: now },
-        startAt: { gte: minReRequest },
-      },
-      select: {
-        id: true,
-        startAt: true,
-        professional: {
-          select: { fullName: true },
-        },
-      },
-      take: 50,
-    });
-
-    if (expired.length === 0) return;
-
-    for (const apt of expired) {
-      await this.prisma.appointment.update({
-        where: { id: apt.id },
-        data: {
-          reminderSentAt: null,
-          reminderScheduledFor: now,
-          confirmationDeadline: null,
-        },
-      });
-    }
-  }
 }

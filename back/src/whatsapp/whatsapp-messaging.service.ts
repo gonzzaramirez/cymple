@@ -93,15 +93,6 @@ function reminderRelativeDay(startAt: Date, timezone: string): string {
   return '';
 }
 
-export function isStrictStructuredCommand(
-  input: string,
-): 'CONFIRM' | 'CANCEL' | null {
-  const normalized = input.trim();
-  if (normalized === '1' || normalized === '1️⃣') return 'CONFIRM';
-  if (normalized === '2' || normalized === '2️⃣') return 'CANCEL';
-  return null;
-}
-
 function buildMessageLink(params: {
   patientId?: string | null;
   organizationId?: string;
@@ -405,10 +396,6 @@ export class WhatsappMessagingService {
       where: { id: row.id },
       data: {
         reminderSentAt: now,
-        confirmationDeadline: new Date(
-          now.getTime() +
-            (professional.confirmationWindowMinutes ?? 60) * 60 * 1000,
-        ),
       },
     });
 
@@ -1057,11 +1044,7 @@ export class WhatsappMessagingService {
       previewText?: string;
     },
   ): Promise<boolean> {
-    const normalized = rawText.trim();
-    const command = isStrictStructuredCommand(normalized);
-    const isOne = command === 'CONFIRM';
-    const isTwo = command === 'CANCEL';
-    const inboundPreview = options?.previewText ?? normalized;
+    const inboundPreview = options?.previewText ?? rawText.trim();
     const inboundIsStructuredText = options?.isStructuredText ?? true;
     const inboundMediaType = options?.mediaType;
 
@@ -1127,7 +1110,7 @@ export class WhatsappMessagingService {
 
     const { professional, patient, organizationId } = resolved;
 
-    const inboundLog = await this.prisma.messageLog.create({
+    await this.prisma.messageLog.create({
       data: {
         professionalId: professional.id,
         organizationId,
@@ -1140,334 +1123,28 @@ export class WhatsappMessagingService {
       },
     });
 
-    // Texto libre o multimedia: modo pasivo, sin respuesta automática.
-    if (!isOne && !isTwo) {
-      void this.notifications.create({
-        professionalId: professional.id,
-        organizationId,
-        type: 'NEW_INBOUND_MESSAGE',
-        title: `Nuevo mensaje de ${patient.firstName} ${patient.lastName}`,
-        body: truncateForNotification(
-          inboundIsStructuredText
-            ? inboundPreview
-            : (options?.previewText ?? 'Nuevo archivo multimedia recibido'),
-        ),
-        link: buildMessageLink({
-          patientId: patient.id,
-          organizationId,
-        }),
-        patientId: patient.id,
-        metadata: {
-          patientId: patient.id,
-          fromPhone: fromJidDigits,
-          rawText: rawText.substring(0, 2000),
-          mediaType: inboundMediaType ?? null,
-        },
-      });
-      return true;
-    }
-
-    const now = new Date();
-    const gracePeriod = new Date(now.getTime() - 2 * 60 * 60 * 1000);
-    const futureLimit = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-
-    const remindedCandidates = await this.prisma.appointment.findMany({
-      where: {
-        professionalId: professional.id,
-        patientId: patient.id,
-        status: AppointmentStatus.PENDING,
-        startAt: { gte: gracePeriod, lte: futureLimit },
-        reminderSentAt: { not: null },
-      },
-      orderBy: { startAt: 'asc' },
-    });
-
-    let appointment = remindedCandidates[0];
-
-    if (!appointment) {
-      const allCandidates = await this.prisma.appointment.findMany({
-        where: {
-          professionalId: professional.id,
-          patientId: patient.id,
-          status: AppointmentStatus.PENDING,
-          startAt: { gte: gracePeriod },
-        },
-        orderBy: { startAt: 'asc' },
-      });
-
-      appointment = allCandidates[0];
-    }
-
-    if (!appointment) {
-      const guidance = `Hola ${patient.firstName}, no hay turnos activos para confirmar o cancelar en este momento.`;
-      await this.sendSystemText({
-        professionalId: professional.id,
-        patientId: patient.id,
-        appointmentId: null,
-        toPhoneDigits: normalizeArWhatsappNumber(patient.phone),
-        content: guidance,
-        organizationId,
-      });
-      return true;
-    }
-
-    const { time } = formatAppointmentHuman(
-      appointment.startAt,
-      professional.timezone,
-    );
-    const rel = reminderRelativeDay(appointment.startAt, professional.timezone);
-    const whenLabel =
-      rel ||
-      formatAppointmentHuman(appointment.startAt, professional.timezone)
-        .weekday;
-
-    const freshAppointment = await this.prisma.appointment.findUnique({
-      where: { id: appointment.id },
-      select: { status: true },
-    });
-
-    if (isOne) {
-      if (
-        freshAppointment &&
-        freshAppointment.status === AppointmentStatus.CONFIRMED
-      ) {
-        const fechaCorta = new Intl.DateTimeFormat('es-AR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          timeZone: professional.timezone,
-        }).format(appointment.startAt);
-        const ack =
-          `Hola ${patient.firstName}, tu turno ya estaba confirmado \u{2705}\n` +
-          `\u{1F4C5} ${fechaCorta} a las ${time} hs con ${professional.fullName}.\n\n` +
-          `¡Te esperamos!`;
-        await this.sendSystemText({
-          professionalId: professional.id,
-          patientId: patient.id,
-          appointmentId: appointment.id,
-          toPhoneDigits: normalizeArWhatsappNumber(patient.phone),
-          content: ack,
-          organizationId,
-        });
-        return true;
-      }
-
-      const updateResult = await this.prisma.appointment.updateMany({
-        where: {
-          id: appointment.id,
-          status: AppointmentStatus.PENDING,
-        },
-        data: {
-          status: AppointmentStatus.CONFIRMED,
-          confirmationDeadline: null,
-        },
-      });
-
-      if (updateResult.count === 0) {
-        const fechaCorta = new Intl.DateTimeFormat('es-AR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          timeZone: professional.timezone,
-        }).format(appointment.startAt);
-        const fortyEightHoursAfterRace = new Date(
-          appointment.startAt.getTime() + 48 * 60 * 60 * 1000,
-        );
-        const nextAptRace = await this.prisma.appointment.findFirst({
-          where: {
-            patientId: patient.id,
-            professionalId: professional.id,
-            id: { not: appointment.id },
-            status: {
-              in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
-            },
-            startAt: { gt: appointment.startAt, lte: fortyEightHoursAfterRace },
-          },
-          orderBy: { startAt: 'asc' },
-          select: { startAt: true },
-        });
-        let nextAptLineRace = '';
-        if (nextAptRace) {
-          const nextTime = new Intl.DateTimeFormat('es-AR', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false,
-            timeZone: professional.timezone,
-          }).format(nextAptRace.startAt);
-          nextAptLineRace = `\n\n\u{1F4C5} Tenés otro turno a las ${nextTime} hs — también podés confirmarlo respondiendo 1.`;
-        }
-        const ack =
-          `Hola ${patient.firstName}, tu turno ya estaba confirmado \u{2705}\n` +
-          `\u{1F4C5} ${fechaCorta} a las ${time} hs con ${professional.fullName}.` +
-          nextAptLineRace +
-          `\n\n¡Te esperamos!`;
-        await this.sendSystemText({
-          professionalId: professional.id,
-          patientId: patient.id,
-          appointmentId: appointment.id,
-          toPhoneDigits: normalizeArWhatsappNumber(patient.phone),
-          content: ack,
-          organizationId,
-        });
-        return true;
-      }
-
-      if (inboundLog) {
-        await this.prisma.messageLog
-          .update({
-            where: { id: inboundLog.id },
-            data: { appointmentId: appointment.id },
-          })
-          .catch(() => {});
-      }
-
-      const fechaCorta = new Intl.DateTimeFormat('es-AR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        timeZone: professional.timezone,
-      }).format(appointment.startAt);
-
-      const fortyEightHoursAfter = new Date(
-        appointment.startAt.getTime() + 48 * 60 * 60 * 1000,
-      );
-      const nextApt = await this.prisma.appointment.findFirst({
-        where: {
-          patientId: patient.id,
-          professionalId: professional.id,
-          id: { not: appointment.id },
-          status: {
-            in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
-          },
-          startAt: { gt: appointment.startAt, lte: fortyEightHoursAfter },
-        },
-        orderBy: { startAt: 'asc' },
-        select: { startAt: true },
-      });
-
-      let nextAptLine = '';
-      if (nextApt) {
-        const nextTime = new Intl.DateTimeFormat('es-AR', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false,
-          timeZone: professional.timezone,
-        }).format(nextApt.startAt);
-        nextAptLine = `\n\n\u{1F4C5} Tenés otro turno a las ${nextTime} hs — también podés confirmarlo respondiendo 1.`;
-      }
-
-      const ack =
-        `\u{2705} ¡Listo, ${patient.firstName}! Tu turno quedó confirmado:\n` +
-        `\u{1F4C5} ${fechaCorta} a las ${time} hs con ${professional.fullName}.` +
-        nextAptLine +
-        `\n\n¡Te esperamos! Si necesitás algo antes, escribinos por acá.`;
-      await this.sendSystemText({
-        professionalId: professional.id,
-        patientId: patient.id,
-        appointmentId: appointment.id,
-        toPhoneDigits: normalizeArWhatsappNumber(patient.phone),
-        content: ack,
-        organizationId,
-      });
-
-      const patientName = `${patient.firstName} ${patient.lastName}`;
-      const notifBody = `${rel ? rel : whenLabel} a las ${time}hs`;
-      void this.notifications.create({
-        professionalId: professional.id,
-        organizationId,
-        type: 'PATIENT_CONFIRMED',
-        title: `${patientName} confirmó su turno`,
-        body: notifBody,
-        link: `/appointments?id=${appointment.id}`,
-        appointmentId: appointment.id,
-        patientId: patient.id,
-        metadata: { patientName, when: notifBody },
-      });
-
-      return true;
-    }
-
-    if (
-      freshAppointment &&
-      freshAppointment.status === AppointmentStatus.CANCELLED
-    ) {
-      const ack = `Hola ${patient.firstName}, ese turno ya fue cancelado previamente. \u{1F44B}`;
-      await this.sendSystemText({
-        professionalId: professional.id,
-        patientId: patient.id,
-        appointmentId: appointment.id,
-        toPhoneDigits: normalizeArWhatsappNumber(patient.phone),
-        content: ack,
-        organizationId,
-      });
-      return true;
-    }
-
-    const cancelResult = await this.prisma.appointment.updateMany({
-      where: {
-        id: appointment.id,
-        status: {
-          in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
-        },
-      },
-      data: {
-        status: AppointmentStatus.CANCELLED,
-        cancelledAt: new Date(),
-        confirmationDeadline: null,
-      },
-    });
-
-    if (cancelResult.count === 0) {
-      const statusLabel =
-        freshAppointment?.status === AppointmentStatus.CANCELLED
-          ? 'cancelado'
-          : 'confirmado';
-      const ack =
-        freshAppointment?.status === AppointmentStatus.CANCELLED
-          ? `Hola ${patient.firstName}, ese turno ya fue cancelado previamente. \u{1F44B}`
-          : `Hola ${patient.firstName}, no se puede cancelar un turno que ya fue ${statusLabel}. Si necesitás cancelarlo, contactá directamente a ${professional.fullName}.`;
-      await this.sendSystemText({
-        professionalId: professional.id,
-        patientId: patient.id,
-        appointmentId: appointment.id,
-        toPhoneDigits: normalizeArWhatsappNumber(patient.phone),
-        content: ack,
-        organizationId,
-      });
-      return true;
-    }
-
-    if (inboundLog) {
-      await this.prisma.messageLog
-        .update({
-          where: { id: inboundLog.id },
-          data: { appointmentId: appointment.id },
-        })
-        .catch(() => {});
-    }
-
-    const ack = `Entendido, ${patient.firstName}. Tu turno fue cancelado. ¡Hasta la próxima! \u{1F44B}`;
-    await this.sendSystemText({
-      professionalId: professional.id,
-      patientId: patient.id,
-      appointmentId: appointment.id,
-      toPhoneDigits: normalizeArWhatsappNumber(patient.phone),
-      content: ack,
-      organizationId,
-    });
-
-    const patientName = `${patient.firstName} ${patient.lastName}`;
-    const notifBody = `${rel ? rel : whenLabel} a las ${time}hs`;
+    // Modo pasivo: solo notificamos al profesional, sin respuesta automática
     void this.notifications.create({
       professionalId: professional.id,
       organizationId,
-      type: 'PATIENT_CANCELLED',
-      title: `${patientName} canceló su turno`,
-      body: notifBody,
-      link: `/appointments?id=${appointment.id}`,
-      appointmentId: appointment.id,
+      type: 'NEW_INBOUND_MESSAGE',
+      title: `Nuevo mensaje de ${patient.firstName} ${patient.lastName}`,
+      body: truncateForNotification(
+        inboundIsStructuredText
+          ? inboundPreview
+          : (options?.previewText ?? 'Nuevo archivo multimedia recibido'),
+      ),
+      link: buildMessageLink({
+        patientId: patient.id,
+        organizationId,
+      }),
       patientId: patient.id,
-      metadata: { patientName, when: notifBody },
+      metadata: {
+        patientId: patient.id,
+        fromPhone: fromJidDigits,
+        rawText: rawText.substring(0, 2000),
+        mediaType: inboundMediaType ?? null,
+      },
     });
 
     return true;

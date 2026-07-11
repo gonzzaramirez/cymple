@@ -70,7 +70,7 @@ export const TEMPLATE_META: TemplateMeta[] = [
     type: "APPOINTMENT_REMINDER",
     label: "Recordatorio de turno",
     description:
-      "Se envía antes del turno para que el paciente confirme asistencia",
+      "Se envía antes del turno para avisar al paciente — es solo informativo, el sistema no procesa respuestas automáticas",
     icon: "🔔",
     variables: [
       ...COMMON_VARIABLES,
@@ -178,31 +178,6 @@ export const TEMPLATE_META: TemplateMeta[] = [
     },
   },
   {
-    type: "BOOKING_UNCONFIRMED_WARNING",
-    label: "Aviso de reserva pendiente",
-    description:
-      "Se envía al paciente cuando no confirmó la reserva y se acerca el turno",
-    icon: "⏰",
-    variables: [
-      {
-        key: "fechaHumana",
-        label: "Fecha completa",
-        example: "domingo, 28 de junio de 2026",
-        description: "Fecha con día de semana y mes",
-      },
-      {
-        key: "horario",
-        label: "Horario",
-        example: "09:00",
-        description: "Hora del turno en formato HH:MM",
-      },
-    ],
-    sampleData: {
-      fechaHumana: "domingo, 28 de junio de 2026",
-      horario: "09:00",
-    },
-  },
-  {
     type: "DEPOSIT_REMINDER",
     label: "Recordatorio de seña",
     description: "Se envía cuando falta poco para que venza la seña pendiente",
@@ -307,22 +282,16 @@ export const DEFAULT_TEMPLATE_VARIANTS: Record<
   APPOINTMENT_REMINDER: [
     "📋 Recordatorio de turno\n" +
       "Hola {{nombrePaciente}}! {{diaRelativo}} tenés turno con {{nombreProfesional}} a las {{hora}}hs.\n\n" +
-      "Confirmá tu asistencia:\n" +
-      "1️⃣ Confirmo que voy\n" +
-      "2️⃣ No puedo asistir",
+      "Si no podés asistir, respondé este mensaje y te ayudamos.",
 
     "⏰ Hola {{nombrePaciente}} 👋\n" +
       "Te recordamos que {{diaRelativo}} a las {{hora}}hs tenés turno con {{nombreProfesional}}.\n\n" +
-      "Respondé para confirmar:\n" +
-      "1️⃣ Sí, voy\n" +
-      "2️⃣ No puedo",
+      "Si necesitás cancelar o reprogramar, escribinos por acá.",
 
     "📌 {{nombrePaciente}}, pasamos a recordarte tu turno\n\n" +
       "👤 Con {{nombreProfesional}}\n" +
       "📅 {{diaRelativo}} a las {{hora}}hs\n\n" +
-      "Por favor confirmá si vas a asistir:\n" +
-      "1️⃣ Confirmo\n" +
-      "2️⃣ Cancelar",
+      "Cualquier cosa, estamos a tu disposición.",
   ],
 
   APPOINTMENT_RESCHEDULED: [
@@ -407,19 +376,6 @@ export const DEFAULT_TEMPLATE_VARIANTS: Record<
       "Cualquier cosa, estamos a tu disposición.",
   ],
 
-  BOOKING_UNCONFIRMED_WARNING: [
-    "⏰ Recordatorio: tenés un turno pendiente de confirmación para el {{fechaHumana}} a las {{horario}}hs.\n\n" +
-      "Por favor confirmá tu reserva respondiendo el mensaje de WhatsApp que te enviamos.\n" +
-      "Si no confirmás, el turno será cancelado automáticamente.\n\n" +
-      "¡Gracias!",
-
-    "Hola! 👋 Tenés un turno sin confirmar para el {{fechaHumana}} a las {{horario}}hs.\n\n" +
-      "Recordá confirmar respondiendo el WhatsApp que te mandamos. Sin confirmación, el turno se libera automáticamente.",
-
-    "⏳ {{nombrePaciente}}, tu turno del {{fechaHumana}} a las {{horario}}hs sigue pendiente de confirmación.\n\n" +
-      "Por favor revisá tu WhatsApp y confirmá asistencia. Si no confirmás a tiempo, el turno se cancela.",
-  ],
-
   DEPOSIT_REMINDER: [
     "⏳ Recordatorio: tu turno del {{fechaHumana}} a las {{horario}}hs está confirmado pero requiere seña.\n\n" +
       "💰 Alias: {{aliasPago}} - ${{montoSena}}\n\n" +
@@ -459,9 +415,7 @@ export const DEFAULT_TEMPLATE_BODIES: Record<MessageTemplateType, string> = {
   APPOINTMENT_REMINDER:
     "📋 Recordatorio de turno\n" +
     "Hola {{nombrePaciente}}! {{diaRelativo}} tenés turno con {{nombreProfesional}} a las {{hora}}hs.\n\n" +
-    "Confirmá tu asistencia:\n" +
-    "1️⃣ Confirmo que voy\n" +
-    "2️⃣ No puedo asistir",
+    "Si no podés asistir, respondé este mensaje y te ayudamos.",
 
   APPOINTMENT_RESCHEDULED:
     "🔄 Tu turno fue reprogramado.\n" +
@@ -480,12 +434,6 @@ export const DEFAULT_TEMPLATE_BODIES: Record<MessageTemplateType, string> = {
     "💳 Alias: *{{aliasPago}}*\n\n" +
     "_Si ya realizaste la transferencia, por favor ignorá este mensaje. 🙏_\n\n" +
     "❤️ Hasta la próxima, {{nombreProfesional}}",
-
-  BOOKING_UNCONFIRMED_WARNING:
-    "⏰ Recordatorio: tenés un turno pendiente de confirmación para el {{fechaHumana}} a las {{horario}}hs.\n\n" +
-    "Por favor confirmá tu reserva respondiendo el mensaje de WhatsApp que te enviamos.\n" +
-    "Si no confirmás, el turno será cancelado automáticamente.\n\n" +
-    "¡Gracias!",
 
   BOOKING_CONFIRMED:
     "¡Hola {{nombrePaciente}}! 👋\n\n" +

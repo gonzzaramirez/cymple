@@ -129,45 +129,6 @@ export class BookingCronService {
   }
 
   /**
-   * Every 15 minutes: send warning to unconfirmed bookings past the warning threshold.
-   */
-  @Cron('*/15 * * * *')
-  async sendUnconfirmedBookingWarnings() {
-    const bookings =
-      await this.publicBookingService.getUnconfirmedBookingsForWarning();
-
-    for (const { booking, professional } of bookings) {
-      const waInstance = await this.resolveWaInstance(professional.id);
-      if (!waInstance) continue;
-
-      const slotDateHuman = formatDateOnly(booking.slotDate);
-
-      const tpl = await this.messageTemplates.getOne(
-        professional.id,
-        MessageType.BOOKING_UNCONFIRMED_WARNING,
-        professional.organizationId ?? undefined,
-      );
-
-      if (tpl.isEnabled) {
-        const message = this.interpolate(tpl.body, {
-          fechaHumana: slotDateHuman,
-          horario: booking.slotStart,
-        });
-
-        await this.sendCronTextWithAntiBan(
-          professional.id,
-          professional.organizationId ?? undefined,
-          waInstance,
-          booking.patientPhone,
-          message,
-        );
-
-        await this.publicBookingService.markUnconfirmedWarningSent(booking.id);
-      }
-    }
-  }
-
-  /**
    * Every 15 minutes: auto-cancel unconfirmed bookings past the cancel threshold.
    */
   @Cron('*/15 * * * *')

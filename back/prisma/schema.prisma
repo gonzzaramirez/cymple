@@ -153,7 +153,6 @@ model Professional {
   dailyDigestEnabled  Boolean  @default(false)
   dailyDigestTime     String   @default("08:00")
   autoConfirmHours         Int?
-  confirmationWindowMinutes Int      @default(60)
   paymentAlias             String?
   publicBookingEnabled     Boolean                  @default(false)
   publicBookingSlug        String?                  @unique
@@ -309,7 +308,6 @@ model Appointment {
   reminderSentAt        DateTime?
   reminderJobId         String?
   paymentReminderSentAt DateTime?
-  confirmationDeadline  DateTime?
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
 

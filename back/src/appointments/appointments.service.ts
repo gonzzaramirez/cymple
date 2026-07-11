@@ -470,7 +470,6 @@ export class AppointmentsService {
           where: { id: appointment.id },
           data: {
             cancelledAt: new Date(),
-            confirmationDeadline: null,
           },
         })
         .catch(() => undefined);
@@ -520,7 +519,6 @@ export class AppointmentsService {
         ),
         reminderJobId: null,
         reminderSentAt: null,
-        confirmationDeadline: null,
       },
     });
 
@@ -566,7 +564,6 @@ export class AppointmentsService {
         cancelledAt: new Date(),
         reason: dto.reason ?? appointment.reason,
         reminderJobId: null,
-        confirmationDeadline: null,
       },
     });
 
