@@ -6,7 +6,11 @@ import * as crypto from 'crypto';
  * colisiones por race condition entre reservas simultáneas.
  */
 export async function generateBookingToken(): Promise<string> {
-  const randomPart = crypto.randomUUID().replace(/-/g, '').slice(0, 8);
+  const randomPart = crypto
+    .randomUUID()
+    .replace(/-/g, '')
+    .slice(0, 8)
+    .toUpperCase();
   return `R-${randomPart}`;
 }
 
