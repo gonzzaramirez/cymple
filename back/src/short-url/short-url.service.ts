@@ -112,8 +112,12 @@ export class ShortUrlService {
   /**
    * Scans text for URLs matching the app's domain and replaces them
    * with short URLs. Creates short URLs lazily on first occurrence.
+   *
+   * @param text      Text containing URLs to shorten
+   * @param baseUrl   Optional explicit base URL for short links (e.g. "https://demo.cymple.online/s").
+   *                  When provided, short URLs use this as prefix instead of auto-detecting from env.
    */
-  async shortenUrl(text: string): Promise<string> {
+  async shortenUrl(text: string, baseUrl?: string): Promise<string> {
     const baseDomain = this.config.get<string>('BASE_DOMAIN');
     if (!baseDomain) return text;
 
@@ -121,7 +125,7 @@ export class ShortUrlService {
     const matches = text.match(urlPattern);
     if (!matches) return text;
 
-    const shortUrlBase = this.buildShortUrlBase();
+    const shortUrlBase = baseUrl ?? this.buildShortUrlBase();
     let result = text;
     const processed = new Map<string, string>();
 

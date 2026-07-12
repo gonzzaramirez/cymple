@@ -1566,7 +1566,8 @@ export class PublicBookingService {
     let detalleFicha = detalleFichaRaw;
     if (detalleFichaRaw) {
       try {
-        detalleFicha = await this.shortUrlService.shortenUrl(detalleFichaRaw);
+        const shortUrlBase = frontendUrl ? `${frontendUrl}/s` : undefined;
+        detalleFicha = await this.shortUrlService.shortenUrl(detalleFichaRaw, shortUrlBase);
       } catch (error) {
         this.logger.warn(
           `[LOG] shortUrlService.shortenUrl() failed — using original URL`,
