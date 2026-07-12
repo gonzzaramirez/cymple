@@ -12,6 +12,7 @@ import {
   AppointmentStatus,
   BookingStatus,
   DepositStatus,
+  MessageDirection,
   MessageType,
   Prisma,
 } from '@prisma/client';
