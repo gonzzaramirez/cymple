@@ -1653,6 +1653,27 @@ export class PublicBookingService {
       await this.evolution.sendText(waCtx, phoneNorm, confirmationText);
       this.logger.log(`[LOG] Fallback sendText SUCCESS`);
     }
+
+    // Log the confirmation message for reply budget tracking
+    try {
+      await this.prisma.messageLog.create({
+        data: {
+          professionalId: booking.professional.id,
+          organizationId: booking.professional.organizationId ?? null,
+          patientId: patient.id,
+          direction: MessageDirection.OUTBOUND,
+          messageType: MessageType.BOOKING_CONFIRMED,
+          toPhone: phoneNorm,
+          content: confirmationText.substring(0, 500),
+          sentAt: new Date(),
+        },
+      });
+    } catch (logError) {
+      this.logger.warn(
+        `[LOG] Failed to log BOOKING_CONFIRMED message — non-blocking`,
+        logError,
+      );
+    }
   }
 
   private async resolveWaInstance(

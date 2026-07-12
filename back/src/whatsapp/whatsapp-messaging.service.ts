@@ -1135,6 +1135,28 @@ export class WhatsappMessagingService {
 
     const { professional, patient, organizationId } = resolved;
 
+    // ── Privacy budget: only process 2 PATIENT_REPLY total per patient lifetime ──
+    try {
+      const totalReplies = await this.prisma.messageLog.count({
+        where: {
+          patientId: patient.id,
+          messageType: MessageType.PATIENT_REPLY,
+          direction: MessageDirection.INBOUND,
+        },
+      });
+      if (totalReplies >= 2) {
+        this.logger.debug(
+          `[PrivacyBudget] Ignoring message from patient ${patient.id} — ${totalReplies} replies already processed, privacy limit reached`,
+        );
+        return true;
+      }
+    } catch (budgetError) {
+      this.logger.warn(
+        `[PrivacyBudget] Error checking reply count — processing anyway`,
+        budgetError,
+      );
+    }
+
     await this.prisma.messageLog.create({
       data: {
         professionalId: professional.id,
