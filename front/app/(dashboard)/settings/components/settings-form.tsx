@@ -40,10 +40,6 @@ export function SettingsForm({ settings }: { settings: ProfessionalSettings }) {
       // Public booking
       publicBookingEnabled: bookingEnabled,
       publicBookingSlug: formData.get("publicBookingSlug") || null,
-      depositAmount: formData.get("depositAmount")
-        ? Number(formData.get("depositAmount"))
-        : null,
-      depositWindowHours: Number(formData.get("depositWindowHours")),
       bookingAutoCancel: autoCancelEnabled,
       bookingAutoCancelHours: Number(formData.get("bookingAutoCancelHours")),
       maxActiveBookings: Number(formData.get("maxActiveBookings")),
@@ -51,6 +47,13 @@ export function SettingsForm({ settings }: { settings: ProfessionalSettings }) {
       intakeEnabled,
       depositEnabled,
     };
+
+    if (depositEnabled) {
+      payload.depositAmount = formData.get("depositAmount")
+        ? Number(formData.get("depositAmount"))
+        : null;
+      payload.depositWindowHours = Number(formData.get("depositWindowHours"));
+    }
 
     const response = await fetch("/api/backend/professional/settings", {
       method: "PATCH",
