@@ -244,7 +244,7 @@ function computeHorizontalLayout(items: Appointment[]): LayoutResult {
     }
 
     if (hasOverflow) {
-      const hiddenItems = group.slice(2);
+      const hiddenItems = group.slice(1);
       const firstStart = new Date(group[0].startAt);
       const groupEndMs = group.reduce((max, item) => {
         const end = new Date(item.endAt).getTime();
