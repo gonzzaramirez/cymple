@@ -414,6 +414,8 @@ export class PublicBookingService {
         consultationMinutes: true,
         timezone: true,
         organizationId: true,
+        intakeEnabled: true,
+        depositEnabled: true,
       },
     });
 
@@ -427,6 +429,8 @@ export class PublicBookingService {
     let orgPhone: string | null = null;
     let orgDepositAmount: number | null = null;
     let orgDepositWindowHours: number | null = null;
+    let orgIntakeEnabled: boolean | null = null;
+    let orgDepositEnabled: boolean | null = null;
 
     if (professional.organizationId) {
       const org = await this.prisma.organization.findUnique({
@@ -435,12 +439,16 @@ export class PublicBookingService {
           waPublicBookingPhone: true,
           depositAmount: true,
           depositWindowHours: true,
+          intakeEnabled: true,
+          depositEnabled: true,
         },
       });
       if (org) {
         orgPhone = org.waPublicBookingPhone;
         orgDepositAmount = org.depositAmount ? Number(org.depositAmount) : null;
         orgDepositWindowHours = org.depositWindowHours;
+        orgIntakeEnabled = org.intakeEnabled;
+        orgDepositEnabled = org.depositEnabled;
       }
     }
 
@@ -454,6 +462,12 @@ export class PublicBookingService {
     // Deposit: professional value → org default → null
     const effectiveDepositAmount =
       professional.depositAmount ?? orgDepositAmount ?? null;
+
+    // Effective toggles: professional → org → true
+    const effectiveDepositEnabled =
+      professional.depositEnabled ?? orgDepositEnabled ?? true;
+    const effectiveIntakeEnabled =
+      professional.intakeEnabled ?? orgIntakeEnabled ?? true;
 
     // 3. Check slot availability
     const slotsData = await this.availability.getSlots(
@@ -522,8 +536,8 @@ export class PublicBookingService {
     // 5. Generate unique booking token (R-<random hex>)
     const token = await generateBookingToken();
 
-    // 6. Generate intake token
-    const intakeToken = crypto.randomUUID();
+    // 6. Generate intake token (null when intake disabled)
+    const intakeToken = effectiveIntakeEnabled ? crypto.randomUUID() : null;
 
     // 7. Build dates — noon UTC avoids timezone off-by-one (AR midnight = 03 UTC, noon won't shift day)
     const slotDateObj = new Date(`${dto.slotDate}T12:00:00.000Z`);
@@ -546,8 +560,10 @@ export class PublicBookingService {
         token,
         intakeToken,
         status: BookingStatus.PENDING_WA_CONFIRMATION,
-        depositStatus: DepositStatus.PENDING,
-        depositAmount: effectiveDepositAmount,
+        depositStatus: effectiveDepositEnabled
+          ? DepositStatus.PENDING
+          : DepositStatus.NOT_REQUIRED,
+        depositAmount: effectiveDepositEnabled ? effectiveDepositAmount : null,
         expiresAt,
       },
     });
@@ -656,8 +672,14 @@ export class PublicBookingService {
             paymentAlias: true,
             organizationId: true,
             slug: true,
+            intakeEnabled: true,
+            depositEnabled: true,
             organization: {
-              select: { slug: true },
+              select: {
+                slug: true,
+                intakeEnabled: true,
+                depositEnabled: true,
+              },
             },
           },
         },
@@ -771,6 +793,12 @@ export class PublicBookingService {
       data: { patientId: patient.id },
     });
 
+    // Resolve effective deposit toggle for appointment status
+    const effectiveDepositEnabled =
+      booking.professional.depositEnabled ??
+      booking.professional.organization?.depositEnabled ??
+      true;
+
     // Create Appointment + link to booking within a transaction.
     // The overlap check inside the transaction prevents overbooking
     // when two confirmations for the same slot arrive simultaneously.
@@ -806,7 +834,9 @@ export class PublicBookingService {
           durationMinutes: booking.professional.consultationMinutes,
           bufferMinutes: booking.professional.bufferMinutes,
           fee: booking.professional.standardFee,
-          status: AppointmentStatus.PENDING,
+          status: effectiveDepositEnabled
+            ? AppointmentStatus.PENDING
+            : AppointmentStatus.CONFIRMED,
         },
       });
 
@@ -815,10 +845,9 @@ export class PublicBookingService {
         data: {
           appointmentId: apt.id,
           status: BookingStatus.BOOKED,
-          expiresAt: addMinutes(
-            new Date(),
-            booking.professional.depositWindowHours,
-          ),
+          expiresAt: effectiveDepositEnabled
+            ? addMinutes(new Date(), booking.professional.depositWindowHours)
+            : addMinutes(new Date(), 5),
         },
       });
 
@@ -1197,6 +1226,10 @@ export class PublicBookingService {
       throw new NotFoundException('Reserva no encontrada');
     }
 
+    if (booking.depositStatus === DepositStatus.NOT_REQUIRED) {
+      throw new BadRequestException('Depósito no requerido para esta reserva');
+    }
+
     await this.prisma.$transaction([
       this.prisma.publicBooking.update({
         where: { id: bookingId },
@@ -1430,10 +1463,15 @@ export class PublicBookingService {
   async markOrgDepositPaid(orgId: string, bookingId: string): Promise<void> {
     const booking = await this.prisma.publicBooking.findFirst({
       where: { id: bookingId, professional: { organizationId: orgId } },
+      select: { id: true, depositStatus: true },
     });
 
     if (!booking) {
       throw new NotFoundException('Reserva no encontrada');
+    }
+
+    if (booking.depositStatus === DepositStatus.NOT_REQUIRED) {
+      throw new BadRequestException('Depósito no requerido para esta reserva');
     }
 
     await this.prisma.publicBooking.update({
@@ -1541,9 +1579,19 @@ export class PublicBookingService {
       return;
     }
 
+    // Resolve effective toggles for message composition
+    const effectiveDepositEnabled =
+      booking.professional.depositEnabled ??
+      booking.professional.organization?.depositEnabled ??
+      true;
+    const effectiveIntakeEnabled =
+      booking.professional.intakeEnabled ??
+      booking.professional.organization?.intakeEnabled ??
+      true;
+
     const depositAmount = Number(booking.professional.depositAmount ?? 0);
     const detalleSena =
-      depositAmount > 0
+      effectiveDepositEnabled && depositAmount > 0
         ? `💰 Seña: $${depositAmount.toLocaleString('es-AR')} — Alias: ${booking.professional.paymentAlias ?? '—'}\n` +
           `⏳ Tenés ${booking.professional.depositWindowHours}hs para enviar el comprobante.\n`
         : '';
@@ -1558,7 +1606,7 @@ export class PublicBookingService {
         ? `https://${tenantSlug}.${baseDomain}`
         : (this.config.get<string>('FRONTEND_PUBLIC_URL') ?? '');
     const detalleFichaRaw =
-      isNewPatient && booking.intakeToken && frontendUrl
+      effectiveIntakeEnabled && isNewPatient && booking.intakeToken && frontendUrl
         ? `📋 Completá tu ficha de ingreso (solo una vez):\n${frontendUrl}/ficha/${booking.intakeToken}\n\n`
         : '';
 

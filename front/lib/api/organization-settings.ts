@@ -9,6 +9,8 @@ export type OrgPublicBookingSettings = {
   bookingAutoCancelHours: number;
   maxActiveBookings: number;
   waPublicBookingPhone: string | null;
+  intakeEnabled: boolean;
+  depositEnabled: boolean;
 };
 
 export async function getOrgPublicBookingSettings(): Promise<OrgPublicBookingSettings> {

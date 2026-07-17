@@ -117,4 +117,26 @@ export class UpdateProfessionalSettingsDto {
   @IsOptional()
   @IsString()
   waPublicBookingPhone?: string;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === 'true' || value === true
+      ? true
+      : value === 'false' || value === false
+        ? false
+        : value,
+  )
+  @IsBoolean()
+  intakeEnabled?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === 'true' || value === true
+      ? true
+      : value === 'false' || value === false
+        ? false
+        : value,
+  )
+  @IsBoolean()
+  depositEnabled?: boolean;
 }

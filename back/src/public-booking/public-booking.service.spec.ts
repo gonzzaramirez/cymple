@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PublicBookingService } from './public-booking.service';
 
@@ -208,6 +208,7 @@ describe('PublicBookingService - Org methods', () => {
 
       expect(prismaMock.publicBooking.findFirst).toHaveBeenCalledWith({
         where: { id: 'booking-1', professional: { organizationId: 'org-1' } },
+        select: { id: true, depositStatus: true },
       });
       expect(prismaMock.publicBooking.update).toHaveBeenCalledWith({
         where: { id: 'booking-1' },
@@ -364,6 +365,86 @@ describe('PublicBookingService - Org methods', () => {
 
       expect(result).toEqual([]);
       expect(prismaMock.professional.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  // ───────────────────────────────────────────────────────
+  //  T6 — depositEnabled / intakeEnabled guard points
+  // ───────────────────────────────────────────────────────
+
+  describe('markDepositPaid() — depositEnabled guard', () => {
+    it('throws BadRequestException when depositStatus is NOT_REQUIRED', async () => {
+      const notRequiredBooking = {
+        ...mockBooking,
+        depositStatus: 'NOT_REQUIRED',
+        appointment: { id: 'apt-1' },
+      };
+      prismaMock.publicBooking.findFirst.mockResolvedValue(notRequiredBooking);
+
+      await expect(
+        service.markDepositPaid('prof-1', 'booking-1'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('proceeds normally when depositStatus is PENDING', async () => {
+      prismaMock.publicBooking.findFirst.mockResolvedValue(mockBooking);
+      prismaMock.publicBooking.update = jest.fn().mockResolvedValue(undefined);
+      prismaMock.appointment.update = jest.fn().mockResolvedValue(undefined);
+      prismaMock.$transaction.mockImplementation(
+        (ops: any[]) => Promise.all(ops),
+      );
+
+      await expect(
+        service.markDepositPaid('prof-1', 'booking-1'),
+      ).resolves.toBeUndefined();
+
+      // update should have been called (inside $transaction)
+      expect(prismaMock.publicBooking.update).toHaveBeenCalled();
+    });
+  });
+
+  describe('createBooking() — toggle guards', () => {
+    const dto = {
+      professionalSlug: 'dr-smith',
+      slotDate: '2026-07-20',
+      slotStart: '10:00',
+      slotEnd: '10:30',
+      patientName: 'John Doe',
+      patientPhone: '+5491122334455',
+    };
+
+    beforeEach(() => {
+      // Setup mock for availability (getSlots)
+      prismaMock.professional.findFirst.mockResolvedValue({
+        id: 'prof-1',
+        fullName: 'Dr. Smith',
+        phone: '+5491122334455',
+        waPublicBookingPhone: null,
+        depositAmount: null,
+        depositWindowHours: 24,
+        maxActiveBookings: 5,
+        consultationMinutes: 30,
+        timezone: 'America/Argentina/Buenos_Aires',
+        organizationId: null,
+        intakeEnabled: false,
+        depositEnabled: true,
+      });
+
+      // Mock publicBooking.create
+      prismaMock.publicBooking.create = jest.fn().mockResolvedValue({
+        token: 'R-mock',
+        expiresAt: new Date(),
+      });
+    });
+
+    it('selects intakeEnabled and depositEnabled from professional', async () => {
+      try {
+        await service.createBooking(dto);
+      } catch {}
+      const selectArg =
+        prismaMock.professional.findFirst.mock.calls[0][0].select;
+      expect(selectArg).toHaveProperty('intakeEnabled');
+      expect(selectArg).toHaveProperty('depositEnabled');
     });
   });
 });

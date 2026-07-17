@@ -27,6 +27,8 @@ export class ProfessionalService {
         bookingAutoCancelHours: true,
         maxActiveBookings: true,
         waPublicBookingPhone: true,
+        intakeEnabled: true,
+        depositEnabled: true,
       },
     });
   }
@@ -52,6 +54,8 @@ export class ProfessionalService {
         bookingAutoCancelHours: true,
         maxActiveBookings: true,
         waPublicBookingPhone: true,
+        intakeEnabled: true,
+        depositEnabled: true,
       },
     });
   }

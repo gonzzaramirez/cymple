@@ -8,6 +8,7 @@ import { es } from "date-fns/locale";
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Clock,
   DollarSign,
   FileText,
@@ -23,6 +24,11 @@ import {
 import { Appointment, PaymentMethod } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { sileo } from "sileo";
 import { ClinicalRichTextEditor } from "@/components/clinical/clinical-rich-text-editor";
@@ -141,8 +147,20 @@ type LayoutSlot = {
   column: number;
 };
 
-function computeHorizontalLayout(items: Appointment[]): Map<string, LayoutSlot> {
-  if (items.length === 0) return new Map();
+type OverflowGroup = {
+  key: string;
+  hiddenItems: Appointment[];
+  top: number;
+  height: number;
+};
+
+type LayoutResult = {
+  slotMap: Map<string, LayoutSlot>;
+  overflows: OverflowGroup[];
+};
+
+function computeHorizontalLayout(items: Appointment[]): LayoutResult {
+  if (items.length === 0) return { slotMap: new Map(), overflows: [] };
 
   const sorted = [...items].sort(
     (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
@@ -182,14 +200,20 @@ function computeHorizontalLayout(items: Appointment[]): Map<string, LayoutSlot> 
     groups.push(group);
   }
 
-  // Assign lanes per group (first-fit)
-  const result = new Map<string, LayoutSlot>();
+  const slotMap = new Map<string, LayoutSlot>();
+  const overflows: OverflowGroup[] = [];
 
   for (const group of groups) {
+    const hasOverflow = group.length >= 3;
+    // For 3+ items, show only first card + overflow button in right column
+    const visibleItems = hasOverflow ? group.slice(0, 1) : group;
+    const colCount = Math.min(group.length, 2);
+
+    // Assign lanes (first-fit) for visible items only
     const lanes: { end: number }[] = [];
     const laneMap = new Map<string, number>();
 
-    for (const appt of group) {
+    for (const appt of visibleItems) {
       const start = new Date(appt.startAt).getTime();
       const end = new Date(appt.endAt).getTime();
 
@@ -209,19 +233,35 @@ function computeHorizontalLayout(items: Appointment[]): Map<string, LayoutSlot> 
       }
     }
 
-    const totalColumns = lanes.length;
-    for (const appt of group) {
+    for (const appt of visibleItems) {
       const col = laneMap.get(appt.id)!;
-      result.set(appt.id, {
-        left: `${(col / totalColumns) * 100}%`,
-        width: `${(1 / totalColumns) * 100}%`,
-        totalColumns,
+      slotMap.set(appt.id, {
+        left: `${(col / colCount) * 100}%`,
+        width: `${(1 / colCount) * 100}%`,
+        totalColumns: colCount,
         column: col,
+      });
+    }
+
+    if (hasOverflow) {
+      const hiddenItems = group.slice(2);
+      const firstStart = new Date(group[0].startAt);
+      const groupEndMs = group.reduce((max, item) => {
+        const end = new Date(item.endAt).getTime();
+        return end > max ? end : max;
+      }, 0);
+      const startHour = getHour(firstStart);
+      const endHour = getHour(new Date(groupEndMs));
+      overflows.push({
+        key: `overflow-${group[0].id}`,
+        hiddenItems,
+        top: (startHour - DAY_START_HOUR) * HOUR_HEIGHT,
+        height: Math.max(28, (endHour - startHour) * HOUR_HEIGHT),
       });
     }
   }
 
-  return result;
+  return { slotMap, overflows };
 }
 
 type ScheduleCalendarProps = {
@@ -241,6 +281,7 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
   const [pendingAttended, setPendingAttended] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [openOverflowGroup, setOpenOverflowGroup] = useState<string | null>(null);
   const { reasonInitialContent, setReasonInitialContent } = useClinicalReason(selectedAppointment);
 
   useEffect(() => {
@@ -351,31 +392,6 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
     void changeStatus(status);
   }
 
-  // Detect conflicts (overlapping appointments per professional)
-  const conflictMap = useMemo(() => {
-    const conflicts = new Map<string, boolean>();
-    const byProf = new Map<string, Appointment[]>();
-    for (const a of dayItems) {
-      const list = byProf.get(a.professionalId) ?? [];
-      list.push(a);
-      byProf.set(a.professionalId, list);
-    }
-    for (const [, appointments] of byProf) {
-      const sorted = [...appointments].sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
-      for (let i = 0; i < sorted.length; i++) {
-        for (let j = i + 1; j < sorted.length; j++) {
-          const aEnd = new Date(sorted[i].endAt).getTime();
-          const bStart = new Date(sorted[j].startAt).getTime();
-          if (bStart < aEnd) {
-            conflicts.set(sorted[i].id, true);
-            conflicts.set(sorted[j].id, true);
-          } else break;
-        }
-      }
-    }
-    return conflicts;
-  }, [dayItems]);
-
   function renderAppointmentCard(
     appointment: Appointment,
     layout?: LayoutSlot,
@@ -384,7 +400,6 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
     const profColor = hasProfessional && appointment.professional
       ? getProfessionalColor(appointment.professional.id)
       : null;
-    const hasConflict = conflictMap.get(appointment.id) ?? false;
     const isCancelled = appointment.status === "CANCELLED";
     const patientName = appointment.patient
       ? `${appointment.patient.lastName}, ${appointment.patient.firstName}`
@@ -417,7 +432,6 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
           "absolute rounded-md border-l-[3px] text-left transition-colors hover:shadow-md z-10",
           `px-1 ${padY}`,
           isCancelled && "opacity-60",
-          hasConflict && "ring-2 ring-red-400",
         )}
         style={{
           top: `${top}px`,
@@ -458,11 +472,7 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
           </div>
         )}
 
-        {hasConflict && (
-          <span className="absolute top-0.5 right-0.5 flex size-3.5 items-center justify-center rounded-full bg-red-100 text-[8px] font-bold text-red-700 leading-none">
-            !
-          </span>
-        )}
+        {/* No overlap indicator — multi-column layout already shows grouping */}
       </button>
     );
   }
@@ -472,7 +482,7 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
       ? appointments.filter((a) => a.professionalId === profId && isSameDay(new Date(a.startAt), date))
       : appointments.filter((a) => isSameDay(new Date(a.startAt), date));
 
-    const layout = computeHorizontalLayout(dayAppointments);
+    const { slotMap, overflows } = computeHorizontalLayout(dayAppointments);
 
     return (
       <div className="relative" style={{ height: `${(DAY_END_HOUR - DAY_START_HOUR) * HOUR_HEIGHT}px` }}>
@@ -483,7 +493,69 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
             style={{ height: `${HOUR_HEIGHT}px` }}
           />
         ))}
-        {dayAppointments.map((a) => renderAppointmentCard(a, layout.get(a.id)))}
+        {dayAppointments.map((a) => {
+          const slot = slotMap.get(a.id);
+          // Skip hidden overflow items (they're in slotMap only for visible ones)
+          if (!slot) return null;
+          return renderAppointmentCard(a, slot);
+        })}
+        {overflows.map((og) => (
+          <Popover
+            key={og.key}
+            open={openOverflowGroup === og.key}
+            onOpenChange={(open) => setOpenOverflowGroup(open ? og.key : null)}
+          >
+            <PopoverTrigger
+              className="absolute z-20 flex cursor-pointer items-center justify-center gap-1 rounded-md border border-dashed border-border bg-muted/60 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              style={{
+                top: `${og.top}px`,
+                height: `${og.height}px`,
+                left: "calc(50% + 1px)",
+                width: "calc(50% - 2px)",
+              }}
+            >
+              <ChevronDown className="size-3" />
+              +{og.hiddenItems.length}
+            </PopoverTrigger>
+            <PopoverContent
+              side="bottom"
+              align="start"
+              className="w-72 p-2"
+            >
+              <div className="space-y-1">
+                <p className="px-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  +{og.hiddenItems.length} más
+                </p>
+                {og.hiddenItems.map((item) => {
+                  const sc = getStatusColor(item.status);
+                  const start = new Date(item.startAt);
+                  const end = new Date(item.endAt);
+                  const pName = item.patient
+                    ? `${item.patient.lastName}, ${item.patient.firstName}`
+                    : "Sin paciente";
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => handleAppointmentClick(item)}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-muted"
+                    >
+                      <span
+                        className="size-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: sc.bg, border: `2px solid ${sc.text}` }}
+                      />
+                      <span className="min-w-0 flex-1 truncate font-medium">
+                        {pName}
+                      </span>
+                      <span className="shrink-0 tabular-nums text-muted-foreground">
+                        {formatHm(start)}-{formatHm(end)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </PopoverContent>
+          </Popover>
+        ))}
       </div>
     );
   }

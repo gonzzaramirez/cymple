@@ -48,4 +48,12 @@ export class UpdatePublicBookingSettingsDto {
   @IsOptional()
   @IsString()
   waPublicBookingPhone?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  intakeEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  depositEnabled?: boolean;
 }

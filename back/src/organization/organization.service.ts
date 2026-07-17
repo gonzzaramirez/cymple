@@ -72,6 +72,8 @@ export class OrganizationService {
         bookingAutoCancelHours: true,
         maxActiveBookings: true,
         waPublicBookingPhone: true,
+        intakeEnabled: true,
+        depositEnabled: true,
       },
     });
 
@@ -218,6 +220,12 @@ export class OrganizationService {
           ...(dto.waPublicBookingPhone !== undefined
             ? { waPublicBookingPhone: dto.waPublicBookingPhone || null }
             : {}),
+          ...(dto.intakeEnabled !== undefined
+            ? { intakeEnabled: dto.intakeEnabled }
+            : {}),
+          ...(dto.depositEnabled !== undefined
+            ? { depositEnabled: dto.depositEnabled }
+            : {}),
         },
         select: {
           id: true,
@@ -241,6 +249,8 @@ export class OrganizationService {
           bookingAutoCancelHours: true,
           maxActiveBookings: true,
           waPublicBookingPhone: true,
+          intakeEnabled: true,
+          depositEnabled: true,
         },
       });
     } catch (error) {
@@ -326,6 +336,8 @@ export class OrganizationService {
     bookingAutoCancelHours: true,
     maxActiveBookings: true,
     waPublicBookingPhone: true,
+    intakeEnabled: true,
+    depositEnabled: true,
   } as const;
 
   async getPublicBookingSettings(organizationId: string) {
@@ -367,6 +379,12 @@ export class OrganizationService {
     }
     if (dto.waPublicBookingPhone !== undefined) {
       data.waPublicBookingPhone = dto.waPublicBookingPhone || null;
+    }
+    if (dto.intakeEnabled !== undefined) {
+      data.intakeEnabled = dto.intakeEnabled;
+    }
+    if (dto.depositEnabled !== undefined) {
+      data.depositEnabled = dto.depositEnabled;
     }
 
     // R6: When org publicBookingEnabled toggles on and publicBookingSlug is null/omitted,

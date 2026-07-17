@@ -22,6 +22,8 @@ export type MemberProfessional = {
   bookingAutoCancelHours: number;
   maxActiveBookings: number;
   waPublicBookingPhone: string | null;
+  intakeEnabled: boolean;
+  depositEnabled: boolean;
 };
 
 export type ApiList<T> = {
@@ -192,6 +194,8 @@ export type ProfessionalSettings = {
   bookingAutoCancelHours: number;
   maxActiveBookings: number;
   waPublicBookingPhone: string | null;
+  intakeEnabled: boolean;
+  depositEnabled: boolean;
 };
 
 export type MessageLogEntry = {

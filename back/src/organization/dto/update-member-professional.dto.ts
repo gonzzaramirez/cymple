@@ -86,4 +86,12 @@ export class UpdateMemberProfessionalDto {
   @IsOptional()
   @IsString()
   waPublicBookingPhone?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  intakeEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  depositEnabled?: boolean;
 }

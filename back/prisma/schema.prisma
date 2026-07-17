@@ -134,6 +134,8 @@ model Organization {
   bookingAutoCancelHours Int                      @default(8)
   maxActiveBookings      Int                      @default(5)
   waPublicBookingPhone   String?
+  intakeEnabled          Boolean                  @default(true)
+  depositEnabled         Boolean                  @default(true)
 }
 
 model Professional {
@@ -162,6 +164,8 @@ model Professional {
   bookingAutoCancel        Boolean                  @default(true)
   bookingAutoCancelHours   Int                      @default(8)
   maxActiveBookings        Int                      @default(5)
+  intakeEnabled            Boolean                  @default(true)
+  depositEnabled           Boolean                  @default(true)
   waInstanceName       String?
   waStatus             WaStatus @default(DISCONNECTED)
   waConnectedSince     DateTime?

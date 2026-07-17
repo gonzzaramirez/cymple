@@ -34,6 +34,8 @@ describe('OrganizationService', () => {
     bookingAutoCancelHours: 4,
     maxActiveBookings: 5,
     waPublicBookingPhone: '+5491122334455',
+    intakeEnabled: true,
+    depositEnabled: true,
   };
 
   const mockBookingResponse = {
@@ -46,6 +48,8 @@ describe('OrganizationService', () => {
     bookingAutoCancelHours: 4,
     maxActiveBookings: 5,
     waPublicBookingPhone: '+5491122334455',
+    intakeEnabled: true,
+    depositEnabled: true,
   };
 
   beforeEach(() => {
@@ -111,6 +115,8 @@ describe('OrganizationService', () => {
       expect(selectArg.bookingAutoCancelHours).toBe(true);
       expect(selectArg.maxActiveBookings).toBe(true);
       expect(selectArg.waPublicBookingPhone).toBe(true);
+      expect(selectArg.intakeEnabled).toBe(true);
+      expect(selectArg.depositEnabled).toBe(true);
 
       // Verify booking fields are in response
       expect(result[0].publicBookingEnabled).toBe(true);
@@ -393,6 +399,8 @@ describe('OrganizationService', () => {
           bookingAutoCancelHours: true,
           maxActiveBookings: true,
           waPublicBookingPhone: true,
+          intakeEnabled: true,
+          depositEnabled: true,
         },
       });
       expect(result!.publicBookingEnabled).toBe(true);
@@ -410,6 +418,8 @@ describe('OrganizationService', () => {
         bookingAutoCancelHours: 8,
         maxActiveBookings: 5,
         waPublicBookingPhone: null,
+        intakeEnabled: true,
+        depositEnabled: true,
       };
 
       prismaMock.organization.findUnique.mockResolvedValue(defaults);
@@ -465,6 +475,8 @@ describe('OrganizationService', () => {
           bookingAutoCancelHours: true,
           maxActiveBookings: true,
           waPublicBookingPhone: true,
+          intakeEnabled: true,
+          depositEnabled: true,
         },
       });
       expect(result.publicBookingEnabled).toBe(true);
@@ -485,6 +497,8 @@ describe('OrganizationService', () => {
         bookingAutoCancelHours: 8,
         maxActiveBookings: 5,
         waPublicBookingPhone: null,
+        intakeEnabled: true,
+        depositEnabled: true,
       };
 
       prismaMock.organization.update.mockResolvedValue(updated);
@@ -519,6 +533,8 @@ describe('OrganizationService', () => {
         bookingAutoCancelHours: 8,
         maxActiveBookings: 5,
         waPublicBookingPhone: null,
+        intakeEnabled: true,
+        depositEnabled: true,
       };
 
       prismaMock.organization.update.mockResolvedValue(updated);

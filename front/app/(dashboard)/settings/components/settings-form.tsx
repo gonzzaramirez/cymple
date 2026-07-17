@@ -19,6 +19,12 @@ export function SettingsForm({ settings }: { settings: ProfessionalSettings }) {
   const [autoCancelEnabled, setAutoCancelEnabled] = useState(
     settings.bookingAutoCancel,
   );
+  const [intakeEnabled, setIntakeEnabled] = useState(
+    settings.intakeEnabled,
+  );
+  const [depositEnabled, setDepositEnabled] = useState(
+    settings.depositEnabled,
+  );
 
   async function onSubmit(formData: FormData) {
     setLoading(true);
@@ -42,6 +48,8 @@ export function SettingsForm({ settings }: { settings: ProfessionalSettings }) {
       bookingAutoCancelHours: Number(formData.get("bookingAutoCancelHours")),
       maxActiveBookings: Number(formData.get("maxActiveBookings")),
       waPublicBookingPhone: formData.get("waPublicBookingPhone") || null,
+      intakeEnabled,
+      depositEnabled,
     };
 
     const response = await fetch("/api/backend/professional/settings", {
@@ -136,53 +144,114 @@ export function SettingsForm({ settings }: { settings: ProfessionalSettings }) {
         </CardHeader>
         {bookingEnabled && (
           <CardContent>
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Field
-                label="Slug público"
-                name="publicBookingSlug"
-                defaultValue={settings.publicBookingSlug ?? ""}
-                hint="Ej: /reservar/demo — solo minúsculas y guiones"
-              />
-              <Field
-                label="Seña ($)"
-                name="depositAmount"
-                type="number"
-                defaultValue={settings.depositAmount ? Number(settings.depositAmount) : ""}
-                hint="Dejá vacío si no requerís seña"
-              />
-              <Field
-                label="Ventana de seña (hs)"
-                name="depositWindowHours"
-                type="number"
-                defaultValue={settings.depositWindowHours}
-                hint="Tiempo para pagar antes de cancelar"
-              />
-              <Field
-                label="Máx. activas por persona"
-                name="maxActiveBookings"
-                type="number"
-                defaultValue={settings.maxActiveBookings}
-                hint="0 = sin límite"
-              />
-              <Field
-                label="WhatsApp para reservas"
-                name="waPublicBookingPhone"
-                defaultValue={settings.waPublicBookingPhone ?? ""}
-                hint="Número donde los pacientes envían el mensaje. Si no, se usa tu teléfono personal"
-              />
-            </div>
-            <div className="mt-4 flex items-center justify-between gap-4 rounded-lg bg-muted/50 px-3 py-2">
-              <div className="space-y-0.5">
-                <p className="text-sm font-medium">Auto-cancelar por seña</p>
-                <p className="text-xs text-muted-foreground">
-                  Cancelar automáticamente si no paga la seña a tiempo
-                </p>
+            {/* Toggles */}
+            <div className="mb-4 space-y-3">
+              <div className="flex items-center justify-between gap-4 rounded-lg bg-muted/50 px-3 py-2">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium">Ficha de ingreso</p>
+                  <p className="text-xs text-muted-foreground">
+                    {intakeEnabled
+                      ? "El paciente recibe un link para completar su ficha"
+                      : "No se enviará link de ficha de ingreso"}
+                  </p>
+                </div>
+                <Switch
+                  checked={intakeEnabled}
+                  onCheckedChange={setIntakeEnabled}
+                />
               </div>
-              <Switch
-                checked={autoCancelEnabled}
-                onCheckedChange={setAutoCancelEnabled}
-              />
+
+              <div className="flex items-center justify-between gap-4 rounded-lg bg-muted/50 px-3 py-2">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium">Seña</p>
+                  <p className="text-xs text-muted-foreground">
+                    {depositEnabled
+                      ? "El paciente debe pagar una seña para confirmar el turno"
+                      : "Los turnos se confirman automáticamente sin requerir seña"}
+                  </p>
+                </div>
+                <Switch
+                  checked={depositEnabled}
+                  onCheckedChange={setDepositEnabled}
+                />
+              </div>
             </div>
+
+            {depositEnabled && (
+              <>
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <Field
+                    label="Slug público"
+                    name="publicBookingSlug"
+                    defaultValue={settings.publicBookingSlug ?? ""}
+                    hint="Ej: /reservar/demo — solo minúsculas y guiones"
+                  />
+                  <Field
+                    label="Seña ($)"
+                    name="depositAmount"
+                    type="number"
+                    defaultValue={settings.depositAmount ? Number(settings.depositAmount) : ""}
+                    hint="Dejá vacío si no requerís seña"
+                  />
+                  <Field
+                    label="Ventana de seña (hs)"
+                    name="depositWindowHours"
+                    type="number"
+                    defaultValue={settings.depositWindowHours}
+                    hint="Tiempo para pagar antes de cancelar"
+                  />
+                  <Field
+                    label="Máx. activas por persona"
+                    name="maxActiveBookings"
+                    type="number"
+                    defaultValue={settings.maxActiveBookings}
+                    hint="0 = sin límite"
+                  />
+                  <Field
+                    label="WhatsApp para reservas"
+                    name="waPublicBookingPhone"
+                    defaultValue={settings.waPublicBookingPhone ?? ""}
+                    hint="Número donde los pacientes envían el mensaje. Si no, se usa tu teléfono personal"
+                  />
+                </div>
+                <div className="mt-4 flex items-center justify-between gap-4 rounded-lg bg-muted/50 px-3 py-2">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium">Auto-cancelar por seña</p>
+                    <p className="text-xs text-muted-foreground">
+                      Cancelar automáticamente si no paga la seña a tiempo
+                    </p>
+                  </div>
+                  <Switch
+                    checked={autoCancelEnabled}
+                    onCheckedChange={setAutoCancelEnabled}
+                  />
+                </div>
+              </>
+            )}
+
+            {!depositEnabled && (
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field
+                  label="Slug público"
+                  name="publicBookingSlug"
+                  defaultValue={settings.publicBookingSlug ?? ""}
+                  hint="Ej: /reservar/demo — solo minúsculas y guiones"
+                />
+                <Field
+                  label="Máx. activas por persona"
+                  name="maxActiveBookings"
+                  type="number"
+                  defaultValue={settings.maxActiveBookings}
+                  hint="0 = sin límite"
+                />
+                <Field
+                  label="WhatsApp para reservas"
+                  name="waPublicBookingPhone"
+                  defaultValue={settings.waPublicBookingPhone ?? ""}
+                  hint="Número donde los pacientes envían el mensaje. Si no, se usa tu teléfono personal"
+                />
+              </div>
+            )}
             <div className="mt-4 rounded-lg bg-muted/50 px-3 py-2">
               <div className="flex items-center justify-between gap-4">
                 <div className="space-y-0.5">
