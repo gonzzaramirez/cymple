@@ -49,6 +49,7 @@ export interface ProfessionalPublicInfo {
   paymentAlias: string | null;
   photoUrl?: string | null;
   publicBookingSlug?: string | null;
+  depositEnabled: boolean;
 }
 
 export interface SlotInfo {
@@ -158,6 +159,7 @@ export class PublicBookingService {
         consultationMinutes: true,
         standardFee: true,
         paymentAlias: true,
+        depositEnabled: true,
       },
     });
 
@@ -171,6 +173,7 @@ export class PublicBookingService {
       consultationMinutes: professional.consultationMinutes,
       standardFee: professional.standardFee,
       paymentAlias: professional.paymentAlias,
+      depositEnabled: professional.depositEnabled,
     };
   }
 
@@ -200,6 +203,7 @@ export class PublicBookingService {
         standardFee: true,
         paymentAlias: true,
         publicBookingSlug: true,
+        depositEnabled: true,
       },
       orderBy: { fullName: 'asc' },
     });
@@ -214,6 +218,7 @@ export class PublicBookingService {
       standardFee: p.standardFee,
       paymentAlias: p.paymentAlias,
       publicBookingSlug: p.publicBookingSlug,
+      depositEnabled: p.depositEnabled,
     }));
   }
 

@@ -20,6 +20,7 @@ export function ServiceInfoCard({ professional }: ServiceInfoCardProps) {
     professional.standardFee !== undefined &&
     Number(professional.standardFee) > 0;
   const hasDeposit =
+    professional.depositEnabled &&
     professional.depositAmount !== null &&
     professional.depositAmount !== undefined &&
     Number(professional.depositAmount) > 0;

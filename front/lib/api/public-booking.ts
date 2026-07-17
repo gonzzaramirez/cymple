@@ -10,6 +10,7 @@ export type ProfessionalPublic = {
   consultationMinutes?: number;
   standardFee?: string | number | null;
   paymentAlias?: string | null;
+  depositEnabled: boolean;
 };
 
 export type SlotInfo = {
