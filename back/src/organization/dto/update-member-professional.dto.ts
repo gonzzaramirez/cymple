@@ -70,15 +70,6 @@ export class UpdateMemberProfessionalDto {
   paymentAlias?: string;
 
   @IsOptional()
-  @IsBoolean()
-  bookingAutoCancel?: boolean;
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  bookingAutoCancelHours?: number;
-
-  @IsOptional()
   @IsInt()
   @Min(1)
   maxActiveBookings?: number;

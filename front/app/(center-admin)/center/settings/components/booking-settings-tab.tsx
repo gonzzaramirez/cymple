@@ -18,7 +18,6 @@ export function BookingSettingsTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [bookingEnabled, setBookingEnabled] = useState(false);
-  const [autoCancelEnabled, setAutoCancelEnabled] = useState(true);
   const [intakeEnabled, setIntakeEnabled] = useState(true);
   const [depositEnabled, setDepositEnabled] = useState(true);
 
@@ -27,7 +26,6 @@ export function BookingSettingsTab() {
       .then((data) => {
         setSettings(data);
         setBookingEnabled(data.publicBookingEnabled);
-        setAutoCancelEnabled(data.bookingAutoCancel);
         setIntakeEnabled(data.intakeEnabled);
         setDepositEnabled(data.depositEnabled);
       })
@@ -56,8 +54,6 @@ export function BookingSettingsTab() {
         ? Number(formData.get("depositAmount"))
         : null;
       payload.depositWindowHours = Number(formData.get("depositWindowHours"));
-      payload.bookingAutoCancel = autoCancelEnabled;
-      payload.bookingAutoCancelHours = Number(formData.get("bookingAutoCancelHours"));
       payload.maxActiveBookings = Number(formData.get("maxActiveBookings"));
     }
 
@@ -68,7 +64,6 @@ export function BookingSettingsTab() {
       const result = await updateOrgPublicBookingSettings(payload);
       setSettings(result);
       setBookingEnabled(result.publicBookingEnabled);
-      setAutoCancelEnabled(result.bookingAutoCancel);
       setIntakeEnabled(result.intakeEnabled);
       setDepositEnabled(result.depositEnabled);
       sileo.success({ title: "Configuración de reservas actualizada" });
@@ -180,39 +175,6 @@ export function BookingSettingsTab() {
                     defaultValue={settings?.maxActiveBookings ?? 5}
                     hint="0 = sin límite"
                   />
-                </div>
-
-                <div className="mt-4 flex items-center justify-between gap-4 rounded-lg bg-muted/50 px-3 py-2">
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-medium">Auto-cancelar por seña</p>
-                    <p className="text-xs text-muted-foreground">
-                      Cancelar automáticamente si no paga la seña a tiempo
-                    </p>
-                  </div>
-                  <Switch
-                    checked={autoCancelEnabled}
-                    onCheckedChange={setAutoCancelEnabled}
-                  />
-                </div>
-
-                <div className="mt-4 rounded-lg bg-muted/50 px-3 py-2">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="space-y-0.5">
-                      <p className="text-sm font-medium">Cancelar no confirmados</p>
-                      <p className="text-xs text-muted-foreground">
-                        Si el paciente nunca confirmó la reserva, cancelar automáticamente N horas antes del turno
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-3">
-                    <Field
-                      label="Cancelar si no confirmó (hs antes)"
-                      name="bookingAutoCancelHours"
-                      type="number"
-                      defaultValue={settings?.bookingAutoCancelHours ?? 8}
-                      hint="Ej: 8 = cancela 8hs antes del turno"
-                    />
-                  </div>
                 </div>
               </>
             )}

@@ -90,24 +90,6 @@ export class UpdateProfessionalSettingsDto {
   depositWindowHours?: number;
 
   @IsOptional()
-  @Transform(({ value }) =>
-    value === 'true' || value === true
-      ? true
-      : value === 'false' || value === false
-        ? false
-        : value,
-  )
-  @IsBoolean()
-  bookingAutoCancel?: boolean;
-
-  @IsOptional()
-  @Transform(({ value }) => Number(value))
-  @IsInt()
-  @Min(1)
-  @Max(72)
-  bookingAutoCancelHours?: number;
-
-  @IsOptional()
   @Transform(({ value }) => Number(value))
   @IsInt()
   @Min(1)

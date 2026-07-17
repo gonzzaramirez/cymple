@@ -30,8 +30,6 @@ describe('OrganizationService', () => {
     depositAmount: new Prisma.Decimal(1000),
     depositWindowHours: 24,
     paymentAlias: 'alias.mp',
-    bookingAutoCancel: true,
-    bookingAutoCancelHours: 4,
     maxActiveBookings: 5,
     waPublicBookingPhone: '+5491122334455',
     intakeEnabled: true,
@@ -44,8 +42,6 @@ describe('OrganizationService', () => {
     depositAmount: new Prisma.Decimal(1000),
     depositWindowHours: 24,
     paymentAlias: 'alias.mp',
-    bookingAutoCancel: true,
-    bookingAutoCancelHours: 4,
     maxActiveBookings: 5,
     waPublicBookingPhone: '+5491122334455',
     intakeEnabled: true,
@@ -111,8 +107,6 @@ describe('OrganizationService', () => {
       expect(selectArg.depositAmount).toBe(true);
       expect(selectArg.depositWindowHours).toBe(true);
       expect(selectArg.paymentAlias).toBe(true);
-      expect(selectArg.bookingAutoCancel).toBe(true);
-      expect(selectArg.bookingAutoCancelHours).toBe(true);
       expect(selectArg.maxActiveBookings).toBe(true);
       expect(selectArg.waPublicBookingPhone).toBe(true);
       expect(selectArg.intakeEnabled).toBe(true);
@@ -199,8 +193,6 @@ describe('OrganizationService', () => {
         depositAmount: 2000,
         depositWindowHours: 48,
         paymentAlias: 'alias.updated',
-        bookingAutoCancel: false,
-        bookingAutoCancelHours: 6,
         maxActiveBookings: 10,
         waPublicBookingPhone: '+5491122334466',
       };
@@ -223,8 +215,6 @@ describe('OrganizationService', () => {
       expect(dataArg.depositAmount).toEqual(new Prisma.Decimal(2000));
       expect(dataArg.depositWindowHours).toBe(48);
       expect(dataArg.paymentAlias).toBe('alias.updated');
-      expect(dataArg.bookingAutoCancel).toBe(false);
-      expect(dataArg.bookingAutoCancelHours).toBe(6);
       expect(dataArg.maxActiveBookings).toBe(10);
       expect(dataArg.waPublicBookingPhone).toBe('+5491122334466');
 
@@ -275,8 +265,6 @@ describe('OrganizationService', () => {
       expect(dataArg.depositAmount).toBeUndefined();
       expect(dataArg.depositWindowHours).toBeUndefined();
       expect(dataArg.paymentAlias).toBeUndefined();
-      expect(dataArg.bookingAutoCancel).toBeUndefined();
-      expect(dataArg.bookingAutoCancelHours).toBeUndefined();
       expect(dataArg.maxActiveBookings).toBeUndefined();
       expect(dataArg.waPublicBookingPhone).toBeUndefined();
     });
@@ -378,8 +366,6 @@ describe('OrganizationService', () => {
         publicBookingSlug: 'test-org',
         depositAmount: new Prisma.Decimal(1500),
         depositWindowHours: 48,
-        bookingAutoCancel: true,
-        bookingAutoCancelHours: 4,
         maxActiveBookings: 10,
         waPublicBookingPhone: '+5491122334455',
       };
@@ -395,8 +381,6 @@ describe('OrganizationService', () => {
           publicBookingSlug: true,
           depositAmount: true,
           depositWindowHours: true,
-          bookingAutoCancel: true,
-          bookingAutoCancelHours: true,
           maxActiveBookings: true,
           waPublicBookingPhone: true,
           intakeEnabled: true,
@@ -414,8 +398,6 @@ describe('OrganizationService', () => {
         publicBookingSlug: null,
         depositAmount: null,
         depositWindowHours: 24,
-        bookingAutoCancel: true,
-        bookingAutoCancelHours: 8,
         maxActiveBookings: 5,
         waPublicBookingPhone: null,
         intakeEnabled: true,
@@ -450,8 +432,6 @@ describe('OrganizationService', () => {
         publicBookingSlug: null,
         depositAmount: null,
         depositWindowHours: 48,
-        bookingAutoCancel: true,
-        bookingAutoCancelHours: 8,
         maxActiveBookings: 5,
         waPublicBookingPhone: null,
       };
@@ -471,8 +451,6 @@ describe('OrganizationService', () => {
           publicBookingSlug: true,
           depositAmount: true,
           depositWindowHours: true,
-          bookingAutoCancel: true,
-          bookingAutoCancelHours: true,
           maxActiveBookings: true,
           waPublicBookingPhone: true,
           intakeEnabled: true,
@@ -485,7 +463,7 @@ describe('OrganizationService', () => {
 
     it('does not reset unset fields', async () => {
       const dto = {
-        bookingAutoCancel: false,
+        intakeEnabled: false,
       };
 
       const updated = {
@@ -493,11 +471,9 @@ describe('OrganizationService', () => {
         publicBookingSlug: 'my-org',
         depositAmount: new Prisma.Decimal(1000),
         depositWindowHours: 24,
-        bookingAutoCancel: false,
-        bookingAutoCancelHours: 8,
         maxActiveBookings: 5,
         waPublicBookingPhone: null,
-        intakeEnabled: true,
+        intakeEnabled: false,
         depositEnabled: true,
       };
 
@@ -507,8 +483,8 @@ describe('OrganizationService', () => {
 
       const dataArg = prismaMock.organization.update.mock.calls[0][0].data;
       expect(dataArg.publicBookingEnabled).toBeUndefined();
-      expect(dataArg.bookingAutoCancel).toBe(false);
-      expect(result.bookingAutoCancel).toBe(false);
+      expect(dataArg.intakeEnabled).toBe(false);
+      expect(result.intakeEnabled).toBe(false);
     });
 
     it('defaults publicBookingSlug to org slug when toggled on with null slug', async () => {
@@ -529,8 +505,6 @@ describe('OrganizationService', () => {
         publicBookingSlug: 'mi-centro',
         depositAmount: null,
         depositWindowHours: 24,
-        bookingAutoCancel: true,
-        bookingAutoCancelHours: 8,
         maxActiveBookings: 5,
         waPublicBookingPhone: null,
         intakeEnabled: true,

@@ -68,8 +68,6 @@ export class OrganizationService {
         depositAmount: true,
         depositWindowHours: true,
         paymentAlias: true,
-        bookingAutoCancel: true,
-        bookingAutoCancelHours: true,
         maxActiveBookings: true,
         waPublicBookingPhone: true,
         intakeEnabled: true,
@@ -208,12 +206,6 @@ export class OrganizationService {
           ...(dto.paymentAlias !== undefined
             ? { paymentAlias: dto.paymentAlias || null }
             : {}),
-          ...(dto.bookingAutoCancel !== undefined
-            ? { bookingAutoCancel: dto.bookingAutoCancel }
-            : {}),
-          ...(dto.bookingAutoCancelHours !== undefined
-            ? { bookingAutoCancelHours: dto.bookingAutoCancelHours }
-            : {}),
           ...(dto.maxActiveBookings !== undefined
             ? { maxActiveBookings: dto.maxActiveBookings }
             : {}),
@@ -245,8 +237,6 @@ export class OrganizationService {
           depositAmount: true,
           depositWindowHours: true,
           paymentAlias: true,
-          bookingAutoCancel: true,
-          bookingAutoCancelHours: true,
           maxActiveBookings: true,
           waPublicBookingPhone: true,
           intakeEnabled: true,
@@ -332,8 +322,6 @@ export class OrganizationService {
     publicBookingSlug: true,
     depositAmount: true,
     depositWindowHours: true,
-    bookingAutoCancel: true,
-    bookingAutoCancelHours: true,
     maxActiveBookings: true,
     waPublicBookingPhone: true,
     intakeEnabled: true,
@@ -367,12 +355,6 @@ export class OrganizationService {
     }
     if (dto.depositWindowHours !== undefined) {
       data.depositWindowHours = dto.depositWindowHours;
-    }
-    if (dto.bookingAutoCancel !== undefined) {
-      data.bookingAutoCancel = dto.bookingAutoCancel;
-    }
-    if (dto.bookingAutoCancelHours !== undefined) {
-      data.bookingAutoCancelHours = dto.bookingAutoCancelHours;
     }
     if (dto.maxActiveBookings !== undefined) {
       data.maxActiveBookings = dto.maxActiveBookings;

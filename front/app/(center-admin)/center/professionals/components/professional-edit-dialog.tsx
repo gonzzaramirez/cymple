@@ -30,8 +30,6 @@ type FormValues = {
   depositAmount: string;
   depositWindowHours: string;
   paymentAlias: string;
-  bookingAutoCancel: boolean;
-  bookingAutoCancelHours: string;
   maxActiveBookings: string;
   waPublicBookingPhone: string;
 };
@@ -94,8 +92,6 @@ export function ProfessionalEditDialog({ professional }: Props) {
       depositAmount: professional.depositAmount ? String(Number(professional.depositAmount)) : "",
       depositWindowHours: String(professional.depositWindowHours ?? 24),
       paymentAlias: professional.paymentAlias ?? "",
-      bookingAutoCancel: professional.bookingAutoCancel ?? true,
-      bookingAutoCancelHours: String(professional.bookingAutoCancelHours ?? 8),
       maxActiveBookings: String(professional.maxActiveBookings ?? 5),
       waPublicBookingPhone: professional.waPublicBookingPhone ?? "",
     },
@@ -137,10 +133,6 @@ export function ProfessionalEditDialog({ professional }: Props) {
               ? Number(values.depositWindowHours)
               : undefined,
             paymentAlias: values.paymentAlias || null,
-            bookingAutoCancel: values.bookingAutoCancel,
-            bookingAutoCancelHours: values.bookingAutoCancelHours !== ""
-              ? Number(values.bookingAutoCancelHours)
-              : undefined,
             maxActiveBookings: values.maxActiveBookings !== ""
               ? Number(values.maxActiveBookings)
               : undefined,
@@ -305,33 +297,6 @@ export function ProfessionalEditDialog({ professional }: Props) {
             {fieldErrors.depositAmount && (
               <p className="text-sm text-destructive">{fieldErrors.depositAmount}</p>
             )}
-          </div>
-
-          <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
-            <div>
-              <Label htmlFor="bookingAutoCancel" className="text-sm font-medium">
-                Cancelación automática
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Cancelar turnos no confirmados automáticamente
-              </p>
-            </div>
-            <Switch
-              id="bookingAutoCancel"
-              {...register("bookingAutoCancel")}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="bookingAutoCancelHours">
-              Horas para cancelación automática
-            </Label>
-            <Input
-              id="bookingAutoCancelHours"
-              type="number"
-              min={0}
-              {...register("bookingAutoCancelHours")}
-            />
           </div>
 
           <div className="space-y-1.5">

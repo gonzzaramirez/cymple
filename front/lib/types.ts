@@ -18,8 +18,6 @@ export type MemberProfessional = {
   depositAmount: string | null;
   depositWindowHours: number;
   paymentAlias: string | null;
-  bookingAutoCancel: boolean;
-  bookingAutoCancelHours: number;
   maxActiveBookings: number;
   waPublicBookingPhone: string | null;
   intakeEnabled: boolean;
@@ -190,8 +188,6 @@ export type ProfessionalSettings = {
   publicBookingSlug: string | null;
   depositAmount: string | number | null;
   depositWindowHours: number;
-  bookingAutoCancel: boolean;
-  bookingAutoCancelHours: number;
   maxActiveBookings: number;
   waPublicBookingPhone: string | null;
   intakeEnabled: boolean;

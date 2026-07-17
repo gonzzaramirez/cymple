@@ -16,9 +16,6 @@ export function SettingsForm({ settings }: { settings: ProfessionalSettings }) {
   const [bookingEnabled, setBookingEnabled] = useState(
     settings.publicBookingEnabled,
   );
-  const [autoCancelEnabled, setAutoCancelEnabled] = useState(
-    settings.bookingAutoCancel,
-  );
   const [intakeEnabled, setIntakeEnabled] = useState(
     settings.intakeEnabled,
   );
@@ -40,8 +37,6 @@ export function SettingsForm({ settings }: { settings: ProfessionalSettings }) {
       // Public booking
       publicBookingEnabled: bookingEnabled,
       publicBookingSlug: formData.get("publicBookingSlug") || null,
-      bookingAutoCancel: autoCancelEnabled,
-      bookingAutoCancelHours: Number(formData.get("bookingAutoCancelHours")),
       maxActiveBookings: Number(formData.get("maxActiveBookings")),
       waPublicBookingPhone: formData.get("waPublicBookingPhone") || null,
       intakeEnabled,
@@ -217,18 +212,6 @@ export function SettingsForm({ settings }: { settings: ProfessionalSettings }) {
                     hint="Número donde los pacientes envían el mensaje. Si no, se usa tu teléfono personal"
                   />
                 </div>
-                <div className="mt-4 flex items-center justify-between gap-4 rounded-lg bg-muted/50 px-3 py-2">
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-medium">Auto-cancelar por seña</p>
-                    <p className="text-xs text-muted-foreground">
-                      Cancelar automáticamente si no paga la seña a tiempo
-                    </p>
-                  </div>
-                  <Switch
-                    checked={autoCancelEnabled}
-                    onCheckedChange={setAutoCancelEnabled}
-                  />
-                </div>
               </>
             )}
 
@@ -255,25 +238,6 @@ export function SettingsForm({ settings }: { settings: ProfessionalSettings }) {
                 />
               </div>
             )}
-            <div className="mt-4 rounded-lg bg-muted/50 px-3 py-2">
-              <div className="flex items-center justify-between gap-4">
-                <div className="space-y-0.5">
-                  <p className="text-sm font-medium">Cancelar no confirmados</p>
-                  <p className="text-xs text-muted-foreground">
-                    Si el paciente nunca confirmó la reserva, cancelar automáticamente N horas antes del turno
-                  </p>
-                </div>
-              </div>
-              <div className="mt-3">
-                <Field
-                  label="Cancelar si no confirmó (hs antes)"
-                  name="bookingAutoCancelHours"
-                  type="number"
-                  defaultValue={settings.bookingAutoCancelHours}
-                  hint="Ej: 8 = cancela 8hs antes del turno"
-                />
-              </div>
-            </div>
           </CardContent>
         )}
       </Card>

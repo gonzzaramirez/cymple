@@ -32,15 +32,6 @@ export class UpdatePublicBookingSettingsDto {
   depositWindowHours?: number;
 
   @IsOptional()
-  @IsBoolean()
-  bookingAutoCancel?: boolean;
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  bookingAutoCancelHours?: number;
-
-  @IsOptional()
   @IsInt()
   @Min(0)
   maxActiveBookings?: number;

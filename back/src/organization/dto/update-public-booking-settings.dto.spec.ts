@@ -64,14 +64,6 @@ describe('UpdatePublicBookingSettingsDto', () => {
     expect(err).toBeDefined();
   });
 
-  it('accepts valid boolean for bookingAutoCancel', async () => {
-    const dto = new UpdatePublicBookingSettingsDto();
-    dto.bookingAutoCancel = false;
-    const errors = await validate(dto);
-    const err = errors.find((e) => e.property === 'bookingAutoCancel');
-    expect(err).toBeUndefined();
-  });
-
   it('accepts valid boolean for intakeEnabled', async () => {
     const dto = new UpdatePublicBookingSettingsDto();
     (dto as any).intakeEnabled = true;

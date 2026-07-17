@@ -129,30 +129,6 @@ export class BookingCronService {
   }
 
   /**
-   * Every 15 minutes: auto-cancel unconfirmed bookings past the cancel threshold.
-   */
-  @Cron('*/15 * * * *')
-  async cancelStaleUnconfirmedBookings() {
-    const bookings =
-      await this.publicBookingService.getUnconfirmedBookingsForCancel();
-
-    for (const { booking, professional } of bookings) {
-      await this.publicBookingService.expireUnconfirmedBooking(booking.id);
-
-      // In-app notification for the professional
-      void this.notifications.create({
-        professionalId: professional.id,
-        organizationId: professional.organizationId ?? undefined,
-        type: 'BOOKING_EXPIRED',
-        title: 'Reserva cancelada por falta de confirmación',
-        body: `${booking.patientName} — ${booking.slotStart}hs del ${formatDateOnlyShort(booking.slotDate)}`,
-        link: `/bookings?id=${booking.id}`,
-        metadata: { bookingToken: booking.token },
-      });
-    }
-  }
-
-  /**
    * Envía un mensaje WA con protección anti-ban.
    * El entity ref se resuelve desde el professional.
    */

@@ -5,8 +5,6 @@ export type OrgPublicBookingSettings = {
   publicBookingSlug: string | null;
   depositAmount: number | null;
   depositWindowHours: number;
-  bookingAutoCancel: boolean;
-  bookingAutoCancelHours: number;
   maxActiveBookings: number;
   waPublicBookingPhone: string | null;
   intakeEnabled: boolean;

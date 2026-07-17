@@ -1798,16 +1798,13 @@ export class PublicBookingService {
             id: true,
             fullName: true,
             timezone: true,
-            bookingAutoCancel: true,
             organizationId: true,
           },
         },
       },
     });
 
-    return bookings
-      .filter((b) => b.professional.bookingAutoCancel)
-      .map((b) => ({
+    return bookings.map((b) => ({
         booking: {
           id: b.id,
           token: b.token,
@@ -1918,97 +1915,6 @@ export class PublicBookingService {
     await this.prisma.publicBooking.update({
       where: { id: bookingId },
       data: { notifiedExpiry: true },
-    });
-  }
-
-  /** Build a Date from slotDate + slotStart (AR timezone aware) */
-  private slotDateToDate(slotDate: Date, slotStart: string): Date {
-    const [h, m] = slotStart.split(':').map(Number);
-    const d = new Date(slotDate);
-    d.setUTCHours(h + 3, m, 0, 0);
-    return d;
-  }
-
-  /** Unconfirmed bookings past the auto-cancel threshold */
-  async getUnconfirmedBookingsForCancel(): Promise<
-    Array<{
-      booking: {
-        id: string;
-        token: string;
-        slotDate: Date;
-        slotStart: string;
-        patientName: string;
-        patientPhone: string;
-      };
-      professional: {
-        id: string;
-        fullName: string;
-        organizationId: string | null;
-        bookingAutoCancel: boolean;
-        bookingAutoCancelHours: number;
-      };
-    }>
-  > {
-    const now = new Date();
-    // Cancela reservas no confirmadas cuyo turno está dentro de
-    // bookingAutoCancelHours (sin necesidad de warning previo).
-    // Busca bookings con slotDate entre 48hs atrás y 96hs adelante.
-    const minSlotDate = new Date(now.getTime() - 48 * 3600000);
-    const maxSlotDate = new Date(now.getTime() + 96 * 3600000);
-    const bookings = await this.prisma.publicBooking.findMany({
-      where: {
-        status: BookingStatus.PENDING_WA_CONFIRMATION,
-        slotDate: { gte: minSlotDate, lte: maxSlotDate },
-      },
-      include: {
-        professional: {
-          select: {
-            id: true,
-            fullName: true,
-            organizationId: true,
-            bookingAutoCancel: true,
-            bookingAutoCancelHours: true,
-          },
-        },
-      },
-    });
-
-    return bookings
-      .filter((b) => {
-        if (!b.professional.bookingAutoCancel) return false;
-        const aptTime = this.slotDateToDate(b.slotDate, b.slotStart);
-        const cancelAt = new Date(
-          aptTime.getTime() - b.professional.bookingAutoCancelHours * 3600000,
-        );
-        return now >= cancelAt && now < aptTime;
-      })
-      .map((b) => ({
-        booking: {
-          id: b.id,
-          token: b.token,
-          slotDate: b.slotDate,
-          slotStart: b.slotStart,
-          patientName: b.patientName,
-          patientPhone: b.patientPhone,
-        },
-        professional: {
-          id: b.professional.id,
-          fullName: b.professional.fullName,
-          organizationId: b.professional.organizationId,
-          bookingAutoCancel: b.professional.bookingAutoCancel,
-          bookingAutoCancelHours: b.professional.bookingAutoCancelHours,
-        },
-      }));
-  }
-
-  async expireUnconfirmedBooking(bookingId: string): Promise<void> {
-    await this.prisma.publicBooking.update({
-      where: { id: bookingId },
-      data: {
-        status: BookingStatus.EXPIRED,
-        cancelledAt: new Date(),
-        cancelReason: 'No confirmada a tiempo',
-      },
     });
   }
 
