@@ -361,13 +361,16 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
     setReasonInitialContent(null);
   }
 
-  async function changeStatus(status: string, paymentMethod?: PaymentMethod) {
-    if (!selectedAppointment) return;
+  async function changeStatus(
+    appointmentId: string,
+    status: string,
+    paymentMethod?: PaymentMethod,
+  ) {
     setActionLoading(true);
     const body: Record<string, unknown> = { status };
     if (paymentMethod) body.paymentMethod = paymentMethod;
 
-    const res = await fetch(`/api/backend/appointments/${selectedAppointment.id}/status`, {
+    const res = await fetch(`/api/backend/appointments/${appointmentId}/status`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -384,12 +387,12 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
     router.refresh();
   }
 
-  function handleActionClick(status: string) {
+  function handleActionClick(appointmentId: string, status: string) {
     if (status === "ATTENDED") {
       setPendingAttended(true);
       return;
     }
-    void changeStatus(status);
+    void changeStatus(appointmentId, status);
   }
 
   function renderAppointmentCard(
@@ -886,7 +889,7 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
                     size="sm"
                     className="flex-1 bg-[#34c759]/10 text-[#248a3d] hover:bg-[#34c759]/20 text-xs sm:text-sm"
                     disabled={!selectedPayment || actionLoading}
-                    onClick={() => selectedPayment && void changeStatus("ATTENDED", selectedPayment)}
+                    onClick={() => selectedPayment && selectedAppointment && void changeStatus(selectedAppointment.id, "ATTENDED", selectedPayment)}
                   >
                     <CheckCircle2 className="size-3.5 sm:size-4" />
                     {actionLoading ? "Guardando..." : "Confirmar asistencia"}
@@ -916,7 +919,7 @@ export function ScheduleCalendar({ items, selectedDate }: ScheduleCalendarProps)
                           action.status === "ABSENT" && "bg-[#ff9500]/10 text-[#c77700] hover:bg-[#ff9500]/20",
                           action.status === "CANCELLED" && "bg-destructive/10 text-destructive hover:bg-destructive/20",
                         )}
-                        onClick={() => handleActionClick(action.status)}
+                        onClick={() => handleActionClick(selectedAppointment!.id, action.status)}
                       >
                         <Icon className="size-3.5 sm:size-4" />
                         {action.label}

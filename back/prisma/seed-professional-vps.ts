@@ -17,17 +17,17 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  const passwordHash = await bcrypt.hash('mariel202', 12);
+  const passwordHash = await bcrypt.hash('noelia202', 12);
 
   const professional = await prisma.professional.upsert({
-    where: { email: 'marielgaleano2@gmail.com' },
+    where: { email: 'noeliaf2092@gmail.com' },
     update: {},
     create: {
-      slug: 'marielgaleano',
-      fullName: 'Mariel Galeano',
-      email: 'marielgaleano2@gmail.com',
+      slug: 'noeliaf2092',
+      fullName: 'Noelia Fraga',
+      email: 'noeliaf2092@gmail.com',
       passwordHash,
-      phone: '3794862602',
+      phone: '3794064129',
       standardFee: new Prisma.Decimal(25000),
       consultationMinutes: 30,
       bufferMinutes: 10,
@@ -36,13 +36,13 @@ async function main() {
       timezone: 'America/Argentina/Buenos_Aires',
       // Public booking
       publicBookingEnabled: true,
-      publicBookingSlug: 'marielgaleano',
+      publicBookingSlug: 'NoeliaFraga',
       depositAmount: new Prisma.Decimal(5000),
       depositWindowHours: 24,
-      paymentAlias: 'mariel.mp',
+      paymentAlias: 'noelia.mp',
       bookingAutoCancel: true,
       maxActiveBookings: 3,
-      waPublicBookingPhone: '3794862602',
+      waPublicBookingPhone: '3794064129',
       intakeEnabled: true,
       depositEnabled: true,
     },
@@ -50,8 +50,8 @@ async function main() {
 
   console.log('\n✓ Seed profesional completado\n');
   console.log('  Cuenta creada:');
-  console.log(`  → Email:    marielgaleano2@gmail.com`);
-  console.log(`  → Password: mariel202`);
+  console.log(`  → Email:    noeliaf2092@gmail.com`);
+  console.log(`  → Password: noelia202`);
   console.log(`  → Slug:     ${professional.slug}`);
   console.log(`  → ID:       ${professional.id}`);
   console.log('\n  Ingresar en: /login  (redirige a /home)\n');

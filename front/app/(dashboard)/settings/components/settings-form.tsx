@@ -29,10 +29,8 @@ export function SettingsForm({ settings }: { settings: ProfessionalSettings }) {
     const payload: Record<string, unknown> = {
       consultationMinutes: Number(formData.get("consultationMinutes")),
       bufferMinutes: Number(formData.get("bufferMinutes")),
-      minRescheduleHours: Number(formData.get("minRescheduleHours")),
       standardFee: Number(formData.get("standardFee")),
       reminderHours: Number(formData.get("reminderHours")),
-      timezone: formData.get("timezone"),
       paymentAlias: rawAlias || null,
       // Public booking
       publicBookingEnabled: bookingEnabled,
@@ -92,13 +90,6 @@ export function SettingsForm({ settings }: { settings: ProfessionalSettings }) {
               hint="0, 5, 10 o 15 minutos"
             />
             <Field
-              label="Mín. reprogramación (h)"
-              name="minRescheduleHours"
-              type="number"
-              defaultValue={settings.minRescheduleHours}
-              hint="Anticipación mínima del paciente"
-            />
-            <Field
               label="Honorario estándar"
               name="standardFee"
               type="number"
@@ -111,12 +102,6 @@ export function SettingsForm({ settings }: { settings: ProfessionalSettings }) {
               type="number"
               defaultValue={settings.reminderHours}
               hint="12, 24 o 48 horas"
-            />
-            <Field
-              label="Zona horaria"
-              name="timezone"
-              defaultValue={settings.timezone}
-              hint="Ej: America/Argentina/Buenos_Aires"
             />
           </div>
         </CardContent>
