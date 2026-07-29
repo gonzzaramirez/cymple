@@ -23,7 +23,7 @@ async function main() {
     where: { email: 'noeliaf2092@gmail.com' },
     update: {},
     create: {
-      slug: 'noeliaf2092',
+      slug: 'noeliafraga',
       fullName: 'Noelia Fraga',
       email: 'noeliaf2092@gmail.com',
       passwordHash,
