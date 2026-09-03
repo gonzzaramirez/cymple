@@ -26,6 +26,7 @@ import {
   AntiBanGuard,
   AntiBanState,
   calculateTypingDelay,
+  isWithinOperatingHours,
 } from './antiban-guard';
 import { AntiBanStateService, WaEntityRef } from './antiban-state.service';
 import { ShortUrlService } from '../short-url/short-url.service';
@@ -112,6 +113,34 @@ function truncateForNotification(content: string, max = 60): string {
   if (normalized.length <= max) return normalized;
   return `${normalized.slice(0, max)}...`;
 }
+
+/**
+ * Resultado discriminado del envío de un recordatorio.
+ * - sent: se envió y se marcó reminderSentAt.
+ * - skipped: no se va a reintentar (permanente). El sweeper lo marca con
+ *   reminderSkippedAt para no girar en silencio por siempre.
+ * - deferred: transitorio (WA no configurado/conectado, fuera de horario).
+ *   El sweeper lo reprograma con backoff en vez de reintentarlo cada tick.
+ * - failed: error de envío (anti-ban, Evolution API…). Reintentable con backoff.
+ */
+export type ReminderSkippedReason =
+  | 'not-found'
+  | 'already-sent'
+  | 'wrong-status'
+  | 'appointment-started'
+  | 'no-phone'
+  | 'template-disabled';
+
+export type ReminderDeferredReason =
+  | 'not-configured'
+  | 'not-connected'
+  | 'outside-operating-hours';
+
+export type ReminderDispatchOutcome =
+  | { status: 'sent' }
+  | { status: 'skipped'; reason: ReminderSkippedReason }
+  | { status: 'deferred'; reason: ReminderDeferredReason }
+  | { status: 'failed'; reason: string };
 
 @Injectable()
 export class WhatsappMessagingService {
@@ -343,7 +372,9 @@ export class WhatsappMessagingService {
     );
   }
 
-  async sendAppointmentReminder(appointmentId: string): Promise<boolean> {
+  async sendAppointmentReminder(
+    appointmentId: string,
+  ): Promise<ReminderDispatchOutcome> {
     const row = await this.prisma.appointment.findUnique({
       where: { id: appointmentId },
       include: {
@@ -352,12 +383,32 @@ export class WhatsappMessagingService {
       },
     });
     if (!row) {
-      return false;
+      return { status: 'skipped', reason: 'not-found' };
+    }
+    if (row.reminderSentAt) {
+      return { status: 'skipped', reason: 'already-sent' };
+    }
+    if (
+      row.status !== AppointmentStatus.PENDING &&
+      row.status !== AppointmentStatus.CONFIRMED
+    ) {
+      return { status: 'skipped', reason: 'wrong-status' };
+    }
+    if (row.startAt.getTime() <= Date.now()) {
+      // El turno ya empezó: mandar el recordatorio ahora es ruido.
+      return { status: 'skipped', reason: 'appointment-started' };
     }
 
     const { professional, patient } = row;
     if (!this.evolution.isConfigured()) {
-      return false;
+      return { status: 'deferred', reason: 'not-configured' };
+    }
+
+    // Pre-chequeo ANTES de crear el messageLog: diferir fuera de horario no
+    // debe dejar filas de log de mensajes que nunca salieron.
+    // (Solo lectura de la config anti-ban; no cambia ningún umbral.)
+    if (!isWithinOperatingHours(professional.timezone)) {
+      return { status: 'deferred', reason: 'outside-operating-hours' };
     }
 
     const waCtx = await this.resolveEffectiveWaContext(
@@ -365,10 +416,10 @@ export class WhatsappMessagingService {
       row.organizationId,
     );
     if (!waCtx.isConnected) {
-      return false;
+      return { status: 'deferred', reason: 'not-connected' };
     }
     if (!patient.phone) {
-      return false;
+      return { status: 'skipped', reason: 'no-phone' };
     }
 
     const rel = reminderRelativeDay(row.startAt, professional.timezone);
@@ -384,7 +435,7 @@ export class WhatsappMessagingService {
       waCtx.organizationId,
     );
     if (!tpl.isEnabled) {
-      return false;
+      return { status: 'skipped', reason: 'template-disabled' };
     }
 
     const text = this.interpolate(tpl.body, {
@@ -399,7 +450,9 @@ export class WhatsappMessagingService {
     const to = normalizeArWhatsappNumber(patient.phone);
     const now = new Date();
 
-    // Log FIRST, then send — si el log falla, nunca se envía el mensaje
+    // Log FIRST, then send — si el log falla, nunca se envía el mensaje.
+    // Si el envío falla (anti-ban, Evolution API), se devuelve 'failed' para
+    // que el sweeper lo reintente con backoff en vez de girar en silencio.
     await this.prisma.messageLog.create({
       data: {
         professionalId: professional.id,
@@ -414,13 +467,20 @@ export class WhatsappMessagingService {
       },
     });
 
-    await this.sendTextWithAntiBan(
-      professional.id,
-      waCtx.organizationId,
-      waCtx.instance,
-      to,
-      text,
-    );
+    try {
+      await this.sendTextWithAntiBan(
+        professional.id,
+        waCtx.organizationId,
+        waCtx.instance,
+        to,
+        text,
+      );
+    } catch (error: any) {
+      const reason =
+        (typeof error?.message === 'string' && error.message) ||
+        String(error);
+      return { status: 'failed', reason: reason.slice(0, 500) };
+    }
 
     await this.prisma.appointment.update({
       where: { id: row.id },
@@ -429,7 +489,7 @@ export class WhatsappMessagingService {
       },
     });
 
-    return true;
+    return { status: 'sent' };
   }
 
   /** Respuesta automática al paciente (acuse). */

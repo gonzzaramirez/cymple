@@ -26,9 +26,13 @@ export function SettingsForm({ settings }: { settings: ProfessionalSettings }) {
   async function onSubmit(formData: FormData) {
     setLoading(true);
     const rawAlias = (formData.get("paymentAlias") as string)?.trim();
+    // 0 = sin límite → null (ilimitado); 1+ = tope de solapados.
+    const maxSimultaneousRaw = Number(formData.get("maxSimultaneous"));
     const payload: Record<string, unknown> = {
       consultationMinutes: Number(formData.get("consultationMinutes")),
       bufferMinutes: Number(formData.get("bufferMinutes")),
+      maxSimultaneous:
+        maxSimultaneousRaw === 0 ? null : maxSimultaneousRaw,
       standardFee: Number(formData.get("standardFee")),
       reminderHours: Number(formData.get("reminderHours")),
       paymentAlias: rawAlias || null,
@@ -48,8 +52,7 @@ export function SettingsForm({ settings }: { settings: ProfessionalSettings }) {
       payload.depositWindowHours = Number(formData.get("depositWindowHours"));
     }
 
-    const response = await fetch("/api/backend/professional/settings", {
-      method: "PATCH",
+    const response = await fetch("/api/backend/professional/settings", {      method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
@@ -103,6 +106,28 @@ export function SettingsForm({ settings }: { settings: ProfessionalSettings }) {
               defaultValue={settings.reminderHours}
               hint="12, 24 o 48 horas"
             />
+            <div className="space-y-2">
+              <Label htmlFor="maxSimultaneous">
+                Máx. turnos en simultáneo
+              </Label>
+              <select
+                id="maxSimultaneous"
+                name="maxSimultaneous"
+                defaultValue={settings.maxSimultaneous ?? 0}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value={0}>Sin límite</option>
+                <option value={1}>1 (sin overbooking)</option>
+                <option value={2}>2</option>
+                <option value={3}>3</option>
+                <option value={4}>4</option>
+                <option value={5}>5</option>
+                <option value={6}>6</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Cuántos turnos pueden solaparse en el mismo horario
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>

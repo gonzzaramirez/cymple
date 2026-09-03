@@ -59,6 +59,7 @@ export class AppointmentsService {
         standardFee: true,
         reminderHours: true,
         organizationId: true,
+        maxSimultaneous: true,
       },
     });
 
@@ -152,15 +153,9 @@ export class AppointmentsService {
       });
     }
 
-    // Si el recordatorio ya debería haberse enviado (turno cercano), mandarlo ya
-    // con 1 min de delay para que el mensaje de alta llegue primero
-    const reminderTime = addMinutes(startAt, -professional.reminderHours * 60);
-    if (reminderTime <= new Date()) {
-      setTimeout(
-        () => void this.whatsappMessaging.sendAppointmentReminder(created.id),
-        60_000,
-      );
-    }
+    // El recordatorio queda persistido en reminderScheduledFor: el
+    // ReminderSweeper lo levanta en su próximo tick (≤5 min), así que un
+    // restart/deploy nunca pierde recordatorios. Sin setTimeout en memoria.
 
     return created;
   }
@@ -522,6 +517,13 @@ export class AppointmentsService {
         ),
         reminderJobId: null,
         reminderSentAt: null,
+        // Nuevo horario = recordatorio nuevo: se resetea el bookkeeping del
+        // sweeper (el ReminderSweeper lo levanta; sin setTimeout en memoria).
+        reminderSkippedAt: null,
+        reminderClaimId: null,
+        reminderClaimedAt: null,
+        reminderAttempts: 0,
+        reminderLastError: null,
       },
     });
 
@@ -529,22 +531,6 @@ export class AppointmentsService {
     void this.whatsappMessaging
       .sendAppointmentRescheduled(updated.id)
       .catch(() => undefined);
-
-    // Si el recordatorio ya debió enviarse (turno cercano), mandarlo ya
-    // con 1 min de delay para que el mensaje de reprogramación llegue primero
-    const rescheduleReminder = addMinutes(
-      startAt,
-      -professional.reminderHours * 60,
-    );
-    if (rescheduleReminder <= new Date()) {
-      setTimeout(
-        () =>
-          void this.whatsappMessaging
-            .sendAppointmentReminder(updated.id)
-            .catch(() => undefined),
-        60_000,
-      );
-    }
 
     return updated;
   }
@@ -567,6 +553,9 @@ export class AppointmentsService {
         cancelledAt: new Date(),
         reason: dto.reason ?? appointment.reason,
         reminderJobId: null,
+        // Suelta el lock del sweeper por si estaba reclamado.
+        reminderClaimId: null,
+        reminderClaimedAt: null,
       },
     });
 
@@ -715,6 +704,7 @@ export class AppointmentsService {
             slot.capacity,
           ]),
         ),
+        await this.resolveGlobalFallback(professionalId, client),
       );
     }
 
@@ -739,7 +729,23 @@ export class AppointmentsService {
       endAt,
       weekly.ranges,
       new Map(),
+      await this.resolveGlobalFallback(professionalId, client),
     );
+  }
+
+  // Fallback global por profesional (default 1; null = sin límite).
+  // undefined = cliente Prisma anterior a la migración → 1.
+  private async resolveGlobalFallback(
+    professionalId: string,
+    prisma?: any,
+  ): Promise<number | null> {
+    const client = prisma ?? this.prisma;
+    const professional = await client.professional?.findUnique?.({
+      where: { id: professionalId },
+      select: { maxSimultaneous: true },
+    });
+    const raw = professional?.maxSimultaneous;
+    return raw === undefined ? 1 : raw;
   }
 
   private matchRangeWithCapacity(
@@ -751,6 +757,7 @@ export class AppointmentsService {
       capacity: number | null;
     }>,
     slotCapacities: Map<string, number>,
+    globalFallback: number | null = 1,
   ): { capacity: number | null } {
     const matchingRange = ranges.find((range) => {
       const rangeStart = this.setTimeOnDate(startAt, range.startTime);
@@ -766,7 +773,8 @@ export class AppointmentsService {
 
     const slotKey = this.toTimeKey(startAt);
     return {
-      capacity: slotCapacities.get(slotKey) ?? matchingRange.capacity ?? null,
+      capacity:
+        slotCapacities.get(slotKey) ?? matchingRange.capacity ?? globalFallback,
     };
   }
 

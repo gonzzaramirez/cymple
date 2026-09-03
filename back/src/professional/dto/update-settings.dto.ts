@@ -32,6 +32,17 @@ export class UpdateProfessionalSettingsDto {
   @Max(72)
   minRescheduleHours?: number;
 
+  // Máximo de turnos en simultáneo. 0 (o null) = sin límite → se guarda null.
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === null || value === undefined || value === '') return value ?? undefined;
+    const n = Number(value);
+    return n === 0 ? null : n;
+  })
+  @IsInt()
+  @Min(1)
+  maxSimultaneous?: number | null;
+
   @IsOptional()
   @Transform(({ value }) => Number(value))
   @IsNumber({ maxDecimalPlaces: 2 })

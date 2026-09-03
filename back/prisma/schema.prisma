@@ -150,6 +150,9 @@ model Professional {
   consultationMinutes Int      @default(30)
   bufferMinutes       Int      @default(10)
   minRescheduleHours  Int      @default(4)
+  // Máximo de turnos en simultáneo (solapados). null = sin límite.
+  // Default 1: cierra overbooking salvo que el profesional lo amplíe.
+  maxSimultaneous     Int?     @default(1)
   standardFee         Decimal  @db.Decimal(10, 2)
   reminderHours       Int      @default(24)
   dailyDigestEnabled  Boolean  @default(false)
@@ -311,6 +314,16 @@ model Appointment {
   reminderScheduledFor  DateTime?
   reminderSentAt        DateTime?
   reminderJobId         String?
+  // ── Reminder sweeper bookkeeping (claim/lock + intentos) ──
+  // reminderClaimId/ClaimedAt: lock de multi-instancia (el claim vence a los 10 min).
+  // reminderAttempts/LastError: visibilidad de fallos transitorios con backoff.
+  // reminderSkippedAt: marcado permanente (sin teléfono, plantilla off, turno pasado…)
+  // para no reintentar en silencio por siempre.
+  reminderAttempts      Int       @default(0)
+  reminderLastError     String?
+  reminderSkippedAt     DateTime?
+  reminderClaimId       String?
+  reminderClaimedAt     DateTime?
   paymentReminderSentAt DateTime?
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
@@ -326,6 +339,7 @@ model Appointment {
 
   @@index([professionalId, startAt])
   @@index([professionalId, status, startAt])
+  @@index([status, reminderSentAt, reminderScheduledFor])
   @@index([patientId, startAt])
   @@index([organizationId, startAt])
   @@index([organizationId, status, startAt])

@@ -33,8 +33,10 @@ import { ShortUrlModule } from './short-url/short-url.module';
       isGlobal: true,
       validationSchema: Joi.object({
         DATABASE_URL: Joi.string().required(),
-        JWT_SECRET: Joi.string().required(),
-        JWT_EXPIRES_IN: Joi.string().default('12h'),
+        JWT_SECRET: Joi.string().min(32).required(),
+        JWT_EXPIRES_IN: Joi.string().default('7d'),
+        JWT_ISSUER: Joi.string().default('medagenda'),
+        JWT_AUDIENCE: Joi.string().default('medagenda-app'),
         EVOLUTION_WEBHOOK_TOKEN: Joi.string().optional().allow(''),
         EVOLUTION_API_URL: Joi.string().optional().allow(''),
         EVOLUTION_API_KEY: Joi.string().optional().allow(''),

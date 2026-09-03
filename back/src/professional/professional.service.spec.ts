@@ -35,8 +35,7 @@ describe('ProfessionalService', () => {
     });
   });
 
-  describe('updateSettings()', () => {
-    it('selects intakeEnabled and depositEnabled in response', async () => {
+  describe('updateSettings()', () => {    it('selects intakeEnabled and depositEnabled in response', async () => {
       const dto = { intakeEnabled: false, depositEnabled: true };
       const mockResult = {
         id: 'prof-1',
@@ -52,6 +51,33 @@ describe('ProfessionalService', () => {
       const selectArg = prismaMock.professional.update.mock.calls[0][0].select;
       expect(selectArg).toHaveProperty('intakeEnabled', true);
       expect(selectArg).toHaveProperty('depositEnabled', true);
+    });
+  });
+
+  describe('maxSimultaneous', () => {
+    it('incluye maxSimultaneous en get y update de settings', async () => {
+      prismaMock.professional.findUniqueOrThrow.mockResolvedValue({
+        id: 'prof-1',
+        maxSimultaneous: 1,
+      });
+      await service.getSettings('prof-1');
+      expect(
+        prismaMock.professional.findUniqueOrThrow.mock.calls[0][0].select,
+      ).toHaveProperty('maxSimultaneous', true);
+
+      prismaMock.professional.update.mockResolvedValue({
+        id: 'prof-1',
+        maxSimultaneous: null,
+      });
+      await service.updateSettings('prof-1', {
+        maxSimultaneous: null,
+      } as any);
+      expect(
+        prismaMock.professional.update.mock.calls[0][0].select,
+      ).toHaveProperty('maxSimultaneous', true);
+      expect(prismaMock.professional.update.mock.calls[0][0].data).toMatchObject(
+        { maxSimultaneous: null },
+      );
     });
   });
 });

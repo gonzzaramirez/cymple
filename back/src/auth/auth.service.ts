@@ -172,7 +172,12 @@ export class AuthService {
 
   private signToken(payload: JwtPayload) {
     return this.jwtService.signAsync(payload as any, {
-      expiresIn: this.configService.get<string>('JWT_EXPIRES_IN', '12h') as any,
+      expiresIn: this.configService.get<string>('JWT_EXPIRES_IN', '7d') as any,
+      issuer: this.configService.get<string>('JWT_ISSUER', 'medagenda'),
+      audience: this.configService.get<string>(
+        'JWT_AUDIENCE',
+        'medagenda-app',
+      ),
     });
   }
 }

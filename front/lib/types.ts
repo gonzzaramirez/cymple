@@ -179,6 +179,7 @@ export type ProfessionalSettings = {
   consultationMinutes: number;
   bufferMinutes: number;
   minRescheduleHours: number;
+  maxSimultaneous: number | null;
   standardFee: string;
   reminderHours: number;
   timezone: string;

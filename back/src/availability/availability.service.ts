@@ -182,6 +182,7 @@ export class AvailabilityService {
       select: {
         consultationMinutes: true,
         bufferMinutes: true,
+        maxSimultaneous: true,
       },
     });
 
@@ -260,7 +261,14 @@ export class AvailabilityService {
 
         const slotTimeKey = this.toTimeKey(cursor);
         const capacityFromSlot = slotCapacityMap.get(slotTimeKey);
-        const effectiveCapacity = capacityFromSlot ?? range.capacity ?? null;
+        // Fallback global: rango sin capacity → maxSimultaneous del profesional
+        // (default 1; null = sin límite; undefined = cliente viejo → 1).
+        const globalFallback =
+          professional.maxSimultaneous === undefined
+            ? 1
+            : professional.maxSimultaneous;
+        const effectiveCapacity =
+          capacityFromSlot ?? range.capacity ?? globalFallback;
         const remainingCapacity =
           effectiveCapacity === null
             ? null

@@ -32,6 +32,7 @@ async function main() {
       consultationMinutes: 30,
       bufferMinutes: 10,
       minRescheduleHours: 4,
+      maxSimultaneous: 1,
       reminderHours: 24,
       timezone: 'America/Argentina/Buenos_Aires',
       // Public booking

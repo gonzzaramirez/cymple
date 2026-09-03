@@ -33,12 +33,13 @@ export async function POST(request: Request) {
 
   const store = await cookies();
   // Cookie host-only to isolate session per tenant subdomain.
+  // 7 days to match backend JWT_EXPIRES_IN=7d.
   store.set(AUTH_COOKIE, payload.accessToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 12,
+    maxAge: 60 * 60 * 24 * 7,
   });
 
   return NextResponse.json(payload);

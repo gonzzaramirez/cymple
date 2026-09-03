@@ -31,7 +31,7 @@ DATABASE_URL="postgresql://usuario:password@host:5432/medagenda"
 
 # JWT
 JWT_SECRET="un_secreto_largo_y_aleatorio_minimo_32_chars"
-JWT_EXPIRES_IN="12h"
+JWT_EXPIRES_IN="7d"
 
 # Puerto (opcional, default 3001)
 PORT=3001
